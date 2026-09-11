@@ -123,6 +123,19 @@ that option it is 0:
   $ grep thresholds no-limit.json
     "thresholds": { "high": 100, "low": 0 },
 
+A source file that changed, so that a mutation of it no longer fits the
+text, goes into the report without its text. A viewer draws a mutation
+over the text of its file, and the text is no longer the text that the
+mutation changed:
+
+  $ cat > lib.ml <<'EOF'
+  > let f = 1
+  > EOF
+  $ mutaml-report --no-diff --fail-under 0 --json-report changed.json > /dev/null
+  $ grep '"source"' changed.json
+        "source": "",
+        "source": "let g y = y - 2\n",
+
 A mutation whose source file cannot be read keeps its place in the
 report, and the file gets an empty source:
 

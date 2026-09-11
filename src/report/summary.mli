@@ -29,8 +29,8 @@ val count : t -> outcome -> int
 
 val score : t -> float
 (** [score t] is the share of the mutants of [t] that the test suite
-    caught, as a percentage from 0 to 100. It is [detected t] divided
-    by [total t].
+    caught, as a percentage from 0 to 100. It is the number of results
+    whose outcome is not [Passed], over the number of results.
 
     @raise Invalid_argument when [t] holds no result. A share of
     nothing has no value, and the caller must say so in its own words. *)

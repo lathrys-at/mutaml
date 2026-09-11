@@ -34,10 +34,13 @@ val render :
     The high threshold is always 100.
 
     [sources] pairs the name of a source file with the whole text of
-    that file. The schema asks for the text of every file that holds a
-    mutant, so that the viewer can show the mutant in its place. A file
-    that [sources] does not name gets an empty text, and the viewer then
-    shows its mutants without their surroundings.
+    that file, as the bytes on disk. The schema asks for the text of
+    every file that holds a mutant, so that the viewer can show the
+    mutant in its place. A file that [sources] does not name gets an
+    empty text, and so does a file whose text no longer holds every
+    mutant of it where the run recorded it. The viewer then shows the
+    mutants of that file without their surroundings, which is the
+    truth, rather than over text that the mutants never touched.
 
     The result ends with a newline. When [results] is empty the report
     holds no file. *)
