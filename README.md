@@ -177,9 +177,22 @@ rule can turn the operator off.
   module named `String`, holding its own `sub` of another type, breaks
   this. Set `MUTAML_ARGUMENT_OFF_BY_ONE=false`.
 
-- **`equal-function`.** The same, for the `equal` function of the
-  modules of the standard library that have one. Set
+- **`equal-function`.** The same, for the `equal` function of a fixed
+  list of modules of the standard library: `Bool`, `Bytes`, `Char`,
+  `Float`, `Int`, `Int32`, `Int64`, `Nativeint`, `String` and `Unit`,
+  with or without a `Stdlib` in front. The `equal` of any other module
+  is left alone, because the preprocessor cannot see that it returns a
+  Boolean, and `not` of anything else does not typecheck. A program
+  with its own module named `String` breaks the rule. Set
   `MUTAML_EQUAL_FUNCTION=false`.
+
+- **`compare-boundary` and `compare-negation`.** These read the
+  operator as it is written. `x < y` is mutated; `Int.( < ) x y`,
+  written with a module in front of the operator, is not. Swapping a
+  qualified operator is not safe, because a module that exports `=`
+  need not export `<`. A module opened with `open`, such as `Base`,
+  shadows the whole family at once, and there the swap stays safe, so
+  the operators do mutate code written that way.
 
 - **`string-literal`.** A string literal that stands where a format is
   wanted does not have type `string`, and `""` does not typecheck

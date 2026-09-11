@@ -1,6 +1,17 @@
 Next release
 ------------
 
+- Add mutation operators for the comparisons `<`, `<=`, `>` and `>=`,
+  for the equality tests `=` and `<>`, for the `equal` function of the
+  modules of the standard library, for the Boolean connectives `&&`
+  and `||`, for `not e`, for `Some e`, and for the integer arguments of
+  a known list of functions
+- Add two mutation operators that are off by default: a `when` guard
+  made always true, and any string literal made empty
+- Name every mutation operator, and give each new operator a
+  command-line option and an environment variable that turn it off
+- List every mutation operator in the README, with its default and
+  what it cannot see
 - Use dune.3.18 support to generate `x-maintenance-intent` entry
 - Patch `ppx_yojson_conv` dependency which was missing a `v`-prefix
 - Introduce a `mutaml.opam.template` to avoid opam linting failure #41
