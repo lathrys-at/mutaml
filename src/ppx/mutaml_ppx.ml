@@ -14,20 +14,25 @@ module Vb    = Ppxlib.Ast_helper.Vb
    into a test
 
      [%expr
-      if __is_mutaml_mutant__ "src/lib:42"
+      if __is_mutaml_mutant__ "src/lib.ml:add:arith-identity:a3f9c1d4:0"
       then e
       else e+1]
 
    thus effectively turning [%expr e+1] into [%expr e]
-   for mutant number 42 of source file src/lib.ml.
+   for the mutation of that name in the source file src/lib.ml.
 
-   In addition, it records that mutant number 42 in 'src/lib.ml'
-   is associated with this transformation:
+   In addition, it records that mutation, with the location it covers,
+   the text it replaces, and the text that replaces it.
 
-     (src/lib,42) -> (loc, e+1, e)
+   The name comes from Mutaml_common.mutant_name, which the runner also
+   calls, so that the name written into the program and the name the
+   runner puts in MUTAML_MUTANT cannot differ. Its parts are the file,
+   the top-level binding, the mutation operator, a digest of the two
+   texts, and an ordinal among the mutations that agree in all four.
+   The README says more, under "The Name of a Mutation".
 
    To do so we need
-   - a generation-time counter (42)
+   - the name of each mutation
    - a reserved OCaml variable __MUTAML_MUTANT__, containing the value of
    - an environment variable MUTAML_MUTANT
    - a predicate __is_mutaml_mutant
@@ -472,7 +477,10 @@ class mutate_mapper (rs : RS.t) =
           Printf.sprintf "line %i, character %i"
             pos.pos_lnum (pos.pos_cnum - pos.pos_bol) in
         Location.raise_errorf ~loc
-          "mutaml: mutation %i, at %s, and mutation %i, at %s, would both take the name %s. The short digest of the two is the same. Report this, and turn one of the two mutation operators off to build in the meantime."
+          "mutaml: mutation %i, at %s, and mutation %i, at %s, would \
+           both take the name %s. The digest of the two is the same, \
+           which should not happen. Please report it. To build in the \
+           meantime, turn one of the two mutation operators off."
           earlier.Mutaml_common.number (line earlier.Mutaml_common.loc.loc_start)
           number (line span.loc_start) name in
     mutations <- mutation::mutations;
@@ -606,7 +614,7 @@ class mutate_mapper (rs : RS.t) =
 
        let __MUTAML_TMP0__ = exp1 in
        let __MUTAML_TMP1__ = fun () -> exp2 in
-       if __is_mutaml_mutant__ "src/lib:42"
+       if __is_mutaml_mutant__ "src/lib.ml:any:connective:a3f9c1d4:0"
        then __MUTAML_TMP0__ || __MUTAML_TMP1__ ()
        else __MUTAML_TMP0__ && __MUTAML_TMP1__ ()
 
@@ -637,7 +645,7 @@ class mutate_mapper (rs : RS.t) =
   (* "not exp" becomes "exp":
 
        let __MUTAML_TMP0__ = exp in
-       if __is_mutaml_mutant__ "src/lib:42"
+       if __is_mutaml_mutant__ "src/lib.ml:any:not-expression:a3f9c1d4:0"
        then __MUTAML_TMP0__
        else not __MUTAML_TMP0__
 
@@ -712,7 +720,7 @@ class mutate_mapper (rs : RS.t) =
     super#expression ctx e >>| fun e' ->
     self#off_by_one ~loc:e.pexp_loc ~original:e e'
 
-  (* [self#mutate_guards ctx cases] gives each case that has a [when]
+  (* [self#mutate_guards cases] gives each case that has a [when]
      guard a mutant that makes the guard always hold:
 
        | pat when guard        ~~>  | pat when __is_mutaml_mutant__ id || guard
@@ -808,12 +816,12 @@ class mutate_mapper (rs : RS.t) =
         then
           (* drop case from pattern-match when there is a '_'-catch all case and >1 additional cases *)
           (* match f x with             match f x with
-              | A -> g y                 | A when not (__is_mutaml_mutant__ "test:27") -> g y
-              | B -> h z        ~~>      | B when not (__is_mutaml_mutant__ "test:45") -> h z
+              | A -> g y                 | A when not (__is_mutaml_mutant__ "<name1>") -> g y
+              | B -> h z        ~~>      | B when not (__is_mutaml_mutant__ "<name2>") -> h z
               | _ -> i q                 | _ -> i q   *)
           (* or if there is pattern containing a 'when'-clause to drop *)
           (* match f x with             match f x with
-              | B when c -> h z   ~~>    | B when c && not (__is_mutaml_mutant__ "test:45") -> h z
+              | B when c -> h z   ~~>    | B when c && not (__is_mutaml_mutant__ "<name2>") -> h z
               | B        -> i q          | B -> i q   *)
           (* | pat1 when guard1 -> rhs1  | pat2 when guard2 -> rhs2
                ^---------------------------^
@@ -826,8 +834,8 @@ class mutate_mapper (rs : RS.t) =
           (* merge consecutive cases into an or-pattern  | p1 -> r1 | p2 -> r2  ~~> |p1|p2 -> r2 *)
           (* when no/same variables are bound in each pattern *)
           (* match f x with           match f x with
-              | A -> g y               | A when not (__is_mutaml_mutant__ "test:27") -> g y
-              | B -> h z      ~~>      | A | B when not (__is_mutaml_mutant__ "test:45") -> h z
+              | A -> g y               | A when not (__is_mutaml_mutant__ "<name1>") -> g y
+              | B -> h z      ~~>      | A | B when not (__is_mutaml_mutant__ "<name2>") -> h z
               | C -> i q               | B | C -> i q *)
           (match cases' with (* recurse and glue or-pattern on case2' *)
            | [] -> failwith "mutaml_ppx, mutate_pure_cases: recursing on a non-empty list yielded back an empty one"
