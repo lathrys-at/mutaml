@@ -463,9 +463,17 @@ class mutate_mapper (rs : RS.t) =
         self#mutaml_mutant ctx loc(*e0.pexp_loc*) [%expr ()] e0' (string_of_exp e1) in
       { e0 with pexp_desc = Pexp_sequence (e0'',e1') }
 
-    | _, Pexp_function cases ->
+    (* From ppxlib 0.36 on, one constructor holds both 'fun p -> e' and
+       'function | ...'. The third field says which: [Pfunction_body] for
+       the first, [Pfunction_cases] for the second. Only the case form
+       needs the treatment below, so the body form falls through to the
+       default branch. Walk the parameters as well, so that the default
+       value of an optional parameter is still mutated. *)
+    | _, Pexp_function (params, constr, Pfunction_cases (cases, cases_loc, cases_attrs)) ->
+      self#list self#function_param ctx params >>= fun params ->
       self#cases ctx cases >>| fun cases_pure -> (* all cases are pure in 'function' *)
-      let function_ = { e with pexp_desc = Pexp_function cases_pure } in
+      let body = Pfunction_cases (cases_pure, cases_loc, cases_attrs) in
+      let function_ = { e with pexp_desc = Pexp_function (params, constr, body) } in
       if Match.cases_contain_matching_patterns cases_pure
       then
         Exp.attr function_ (* disable pattern-match warning *)
