@@ -208,3 +208,27 @@ With the mutant of the connective active, || becomes &&:
   left
   right
   no
+
+
+MUTAML_CONNECTIVE=false leaves && and || alone:
+
+  $ dune clean
+  $ export MUTAML_CONNECTIVE=false
+  $ cat > test.ml <<'EOF'
+  > let f a b = a && b;;
+  > assert (not (f true false))
+  > EOF
+
+  $ bash ../filter_dune_build.sh ./test.bc --instrument-with mutaml
+  Running mutaml instrumentation on "test.ml"
+  Randomness seed: 896745231   Mutation rate: 100   GADTs enabled: true
+  Created 0 mutations of test.ml
+  Writing mutation info to test.muts
+  
+  let __MUTAML_MUTANT__ = Stdlib.Sys.getenv_opt "MUTAML_MUTANT"
+  let __is_mutaml_mutant__ m =
+    match __MUTAML_MUTANT__ with
+    | None -> false
+    | Some mutant -> String.equal m mutant
+  let f a b = a && b
+  ;;assert (not (f true false))

@@ -304,3 +304,105 @@ the module below is mutated:
   ;;assert ((f 1 1) = 2)
 
   $ dune exec --no-build ./test.bc
+
+
+Each of the three operators has an option that turns it off. The
+instrumentation option in the dune file is one way to set it:
+
+  $ dune clean
+  $ cat > dune <<'EOF'
+  > (executable
+  >  (name test)
+  >  (modes byte)
+  >  (ocamlc_flags -dsource)
+  >  (instrumentation (backend mutaml -compare-boundary false)))
+  > EOF
+
+  $ cat > test.ml <<'EOF'
+  > let f x y = x < y;;
+  > assert (not (f 10 10))
+  > EOF
+
+  $ bash ../filter_dune_build.sh ./test.bc --instrument-with mutaml
+  Running mutaml instrumentation on "test.ml"
+  Randomness seed: 896745231   Mutation rate: 100   GADTs enabled: true
+  Created 0 mutations of test.ml
+  Writing mutation info to test.muts
+  
+  let __MUTAML_MUTANT__ = Stdlib.Sys.getenv_opt "MUTAML_MUTANT"
+  let __is_mutaml_mutant__ m =
+    match __MUTAML_MUTANT__ with
+    | None -> false
+    | Some mutant -> String.equal m mutant
+  let f x y = x < y
+  ;;assert (not (f 10 10))
+
+
+An environment variable is the other way. Put the dune file back
+first:
+
+  $ bash ../write_dune_files.sh
+  $ dune clean
+  $ export MUTAML_COMPARE_BOUNDARY=false
+
+  $ bash ../filter_dune_build.sh ./test.bc --instrument-with mutaml
+  Running mutaml instrumentation on "test.ml"
+  Randomness seed: 896745231   Mutation rate: 100   GADTs enabled: true
+  Created 0 mutations of test.ml
+  Writing mutation info to test.muts
+  
+  let __MUTAML_MUTANT__ = Stdlib.Sys.getenv_opt "MUTAML_MUTANT"
+  let __is_mutaml_mutant__ m =
+    match __MUTAML_MUTANT__ with
+    | None -> false
+    | Some mutant -> String.equal m mutant
+  let f x y = x < y
+  ;;assert (not (f 10 10))
+
+
+MUTAML_COMPARE_NEGATION=false leaves = and <> alone:
+
+  $ dune clean
+  $ export MUTAML_COMPARE_NEGATION=false
+  $ cat > test.ml <<'EOF'
+  > let f x y = x = y;;
+  > assert (f 10 10)
+  > EOF
+
+  $ bash ../filter_dune_build.sh ./test.bc --instrument-with mutaml
+  Running mutaml instrumentation on "test.ml"
+  Randomness seed: 896745231   Mutation rate: 100   GADTs enabled: true
+  Created 0 mutations of test.ml
+  Writing mutation info to test.muts
+  
+  let __MUTAML_MUTANT__ = Stdlib.Sys.getenv_opt "MUTAML_MUTANT"
+  let __is_mutaml_mutant__ m =
+    match __MUTAML_MUTANT__ with
+    | None -> false
+    | Some mutant -> String.equal m mutant
+  let f x y = x = y
+  ;;assert (f 10 10)
+
+
+MUTAML_EQUAL_FUNCTION=false leaves String.equal alone:
+
+  $ dune clean
+  $ export MUTAML_EQUAL_FUNCTION=false
+  $ cat > test.ml <<'EOF'
+  > let f x y = String.equal x y;;
+  > assert (f "a" "a")
+  > EOF
+
+  $ bash ../filter_dune_build.sh ./test.bc --instrument-with mutaml
+  Running mutaml instrumentation on "test.ml"
+  Randomness seed: 896745231   Mutation rate: 100   GADTs enabled: true
+  Created 0 mutations of test.ml
+  Writing mutation info to test.muts
+  
+  let __MUTAML_MUTANT__ = Stdlib.Sys.getenv_opt "MUTAML_MUTANT"
+  let __is_mutaml_mutant__ m =
+    match __MUTAML_MUTANT__ with
+    | None -> false
+    | Some mutant -> String.equal m mutant
+  let f x y = String.equal x y
+  ;;assert (f "a" "a")
