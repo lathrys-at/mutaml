@@ -222,6 +222,27 @@ module Match =
   end
 
 
+(* The modules of the standard library whose [equal] takes two
+   arguments and returns a [bool]. The preprocessor has no types, so it
+   cannot see the result type of a function; this list is what it knows
+   instead. A module outside the list keeps its [equal] unmutated, even
+   when that [equal] does return a [bool]. *)
+let equal_function_modules =
+  [ "Bool"; "Bytes"; "Char"; "Float"; "Int"; "Int32"; "Int64";
+    "Nativeint"; "String"; "Unit" ]
+
+(** [is_equal_function path] is [true] when [path] names the [equal]
+    function of one of the modules above, with or without the [Stdlib]
+    prefix. A local module of the same name shadows the one of the
+    standard library, and then the answer is wrong; this is the same
+    hole that every other path-matching rule in the tool has. *)
+let is_equal_function path = match path with
+  | Longident.Ldot (Longident.Lident m, "equal") ->
+    List.mem m equal_function_modules
+  | Longident.Ldot (Longident.Ldot (Longident.Lident "Stdlib", m), "equal") ->
+    List.mem m equal_function_modules
+  | _ -> false
+
 (** [path_of_longident lid] is the dotted name [lid] as the list of
     its parts, so that [String.sub] reads as [["String"; "sub"]]. A
     leading [Stdlib] is dropped, so that [Stdlib.String.sub] reads the
@@ -391,7 +412,11 @@ class mutate_mapper (rs : RS.t) =
            { e with pexp_desc = [%expr [%e op] [%e tmp_var] 1].pexp_desc }
            (string_of_exp exp))
     (* General binary operator mutations:
-        turn "+" into "-", "-" into "+", "*" into "+", "/" into "mod", "mod" into "/" *)
+        turn "+" into "-", "-" into "+", "*" into "+", "/" into "mod", "mod" into "/",
+        "<" into "<=", "<=" into "<", ">" into ">=", ">=" into ">",
+        "=" into "<>", and "<>" into "=".
+       The six comparisons all have type ['a -> 'a -> bool], so a swap
+       inside that family keeps the type of the whole expression. *)
     | [%expr [%e? op] [%e? exp1] [%e? exp2]] ->
       let mut_op = { op with pexp_desc = (match op.pexp_desc with
           | Pexp_ident ({ txt = Lident "+";   loc }) -> Pexp_ident { txt = Lident "-"; loc }
@@ -399,6 +424,12 @@ class mutate_mapper (rs : RS.t) =
           | Pexp_ident ({ txt = Lident "*";   loc }) -> Pexp_ident { txt = Lident "+"; loc }
           | Pexp_ident ({ txt = Lident "/";   loc }) -> Pexp_ident { txt = Lident "mod"; loc }
           | Pexp_ident ({ txt = Lident "mod"; loc }) -> Pexp_ident { txt = Lident "/"; loc }
+          | Pexp_ident ({ txt = Lident "<";   loc }) -> Pexp_ident { txt = Lident "<="; loc }
+          | Pexp_ident ({ txt = Lident "<=";  loc }) -> Pexp_ident { txt = Lident "<";  loc }
+          | Pexp_ident ({ txt = Lident ">";   loc }) -> Pexp_ident { txt = Lident ">="; loc }
+          | Pexp_ident ({ txt = Lident ">=";  loc }) -> Pexp_ident { txt = Lident ">";  loc }
+          | Pexp_ident ({ txt = Lident "=";   loc }) -> Pexp_ident { txt = Lident "<>"; loc }
+          | Pexp_ident ({ txt = Lident "<>";  loc }) -> Pexp_ident { txt = Lident "=";  loc }
           | _ ->
             failwith ("mutaml_ppx, mutate_arithmetic: found some other operator case: " ^  (string_of_exp op))
         )} in
@@ -412,6 +443,80 @@ class mutate_mapper (rs : RS.t) =
                    { e with pexp_desc = [%expr [%e op]     [%e tmp_var1] [%e tmp_var2]].pexp_desc }
                          (string_of_exp [%expr [%e mut_op] [%e exp1]     [%e exp2]])))
     | _ -> failwith "mutaml_ppx, mutate_arithmetic: pattern matching on case is was not applied to"
+
+  (* Short-circuit connectives: "&&" becomes "||", and "||" becomes "&&".
+
+     We must not let-bind the right operand, as mutate_arithmetic does
+     for its operands. That would evaluate the right operand even when
+     the connective does not ask for it, and it would evaluate it
+     before the left one. Both are changes to the program with no
+     mutant active, which the tool must never make.
+
+     We bind the left operand and we delay the right one instead:
+
+       let __MUTAML_TMP0__ = exp1 in
+       let __MUTAML_TMP1__ = fun () -> exp2 in
+       if __is_mutaml_mutant__ "src/lib:42"
+       then __MUTAML_TMP0__ || __MUTAML_TMP1__ ()
+       else __MUTAML_TMP0__ && __MUTAML_TMP1__ ()
+
+     Each branch is still an application of a connective, which the
+     compiler still compiles as a short circuit, so the delayed right
+     operand runs only when the connective asks for it. *)
+  method mutate_shortcircuit ctx e =
+    let loc = e.pexp_loc in
+    let exp1,exp2,op_name,mut_name = match e with
+      | [%expr [%e? exp1] && [%e? exp2]] -> exp1,exp2,"&&","||"
+      | [%expr [%e? exp1] || [%e? exp2]] -> exp1,exp2,"||","&&"
+      | _ -> failwith "mutaml_ppx, mutate_shortcircuit: pattern matching on case is was not applied to" in
+    let connective name = Exp.ident ~loc { txt = Lident name; loc } in
+    self#expression ctx exp1 >>= fun exp1' ->
+    self#expression ctx exp2 >>| fun exp2' ->
+    let k1, tmp_var1 = self#let_bind ~loc:exp1.pexp_loc exp1' in
+    let thunk = self#make_tmp_var () in
+    let demand = [%expr [%e Exp.ident ~loc { txt = Lident thunk; loc }] ()] in
+    let body =
+      self#mutaml_mutant ctx loc
+        { e with pexp_desc = [%expr [%e connective mut_name] [%e tmp_var1] [%e demand]].pexp_desc }
+        { e with pexp_desc = [%expr [%e connective op_name]  [%e tmp_var1] [%e demand]].pexp_desc }
+        (string_of_exp [%expr [%e connective mut_name] [%e exp1] [%e exp2]]) in
+    k1 (Exp.let_ ~loc Nonrecursive
+          [Vb.mk (Pat.var { txt = thunk; loc }) [%expr fun () -> [%e exp2']]]
+          body)
+
+  (* "not exp" becomes "exp":
+
+       let __MUTAML_TMP0__ = exp in
+       if __is_mutaml_mutant__ "src/lib:42"
+       then __MUTAML_TMP0__
+       else not __MUTAML_TMP0__
+
+     Both [exp] and [not exp] have type [bool], so the type of the
+     whole expression does not change. *)
+  method mutate_not ctx e exp =
+    let loc = e.pexp_loc in
+    self#expression ctx exp >>| fun exp' ->
+    let k, tmp_var = self#let_bind ~loc:exp.pexp_loc exp' in
+    k (self#mutaml_mutant ctx loc
+         { e with pexp_desc = tmp_var.pexp_desc }
+         { e with pexp_desc = [%expr not [%e tmp_var]].pexp_desc }
+         (string_of_exp exp))
+
+  (* "String.equal a b" becomes "not (String.equal a b)", for the
+     modules that [equal_function_modules] names. The negation is the
+     same mutation that "=" to "<>" makes, for code that calls the
+     typed equality function instead of the polymorphic operator.
+
+     The application has type [bool], and so does its negation, so the
+     type of the whole expression does not change. *)
+  method mutate_equal_function ctx e =
+    let loc = e.pexp_loc in
+    super#expression ctx e >>| fun e' -> (* super: mutate the arguments, not the call again *)
+    let k, tmp_var = self#let_bind ~loc e' in
+    k (self#mutaml_mutant ctx loc
+         { e with pexp_desc = [%expr not [%e tmp_var]].pexp_desc }
+         { e with pexp_desc = tmp_var.pexp_desc }
+         (string_of_exp [%expr not [%e e]]))
 
   (* [self#off_by_one ctx ~loc ~original recursed] wraps an expression
      of type [int] in two mutants: one that adds one to it and one
@@ -612,6 +717,38 @@ class mutate_mapper (rs : RS.t) =
     | [%expr [%e? _] / [%e? _]],_
     | [%expr [%e? _] mod [%e? _]],_ when self#choose_to_mutate ->
       self#mutate_arithmetic ctx e
+
+    (* move a comparison by one boundary *)
+    | [%expr [%e? _] <  [%e? _]],_
+    | [%expr [%e? _] <= [%e? _]],_
+    | [%expr [%e? _] >  [%e? _]],_
+    | [%expr [%e? _] >= [%e? _]],_
+      when self#enabled Mutaml_common.Compare_boundary && self#choose_to_mutate ->
+      self#mutate_arithmetic ctx e
+
+    (* negate an equality test *)
+    | [%expr [%e? _] =  [%e? _]],_
+    | [%expr [%e? _] <> [%e? _]],_
+      when self#enabled Mutaml_common.Compare_negation && self#choose_to_mutate ->
+      self#mutate_arithmetic ctx e
+
+    (* swap a Boolean connective, keeping its short-circuit behaviour *)
+    | [%expr [%e? _] && [%e? _]],_
+    | [%expr [%e? _] || [%e? _]],_
+      when self#enabled Mutaml_common.Connective && self#choose_to_mutate ->
+      self#mutate_shortcircuit ctx e
+
+    (* drop a negation *)
+    | [%expr not [%e? exp]],_
+      when self#enabled Mutaml_common.Not_expression && self#choose_to_mutate ->
+      self#mutate_not ctx e exp
+
+    (* negate a call of a typed equality function, such as String.equal *)
+    | _, Pexp_apply ({ pexp_desc = Pexp_ident { txt = path; _ }; _ },
+                     [(Nolabel,_); (Nolabel,_)])
+      when is_equal_function path
+        && self#enabled Mutaml_common.Equal_function && self#choose_to_mutate ->
+      self#mutate_equal_function ctx e
 
     | _, Pexp_constant c when self#choose_to_mutate ->
       let c' = self#mutate_constant ctx c in
