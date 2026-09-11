@@ -41,22 +41,15 @@ let add_preamble structure input_name =
   [%stri let __is_mutaml_mutant__ m = match __MUTAML_MUTANT__ with None -> false | Some mutant -> String.equal m mutant]::
   structure
 
-(** Write mutations of a file 'src/lib.ml' to a 'src/lib.muts' *)
+(** Write mutations of a file 'src/lib.ml' to a 'src/lib.muts', and add
+    that name to the list of .muts files that the runner reads.
+    Mutaml_side_files chooses the directory both go in. *)
 let write_muts_file input_name mutations =
-  let output_name = Filename.(remove_extension input_name) ^ ".muts" in
-  Printf.printf "Writing mutation info to %s\n%!"  output_name;
-  let ch = open_out output_name in
+  let out = Mutaml_side_files.resolve () in
   let ys = mutations |> List.rev |> List.map Mutaml_common.mutant_to_yojson in
-  Yojson.Safe.to_channel ch (`List ys);
-  close_out ch;
-  output_name
-
-(** Appends a file name 'src/lib.muts' to the log-file Mutaml_common.mutaml_mut_file *)
-let append_muts_file_to_log output_name =
-  let ch =
-    open_out_gen [Open_wronly; Open_append; Open_creat; Open_text] 0o660 Mutaml_common.defaults.mutaml_mut_file in
-  output_string ch (output_name ^ "\n");
-  close_out ch
+  let output_name = Mutaml_side_files.write_muts out ~input_name (`List ys) in
+  Printf.printf "Writing mutation info to %s\n%!" output_name;
+  Mutaml_side_files.record_muts_file out output_name
 
 (** Shorthand to ease string-conversion of surface changes *)
 let string_of_exp = Pprintast.string_of_expression
@@ -871,12 +864,17 @@ class mutate_mapper (rs : RS.t) =
         self#mutaml_mutant ctx loc(*e0.pexp_loc*) [%expr ()] e0' (string_of_exp e1) in
       { e0 with pexp_desc = Pexp_sequence (e0'',e1') }
 
+    (* From ppxlib 0.36 on, one constructor holds both 'fun p -> e' and
+       'function | ...'. The third field says which: [Pfunction_body] for
+       the first, [Pfunction_cases] for the second. Only the case form
+       needs the treatment below, so the body form falls through to the
+       default branch. Walk the parameters as well, so that the default
+       value of an optional parameter is still mutated. *)
     | _, Pexp_function (params, constr, Pfunction_cases (cases, cases_loc, cases_attrs)) ->
+      self#list self#function_param ctx params >>= fun params ->
       self#cases ctx cases >>| fun cases_pure -> (* all cases are pure in 'function' *)
-      let function_ =
-        { e with pexp_desc =
-                   Pexp_function (params, constr,
-                                  Pfunction_cases (cases_pure, cases_loc, cases_attrs)) } in
+      let body = Pfunction_cases (cases_pure, cases_loc, cases_attrs) in
+      let function_ = { e with pexp_desc = Pexp_function (params, constr, body) } in
       if Match.cases_contain_matching_patterns cases_pure
       then
         Exp.attr function_ (* disable pattern-match warning *)
@@ -920,7 +918,6 @@ class mutate_mapper (rs : RS.t) =
     let mut_count = List.length mutations in
     Printf.printf "Created %i mutation%s of %s\n%!" mut_count (if mut_count=1 then "" else "s") input_name;
 
-    let output_name = write_muts_file input_name mutations in
-    let () = append_muts_file_to_log output_name in
+    let () = write_muts_file input_name mutations in
     errs @ (add_preamble instrumented_ast input_name)
 end

@@ -43,3 +43,29 @@ Now confirm that it is rejected by the report tool:
   Attempting to read from mydoc.json...
   Could not parse JSON in mydoc.json: Invalid JSON
   [1]
+
+Check that a value of --fail-under above 100 is rejected:
+  $ mutaml-report --fail-under 101 mydoc.json
+  The value of --fail-under must be a number from 0 to 100.
+  [1]
+
+Check that a value of --fail-under below 0 is rejected:
+  $ mutaml-report --fail-under -1 mydoc.json
+  The value of --fail-under must be a number from 0 to 100.
+  [1]
+
+Check that a value of --fail-under that is not a number is rejected:
+  $ mutaml-report --fail-under abc mydoc.json
+  The value of --fail-under must be a number from 0 to 100.
+  [1]
+
+Create a report file that holds no test results:
+  $ cat > empty-report.json <<'EOF'
+  > []
+  > EOF
+
+Now confirm that the report tool gives no score for it:
+  $ mutaml-report empty-report.json
+  Attempting to read from empty-report.json...
+  Found no test results in empty-report.json
+  [1]

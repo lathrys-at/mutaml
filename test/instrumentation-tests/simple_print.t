@@ -43,11 +43,15 @@ Compile with instrumentation and filter result:
 
 
   $ ls _build/default
-  mutaml-mut-files.txt
   test.bc
   test.ml
-  test.muts
   test.pp.ml
+
+  $ ls _build/.mutaml/default
+  mutaml-build-id.txt
+  mutaml-mut-files.lock
+  mutaml-mut-files.txt
+  test.muts
 
 
   $ _build/default/test.bc

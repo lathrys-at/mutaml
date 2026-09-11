@@ -78,14 +78,13 @@ Set seed and (full) mutation rate as environment variables, for repeatability
   trace.csexp
 
   $ ls _build/default
-  mutaml-mut-files.txt
   test.exe
   test.ml
-  test.muts
   test.pp.ml
 
   $ mutaml-runner _build/default/test.exe
   read mut file test.muts
+  Testing without a mutant ... passed
   Testing mutant test:0 ... passed
   Testing mutant test:1 ... failed
   Testing mutant test:2 ... passed
@@ -133,13 +132,17 @@ Set seed and (full) mutation rate as environment variables, for repeatability
   
   ---------------------------------------------------------------------------
   
+  Mutation score: 33.3% (3 mutations: 1 failed, 0 timed out, 2 passed)
+  The score is below 100%. Use --fail-under to accept a lower score.
+  [2]
 
 
 
 
   $ ls _mutations
+  baseline-1.output
   test.ml-mutant0
+  test.ml-mutant0.output
+  test.ml-mutant1.output
   test.ml-mutant2
-  test.muts-mutant0.output
-  test.muts-mutant1.output
-  test.muts-mutant2.output
+  test.ml-mutant2.output

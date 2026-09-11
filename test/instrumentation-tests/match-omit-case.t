@@ -135,6 +135,7 @@ Start runner and generate report to ensure mutants print correctly:
 
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
+  Testing without a mutant ... passed
   Testing mutant test:0 ... passed
   Testing mutant test:1 ... passed
   Testing mutant test:2 ... passed
@@ -197,6 +198,9 @@ Start runner and generate report to ensure mutants print correctly:
   
   ---------------------------------------------------------------------------
   
+  Mutation score: 0.0% (3 mutations: 0 failed, 0 timed out, 3 passed)
+  The score is below 100%. Use --fail-under to accept a lower score.
+  [2]
 
 
 Test that same example with a variable will be instrumented with this mutation:
@@ -279,6 +283,7 @@ Test that same example with a variable will be instrumented with this mutation:
 
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
+  Testing without a mutant ... passed
   Testing mutant test:0 ... passed
   Testing mutant test:1 ... passed
   Testing mutant test:2 ... passed
@@ -358,6 +363,9 @@ Test that same example with a variable will be instrumented with this mutation:
   
   ---------------------------------------------------------------------------
   
+  Mutation score: 0.0% (4 mutations: 0 failed, 0 timed out, 4 passed)
+  The score is below 100%. Use --fail-under to accept a lower score.
+  [2]
 
 
 Another test w/tuples and wildcards:
@@ -429,6 +437,7 @@ Start runner and generate report to ensure mutants print correctly:
 
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
+  Testing without a mutant ... passed
   Testing mutant test:0 ... passed
   Testing mutant test:1 ... passed
   Testing mutant test:2 ... passed
@@ -540,6 +549,9 @@ Start runner and generate report to ensure mutants print correctly:
   
   ---------------------------------------------------------------------------
   
+  Mutation score: 0.0% (6 mutations: 0 failed, 0 timed out, 6 passed)
+  The score is below 100%. Use --fail-under to accept a lower score.
+  [2]
 
 
 Same example without wildcards will not be instrumented with this mutation:
