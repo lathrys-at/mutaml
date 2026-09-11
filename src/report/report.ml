@@ -38,9 +38,22 @@ type results =
 
 let part_results results =
   let count = List.length results in
-  let passed,rest = List.partition (fun res -> res.status = 0) results in
-  let timeout,failed = List.partition (fun res -> res.status = 124) rest in
+  let passed,rest =
+    List.partition (fun res -> outcome_of_status res.status = Passed) results in
+  let timeout,failed =
+    List.partition (fun res -> outcome_of_status res.status = Timed_out) rest in
   {count;passed;timeout;failed}
+
+(** The mutation score of [results], as a percentage from 0 to 100.
+    A mutation that timed out counts with the mutations that failed.
+    [results] must hold at least one test result. *)
+let mutation_score results =
+  let parted = part_results results in
+  if parted.count = 0
+  then invalid_arg "mutation_score: no test results"
+  else
+    let caught = List.length parted.failed + List.length parted.timeout in
+    100. *. (float_of_int caught) /. (float_of_int parted.count)
 
 
 (** Output functions *)
@@ -48,13 +61,25 @@ let part_results results =
 module CLI =
 struct
   let usage_msg =
-    Printf.sprintf "Usage: %s [-no-diff] [file.json]\n%s\n" (Sys.argv.(0))
+    Printf.sprintf "Usage: %s [-no-diff] [--fail-under <percent>] [file.json]\n%s\n%s\n" (Sys.argv.(0))
       "Generates a report summarizing the findings of a mutaml-driver run."
+      "The mutation score is the share of mutations that failed or timed out."
 
   let print_diff = ref true
 
+  (* The lowest score that the run may have. [None] means 100 percent. *)
+  let fail_under = ref None
+
+  let set_fail_under str = match float_of_string_opt str with
+    | Some percent when percent >= 0. && percent <= 100. -> fail_under := Some percent
+    | _ ->
+      fail_and_exit "The value of --fail-under must be a number from 0 to 100."
+
   let arg_spec =
-    Arg.align ["--no-diff", Arg.Clear print_diff, " Don't output diffs to the console"]
+    Arg.align
+      ["--no-diff", Arg.Clear print_diff, " Don't output diffs to the console";
+       "--fail-under", Arg.String set_fail_under,
+       "<percent> Exit with an error when the score is below <percent>"]
 
   let diff_cmd = match Sys.getenv_opt "MUTAML_DIFF_COMMAND", Sys.getenv_opt "CI" with
     | Some cmd, _       -> cmd
@@ -155,6 +180,47 @@ let print_report results =
   List.concat passed
 
 
+(** Prints the mutations that a signal ended. A signal ends a test process
+    for a reason that is not a failing test, so the report names those
+    mutations even though it counts them with the mutations that failed. *)
+let print_crashed results =
+  let crashed =
+    List.filter (fun res -> outcome_of_status res.status = Crashed) results in
+  if crashed <> []
+  then
+    begin
+      Printf.printf "Mutation programs that a signal ended:\n";
+      Printf.printf "-------------------------------------\n\n";
+      List.iter
+        (fun res ->
+           let file_name = res.mutant.loc.loc_start.pos_fname in
+           Printf.printf "Mutation \"%s-mutant%i\" ended with status %i (see \"%s\")\n"
+             file_name res.mutant.number res.status
+             (output_file_name file_name res.mutant.number))
+        crashed;
+      Printf.printf "\n"
+    end
+
+(** Prints the mutation score and stops the program when the score is too
+    low. Exits with status 1 when the score is below the limit that
+    [CLI.fail_under] gives, or below 100 percent when it gives none. *)
+let print_score_and_gate results =
+  let parted = part_results results in
+  let score = mutation_score results in
+  Printf.printf "Mutation score: %.1f%% (%i mutations: %i failed, %i timed out, %i passed)\n"
+    score parted.count (List.length parted.failed) (List.length parted.timeout)
+    (List.length parted.passed);
+  match !CLI.fail_under with
+  | Some limit ->
+    if score < limit
+    then fail_and_exit (Printf.sprintf "The score is below %.1f%%." limit)
+  | None ->
+    if parted.passed <> []
+    then
+      fail_and_exit
+        "The score is below 100%. Use --fail-under to accept a lower score."
+
+
 (** Executable entry point *)
 
 let () =
@@ -167,9 +233,13 @@ let () =
     | _ ->
       fail_and_exit (Arg.usage_string CLI.arg_spec CLI.usage_msg) in
   let results = read_reports report_file in
+  if results = []
+  then fail_and_exit (Printf.sprintf "Found no test results in %s" report_file);
   let passed = print_report results in
+  print_crashed results;
   if passed <> []
   then
     (Printf.printf "Mutation programs passing the test suite:\n";
      Printf.printf "-----------------------------------------\n\n";
-     List.iter (print_passed !CLI.print_diff) passed)
+     List.iter (print_passed !CLI.print_diff) passed);
+  print_score_and_gate results
