@@ -65,20 +65,16 @@ struct
     | None, _           -> "diff --color -u"
 end
 
-let file_contents file_name =
-  let ch = open_in file_name in
-  let buf = Buffer.create 1024 in
-  let rec loop () =
-    try
-      let src_line = Stdlib.input_line ch in
-      Buffer.add_string buf (src_line ^ "\n");
-      loop ()
-    with
-      End_of_file ->
-      close_in ch;
-      (*Buffer.add_string buf "\n";*)
-      Buffer.contents buf in
-  loop ()
+(* The bytes of [file_name], or [None] when the file cannot be read.
+   The Markdown summary and the JSON report count bytes from the start
+   of the file, as the locations of the mutants do, so this reads the
+   file as it is and does not rebuild its lines. *)
+let file_contents_opt file_name =
+  try
+    let ch = open_in_bin file_name in
+    Fun.protect ~finally:(fun () -> close_in_noerr ch)
+      (fun () -> Some (really_input_string ch (in_channel_length ch)))
+  with Sys_error _ | End_of_file -> None
 
 let write_mutated_version output_file ~start ~stop contents repl =
     let ch =
@@ -90,34 +86,42 @@ let write_mutated_version output_file ~start ~stop contents repl =
     output_string ch (String.sub contents stop.pos_cnum (String.length contents - stop.pos_cnum));
     close_out ch
 
+(* Prints the diff between the source file and its mutated copy, as the
+   diff command of the system makes it. *)
+let print_diff_of_passed ~file_name ~mut_name ~full_mut_name ~test_output_file =
+  Printf.printf "Mutation \"%s\" passed (see \"%s\"):\n\n%!" mut_name test_output_file;
+  let cmd =
+    Printf.sprintf "%s --label \"%s\" %s --label \"%s\" %s 1>&2"
+      CLI.diff_cmd file_name file_name mut_name full_mut_name in
+  let () = match Sys.command cmd with
+    | 1 -> ()
+    | 0   -> fail_and_exit "The two source code files did not differ, despite mutation"
+    | 127 -> fail_and_exit "Could not find the 'diff' command"
+    | i   -> fail_and_exit (Printf.sprintf "'diff' command failed with status code %i" i)
+  in
+  Format.printf "\n";
+  Format.printf "%s\n\n" (String.make 75 '-')
+
 (** prints details for a mutation that passed, i.e., flew under the radar *)
 let print_passed print_diff (res:test_result) =
   let loc,mut_number = res.mutant.loc,res.mutant.number in
-  let test_output_file = output_file_name loc.loc_start.pos_fname mut_number in
   let file_name = loc.loc_start.pos_fname in
+  let test_output_file = output_file_name file_name mut_number in
   let mut_name = Printf.sprintf "%s-mutant%i" file_name mut_number in
   let full_mut_name = full_path mut_name in
   let repl = match res.mutant.repl with None -> "" | Some repl -> repl in
-  let contents = file_contents file_name in
-  write_mutated_version full_mut_name ~start:loc.loc_start ~stop:loc.loc_end contents repl;
-  if print_diff
-  then
-    begin
-      Printf.printf "Mutation \"%s\" passed (see \"%s\"):\n\n%!" mut_name test_output_file;
-      let cmd =
-        Printf.sprintf "%s --label \"%s\" %s --label \"%s\" %s 1>&2"
-          CLI.diff_cmd file_name file_name mut_name full_mut_name in
-      let () = match Sys.command cmd with
-        | 1 -> ()
-        | 0   -> fail_and_exit "The two source code files did not differ, despite mutation"
-        | 127 -> fail_and_exit "Could not find the 'diff' command"
-        | i   -> fail_and_exit (Printf.sprintf "'diff' command failed with status code %i" i)
-      in
-      Format.printf "\n";
-      Format.printf "%s\n\n" (String.make 75 '-');
-    end
-  else
-    Printf.printf "Mutation \"%s\" passed (see \"%s\")\n%!" mut_name test_output_file
+  match file_contents_opt file_name with
+  | None ->
+    Printf.printf "Mutation \"%s\" passed (see \"%s\"), and the source file %s could not be read\n%!"
+      mut_name test_output_file file_name
+  | Some contents ->
+    write_mutated_version full_mut_name
+      ~start:loc.loc_start ~stop:loc.loc_end contents repl;
+    if print_diff
+    then
+      print_diff_of_passed ~file_name ~mut_name ~full_mut_name ~test_output_file
+    else
+      Printf.printf "Mutation \"%s\" passed (see \"%s\")\n%!" mut_name test_output_file
 
 let print_report results =
   let print_summary_line (label,results) =
