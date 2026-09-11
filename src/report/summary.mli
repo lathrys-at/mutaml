@@ -1,11 +1,8 @@
-(** The counts that every report format needs.
+(** The counts that a report of a run needs.
 
-    A run of [mutaml-runner] gives a list of test results, one for each
-    mutant. Every report format counts the same things over that list:
-    how many mutants there were, how many the test suite caught, and
-    how the mutants divide among the source files. This module does
-    that counting once, so that the console report, the Markdown
-    summary and the JSON report cannot disagree. *)
+    A run of [mutaml-runner] gives one test result for each mutant.
+    This module groups those results in two ways: by the outcome of the
+    test process, and by the source file that the mutant belongs to. *)
 
 open Mutaml_common
 

@@ -2,23 +2,12 @@
 
     A mutation replaces one run of bytes in a source file with another
     text. This module writes the difference between the file and the
-    mutated file as a unified diff, the format that [diff -u] prints and
-    that a code viewer colours.
-
-    The console report asks the [diff] command of the system for its
-    diffs. This module exists for the Markdown summary, which needs a
-    diff inside the file that it writes. Two reasons stand behind the
-    second way of making a diff. The [diff] command writes to the
-    terminal, and the default command adds colour escapes, which do not
-    belong in a Markdown file. And [diff] commands differ: the one of
-    macOS and the one of GNU choose different lines to show for the
-    same change, so a recorded test of the Markdown summary would hold
-    a different text on each system. The diff of this module is the
-    same everywhere.
+    mutated file in the format that [diff -u] prints.
 
     The diff holds one hunk, with at most three lines of context on
-    each side of the change. There is no marker for a file that does
-    not end with a newline. *)
+    each side of the change. It carries no colour, and it has no marker
+    for a file that does not end with a newline. The text is the same
+    on every system, because no other program makes it. *)
 
 val unified :
   old_label:string ->
