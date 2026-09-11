@@ -26,34 +26,11 @@ let read_reports report_file =
     mutants
 
 
-(** A type and function to process test result data *)
+(** The counts of a report come from [Summary]. The console table
+    prints the mutations that a signal ended in its column of failed
+    mutations, because a signal is a fault that the test suite found. *)
 
-type results =
-  {
-    count   : int;
-    passed  : test_result list;
-    timeout : test_result list;
-    failed  : test_result list;
-  }
-
-let part_results results =
-  let count = List.length results in
-  let passed,rest =
-    List.partition (fun res -> outcome_of_status res.status = Passed) results in
-  let timeout,failed =
-    List.partition (fun res -> outcome_of_status res.status = Timed_out) rest in
-  {count;passed;timeout;failed}
-
-(** The mutation score of [results], as a percentage from 0 to 100.
-    A mutation that timed out counts with the mutations that failed.
-    [results] must hold at least one test result. *)
-let mutation_score results =
-  let parted = part_results results in
-  if parted.count = 0
-  then invalid_arg "mutation_score: no test results"
-  else
-    let caught = List.length parted.failed + List.length parted.timeout in
-    100. *. (float_of_int caught) /. (float_of_int parted.count)
+let num_failed summary = Summary.count summary Failed + Summary.count summary Crashed
 
 
 (** Output functions *)
@@ -142,29 +119,20 @@ let print_passed print_diff (res:test_result) =
   else
     Printf.printf "Mutation \"%s\" passed (see \"%s\")\n%!" mut_name test_output_file
 
-let part_files results =
-  let files = List.map (fun r -> r.mutant.loc.loc_start.pos_fname) results
-              |> List.sort_uniq String.compare in
-  let per_file_results =
-    List.fold_left
-      (fun acc f ->
-         let from_f = List.filter (fun r -> f = r.mutant.loc.loc_start.pos_fname) results in
-         (f,from_f)::acc) [] files
-  in List.rev per_file_results
-
 let print_report results =
   let print_summary_line (label,results) =
-    let {count;passed;timeout;failed} = part_results results in
+    let summary = Summary.of_results results in
+    let count = Summary.total summary in
     let percent c = 100. *. (float_of_int c) /. (float_of_int count) in
     let lab c = Printf.sprintf "%3.1f%% %4i" (percent c) c in
-    let num_passed  = List.length passed in
-    let num_timeout = List.length timeout in
-    let num_failed  = List.length failed in
+    let num_passed  = Summary.count summary Passed in
+    let num_timeout = Summary.count summary Timed_out in
+    let num_failed  = num_failed summary in
     Printf.printf " %-30s %9i     %11s   %11s   %11s\n" label count (lab num_failed) (lab num_timeout) (lab num_passed);
-    passed
+    Summary.with_outcome summary Passed
   in
 
-  let part_results = part_files results in
+  let part_results = Summary.by_file results in
   Printf.printf "\nMutaml report summary:\n";
   Printf.printf   "----------------------\n\n";
   Printf.printf " %-30s %11s   %11s   %11s   %11s\n" "target" "#mutations" "#failed " "#timeouts" "#passed ";
@@ -185,8 +153,7 @@ let print_report results =
     for a reason that is not a failing test, so the report names those
     mutations even though it counts them with the mutations that failed. *)
 let print_crashed results =
-  let crashed =
-    List.filter (fun res -> outcome_of_status res.status = Crashed) results in
+  let crashed = Summary.with_outcome (Summary.of_results results) Crashed in
   if crashed <> []
   then
     begin
@@ -213,17 +180,17 @@ let fail_gate_and_exit message =
     low. Exits with status 2 when the score is below the limit that
     [CLI.fail_under] gives, or below 100 percent when it gives none. *)
 let print_score_and_gate results =
-  let parted = part_results results in
-  let score = mutation_score results in
+  let summary = Summary.of_results results in
+  let score = Summary.score summary in
   Printf.printf "Mutation score: %.1f%% (%i mutations: %i failed, %i timed out, %i passed)\n"
-    score parted.count (List.length parted.failed) (List.length parted.timeout)
-    (List.length parted.passed);
+    score (Summary.total summary) (num_failed summary) (Summary.count summary Timed_out)
+    (Summary.count summary Passed);
   match !CLI.fail_under with
   | Some limit ->
     if score < limit
     then fail_gate_and_exit (Printf.sprintf "The score is below %.1f%%." limit)
   | None ->
-    if parted.passed <> []
+    if Summary.with_outcome summary Passed <> []
     then
       fail_gate_and_exit
         "The score is below 100%. Use --fail-under to accept a lower score."

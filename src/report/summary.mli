@@ -1,0 +1,56 @@
+(** The counts that every report format needs.
+
+    A run of [mutaml-runner] gives a list of test results, one for each
+    mutant. Every report format counts the same things over that list:
+    how many mutants there were, how many the test suite caught, and
+    how the mutants divide among the source files. This module does
+    that counting once, so that the console report, the Markdown
+    summary and the JSON report cannot disagree. *)
+
+open Mutaml_common
+
+type t
+(** The results of one run, grouped by the outcome of the test process.
+    Build a value with {!of_results}. *)
+
+val of_results : test_result list -> t
+(** [of_results results] groups [results] by the outcome that
+    [Mutaml_common.outcome_of_status] gives for the exit status of each
+    result. Inside a group the results keep the order they have in
+    [results]. *)
+
+val total : t -> int
+(** [total t] is the number of results in [t]. *)
+
+val with_outcome : t -> outcome -> test_result list
+(** [with_outcome t outcome] holds the results in [t] whose outcome is
+    [outcome], in the order that {!of_results} received them. *)
+
+val count : t -> outcome -> int
+(** [count t outcome] is the number of results in [t] whose outcome is
+    [outcome]. It is the length of [with_outcome t outcome]. *)
+
+val detected : t -> int
+(** [detected t] is the number of mutants in [t] that the test suite
+    caught. A mutant counts as caught when a test failed, when a signal
+    ended the test process, and when the run timed out. Only a mutant
+    that let the test suite pass is not caught. *)
+
+val score : t -> float
+(** [score t] is the share of the mutants of [t] that the test suite
+    caught, as a percentage from 0 to 100. It is [detected t] divided
+    by [total t].
+
+    @raise Invalid_argument when [t] holds no result. A share of
+    nothing has no value, and the caller must say so in its own words. *)
+
+val by_file : test_result list -> (string * test_result list) list
+(** [by_file results] pairs the name of each source file that
+    [results] names with the results of the mutants of that file. The
+    files come in the order of [String.compare], so that a report does
+    not depend on the order in which the runner tested the mutants.
+    Inside a pair the results keep the order they have in [results].
+
+    The name of the source file of a result is the file of the start of
+    the mutant's location, which is the name that the preprocessor
+    recorded. *)
