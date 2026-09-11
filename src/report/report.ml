@@ -17,7 +17,9 @@ let read_reports report_file =
       match Yojson.Safe.from_channel ch with
       | `List ys -> Ok (List.map test_result_of_yojson_exn ys)
       | _        -> Error "Did not find the expected JSON list"
-    with Yojson.Json_error _ | Failure _ -> Error "Invalid JSON"
+    with Yojson.Json_error _ -> Error "Invalid JSON"
+       | Failure _ ->
+         Error "a test result does not hold the fields that this release of mutaml reads. A report file that an older mutaml wrote needs a new run of mutaml-runner"
   in match mutants_opt with
   | Error msg ->
     close_in ch;

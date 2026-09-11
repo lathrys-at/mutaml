@@ -16,6 +16,9 @@ Next release
   the page of a CI job: the mutation score, a table with a row for each
   source file, and every mutation that the test suite did not catch,
   with its name and its diff
+- Say in `mutaml-report`, when a report file holds a test result of the
+  shape that an older mutaml wrote, that the result has not the fields
+  this release reads, instead of saying that the file is not JSON
 - Give one line that names the source file, in `mutaml-report`, when the
   source of a mutation that the test suite did not catch is no longer in
   the project, and when that file changed so that the place the mutation
