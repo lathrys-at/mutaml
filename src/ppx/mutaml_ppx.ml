@@ -222,6 +222,58 @@ module Match =
   end
 
 
+(** [path_of_longident lid] is the dotted name [lid] as the list of
+    its parts, so that [String.sub] reads as [["String"; "sub"]]. A
+    leading [Stdlib] is dropped, so that [Stdlib.String.sub] reads the
+    same. The answer is [None] for the application of one module to
+    another, which never names a function. *)
+let path_of_longident lid =
+  let rec parts = function
+    | Longident.Lident s      -> Some [s]
+    | Longident.Ldot (lid,s)  -> Option.map (fun p -> p @ [s]) (parts lid)
+    | Longident.Lapply _      -> None in
+  match parts lid with
+  | Some ("Stdlib"::rest) -> Some rest
+  | answer                -> answer
+
+(** Functions of the standard library that take an argument of type
+    [int]. The number beside each path is the position of such an
+    argument, counting the first argument of the function as zero. The
+    preprocessor has no types, so this list is what keeps an
+    off-by-one mutant compiling.
+
+    A module of the program under test that has the same name as one
+    of these, and its own function of the same name with another type,
+    defeats the list, and the mutant then fails to build. Such a
+    program turns the off-by-one operator off. This is the same hole
+    that every other rule in the tool that matches a path has. *)
+let int_argument_table =
+  [ ["String"; "sub"], [1; 2];
+    ["String"; "get"], [1];
+    ["Bytes";  "sub"], [1; 2];
+    ["Bytes";  "get"], [1];
+    ["List";   "nth"], [1] ]
+
+(** Functions of the standard library whose result has type [int], so
+    that the result itself takes an off-by-one. The same hole applies. *)
+let int_result_table = [ ["String"; "length"] ]
+
+(** [int_argument_positions lid] is the list of positions of the
+    arguments of [lid] that have type [int]. It is the empty list when
+    the table does not hold [lid]. *)
+let int_argument_positions lid = match path_of_longident lid with
+  | None      -> []
+  | Some path ->
+    (match List.assoc_opt path int_argument_table with
+     | None           -> []
+     | Some positions -> positions)
+
+(** [has_int_result lid] is [true] when the result of [lid] has type
+    [int] by the table above. *)
+let has_int_result lid = match path_of_longident lid with
+  | None      -> false
+  | Some path -> List.mem path int_result_table
+
 (* Monadic Ppxlib error handling *)
 let return = Ppxlib.With_errors.return
 let (>>=) = Ppxlib.With_errors.(>>=)
@@ -344,6 +396,49 @@ class mutate_mapper (rs : RS.t) =
                    { e with pexp_desc = [%expr [%e op]     [%e tmp_var1] [%e tmp_var2]].pexp_desc }
                          (string_of_exp [%expr [%e mut_op] [%e exp1]     [%e exp2]])))
     | _ -> failwith "mutaml_ppx, mutate_arithmetic: pattern matching on case is was not applied to"
+
+  (* [self#off_by_one ctx ~loc ~original recursed] wraps an expression
+     of type [int] in two mutants: one that adds one to it and one
+     that takes one from it. [recursed] is the expression after the
+     preprocessor has walked inside it, and [original] is the
+     expression as the source file writes it, which the record of the
+     mutation shows. The expression is bound to a name first, so that
+     it is written once and evaluated once, whichever mutant is on. *)
+  method off_by_one ctx ~loc ~original recursed =
+    let k, tmp = self#let_bind ~loc recursed in
+    let minus =
+      self#mutaml_mutant ctx loc
+        [%expr [%e tmp] - 1] tmp (string_of_exp [%expr [%e original] - 1]) in
+    k (self#mutaml_mutant ctx loc
+         [%expr [%e tmp] + 1] minus (string_of_exp [%expr [%e original] + 1]))
+
+  (* Off by one on each argument of a call that the table says has
+     type [int]. Every other argument is walked as usual. The
+     arguments keep their places, so the order in which the program
+     evaluates them does not change. *)
+  method mutate_int_arguments ctx e fn positions args =
+    let rec walk position acc args = match args with
+      | [] -> return (List.rev acc)
+      | (Nolabel, arg)::rest when List.mem position positions ->
+        self#expression ctx arg >>= fun arg' ->
+        let arg'' =
+          self#off_by_one ctx ~loc:arg.pexp_loc ~original:arg arg' in
+        walk (position+1) ((Nolabel, arg'')::acc) rest
+      | (Nolabel, arg)::rest ->
+        self#expression ctx arg >>= fun arg' ->
+        walk (position+1) ((Nolabel, arg')::acc) rest
+      | (label, arg)::rest ->
+        (* a labelled argument has no position among the others *)
+        self#expression ctx arg >>= fun arg' ->
+        walk position ((label, arg')::acc) rest in
+    walk 0 [] args >>| fun args' ->
+    { e with pexp_desc = Pexp_apply (fn, args') }
+
+  (* Off by one on the result of a call that the table says has type
+     [int], such as [String.length s]. *)
+  method mutate_int_result ctx e =
+    super#expression ctx e >>| fun e' ->
+    self#off_by_one ctx ~loc:e.pexp_loc ~original:e e'
 
   method! cases ctx cases =
     super#cases ctx cases >>| fun cases -> (* visit individual cases first *)
@@ -474,6 +569,22 @@ class mutate_mapper (rs : RS.t) =
       super#expression ctx e >>| fun e' ->
       let none_exp = { e with pexp_desc = [%expr None].pexp_desc } in
       self#mutaml_mutant ctx loc none_exp e' (string_of_exp none_exp)
+
+    (* off by one on an integer argument of a call whose argument
+       types the table knows *)
+    | _, Pexp_apply (({ pexp_desc = Pexp_ident { txt = path; _ }; _ } as fn), args)
+      when self#enabled Mutaml_common.Argument_off_by_one
+        && int_argument_positions path <> []
+        && self#choose_to_mutate ->
+      self#mutate_int_arguments ctx e fn (int_argument_positions path) args
+
+    (* off by one on the integer result of a call whose result type
+       the table knows *)
+    | _, Pexp_apply ({ pexp_desc = Pexp_ident { txt = path; _ }; _ }, _)
+      when self#enabled Mutaml_common.Argument_off_by_one
+        && has_int_result path
+        && self#choose_to_mutate ->
+      self#mutate_int_result ctx e
 
     (* we negate an if's condition rather than swapping its branches:
         * it avoids duplication
