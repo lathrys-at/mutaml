@@ -3,53 +3,50 @@ name: Main CI workflow
 on:
   pull_request:
   push:
+    branches: [main]
 
 jobs:
   build:
+    name: Build and test
     strategy:
       fail-fast: false
       matrix:
         os:
           - macos-latest
           - ubuntu-latest
-
+        # The three newest minor releases of OCaml. Add the next one
+        # when it releases, and drop the oldest.
         ocaml-compiler:
-#          - 4.08.x
-#          - 4.09.x
-#          - 4.10.x
-#          - 4.11.x
-          - 4.12.x
-#          - 4.13.x
-          - 4.14.x
           - 5.3.x
+          - 5.4.x
+          - 5.5.x
 
     runs-on: ${{ matrix.os }}
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Use OCaml ${{ matrix.ocaml-compiler }}
         uses: ocaml/setup-ocaml@v3
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
 
-      - name: Install GNU bash, sed, diff w/color, and setup timeout
+      # The cram tests run under bash and use GNU sed and GNU diff. The
+      # runner needs a timeout command that follows the GNU coreutils
+      # rules, because it reads its exit status to tell a crash from a
+      # timeout. macOS ships none of these.
+      - name: Install GNU bash, sed, diff, and coreutils
         if: ${{ matrix.os == 'macos-latest' }}
         run: |
-          brew update
-          brew install bash
-          brew install gnu-sed
-          echo "$(brew --prefix)/opt/gnu-sed/libexec/gnubin" >> $GITHUB_PATH
-          brew install diffutils
-          brew install coreutils
-          echo "$(brew --prefix)/opt/coreutils/libexec/gnubin" >> $GITHUB_PATH
-          echo "$PATH"
-          echo `which timeout`
-#         ls /usr/local/opt/coreutils/libexec/gnubin
+          brew install bash gnu-sed diffutils coreutils
+          echo "$(brew --prefix)/opt/gnu-sed/libexec/gnubin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix)/opt/coreutils/libexec/gnubin" >> "$GITHUB_PATH"
 
-      - run: opam install . --deps-only --with-test
+      - name: Install the dependencies
+        run: opam install . --deps-only --with-test
 
-      - run: opam exec -- dune build @all
+      - name: Build
+        run: opam exec -- dune build @all
 
-      - run: opam exec -- dune build @runtest
+      - name: Test
+        run: opam exec -- dune build @runtest
