@@ -71,10 +71,18 @@ let diff_of sources (res:test_result) =
            file)
     else
       let repl = Option.value mutant.repl ~default:"" in
-      Ok (Unified_diff.unified
-            ~old_label:file
-            ~new_label:(Printf.sprintf "%s (mutant %s)" file name)
-            ~contents ~start ~stop ~repl)
+      match
+        Unified_diff.unified
+          ~old_label:file
+          ~new_label:(Printf.sprintf "%s (mutant %s)" file name)
+          ~contents ~start ~stop ~repl
+      with
+      | "" ->
+        Error
+          (Printf.sprintf
+             "The mutation leaves the text of `%s` as it was, so there is no diff here."
+             file)
+      | diff -> Ok diff
 
 let add_survivor buf sources res =
   let mutant = res.mutant in

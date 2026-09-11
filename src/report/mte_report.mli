@@ -28,8 +28,10 @@ val render :
     [fail_under] is the lowest score that the run may have, as the
     option [--fail-under] gives it, and [None] when the option is not
     given. It becomes the low threshold of the report, which decides
-    the colour that the viewer paints the score; a report without the
-    option has a low threshold of 0. The high threshold is always 100.
+    the colour that the viewer paints the score. The schema asks for a
+    whole number there, so a value with a fraction loses it: 99.9
+    becomes 99. A report without the option has a low threshold of 0.
+    The high threshold is always 100.
 
     [sources] pairs the name of a source file with the whole text of
     that file. The schema asks for the text of every file that holds a

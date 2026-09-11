@@ -454,8 +454,9 @@ The JSON report gives every mutation one of the statuses of the format:
 In the JSON report, the `id` of a mutation is its name, the same string
 that `MUTAML_MUTANT` takes, and `mutatorName` is the name of the
 mutation operator that made it. `thresholds.low` is the value of
-`--fail-under`, or 0 when you do not give that option, and
-`thresholds.high` is 100.
+`--fail-under` as a whole number, or 0 when you do not give that
+option, and `thresholds.high` is 100. The format asks for a whole
+number there, so `--fail-under 99.9` writes 99.
 
 The three exit codes of `mutaml-report` are:
 
