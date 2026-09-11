@@ -47,11 +47,11 @@ Test mutation of an 'assert false':
   $ bash ../filter_dune_build.sh ./b.bc --instrument-with mutaml
   Running mutaml instrumentation on "b.ml"
   Randomness seed: 896745231   Mutation rate: 100   GADTs enabled: true
-  Created 1 mutation of b.ml
+  Created 2 mutations of b.ml
   Writing mutation info to b.muts
   Running mutaml instrumentation on "a.ml"
   Randomness seed: 896745231   Mutation rate: 100   GADTs enabled: true
-  Created 4 mutations of a.ml
+  Created 5 mutations of a.ml
   Writing mutation info to a.muts
   
   let __MUTAML_MUTANT__ = Stdlib.Sys.getenv_opt "MUTAML_MUTANT"
@@ -62,10 +62,15 @@ Test mutation of an 'assert false':
   let () = Printf.printf "hello from A!\n"
   let x = if __is_mutaml_mutant__ "a:0" then 4 else 3
   let res =
-    (let __MUTAML_TMP0__ = if __is_mutaml_mutant__ "a:1" then 3 else 2 in
-     if __is_mutaml_mutant__ "a:2"
-     then __MUTAML_TMP0__ + x
-     else __MUTAML_TMP0__ * x) = (if __is_mutaml_mutant__ "a:3" then 7 else 6)
+    let __MUTAML_TMP0__ = if __is_mutaml_mutant__ "a:1" then 7 else 6 in
+    let __MUTAML_TMP2__ =
+      let __MUTAML_TMP1__ = if __is_mutaml_mutant__ "a:2" then 3 else 2 in
+      if __is_mutaml_mutant__ "a:3"
+      then __MUTAML_TMP1__ + x
+      else __MUTAML_TMP1__ * x in
+    if __is_mutaml_mutant__ "a:4"
+    then __MUTAML_TMP2__ <> __MUTAML_TMP0__
+    else __MUTAML_TMP2__ = __MUTAML_TMP0__
   let () = assert res
   
   let __MUTAML_MUTANT__ = Stdlib.Sys.getenv_opt "MUTAML_MUTANT"
@@ -75,7 +80,11 @@ Test mutation of an 'assert false':
     | Some mutant -> String.equal m mutant
   open A
   let () = Printf.printf "hello from B!\n"
-  let res = x = (if __is_mutaml_mutant__ "b:0" then 2 else 1 + 2)
+  let res =
+    let __MUTAML_TMP0__ = if __is_mutaml_mutant__ "b:0" then 2 else 1 + 2 in
+    if __is_mutaml_mutant__ "b:1"
+    then x <> __MUTAML_TMP0__
+    else x = __MUTAML_TMP0__
   let () = assert res
 
 
@@ -122,3 +131,5 @@ Test mutation of an 'assert false':
   $ MUTAML_MUTANT="b:1" dune exec --no-build -- ./b.bc
   hello from A!
   hello from B!
+  Fatal error: exception Assert_failure("b.ml", 4, 9)
+  [2]

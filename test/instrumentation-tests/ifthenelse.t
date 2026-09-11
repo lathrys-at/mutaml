@@ -125,7 +125,7 @@ An example with nested ifs:
   $ bash ../filter_dune_build.sh ./test.bc --instrument-with mutaml
   Running mutaml instrumentation on "test.ml"
   Randomness seed: 896745231   Mutation rate: 100   GADTs enabled: true
-  Created 7 mutations of test.ml
+  Created 9 mutations of test.ml
   Writing mutation info to test.muts
   
   let __MUTAML_MUTANT__ = Stdlib.Sys.getenv_opt "MUTAML_MUTANT"
@@ -135,28 +135,34 @@ An example with nested ifs:
     | Some mutant -> String.equal m mutant
   let test i =
     if
-      let __MUTAML_TMP1__ =
-        i < (if __is_mutaml_mutant__ "test:0" then 1 else 0) in
-      (if __is_mutaml_mutant__ "test:3"
-       then not __MUTAML_TMP1__
-       else __MUTAML_TMP1__)
+      let __MUTAML_TMP3__ =
+        let __MUTAML_TMP0__ = if __is_mutaml_mutant__ "test:0" then 1 else 0 in
+        if __is_mutaml_mutant__ "test:1"
+        then i <= __MUTAML_TMP0__
+        else i < __MUTAML_TMP0__ in
+      (if __is_mutaml_mutant__ "test:5"
+       then not __MUTAML_TMP3__
+       else __MUTAML_TMP3__)
     then "negative"
     else
       if
-        (let __MUTAML_TMP0__ =
-           i > (if __is_mutaml_mutant__ "test:1" then 1 else 0) in
-         if __is_mutaml_mutant__ "test:2"
-         then not __MUTAML_TMP0__
-         else __MUTAML_TMP0__)
+        (let __MUTAML_TMP2__ =
+           let __MUTAML_TMP1__ = if __is_mutaml_mutant__ "test:2" then 1 else 0 in
+           if __is_mutaml_mutant__ "test:3"
+           then i >= __MUTAML_TMP1__
+           else i > __MUTAML_TMP1__ in
+         if __is_mutaml_mutant__ "test:4"
+         then not __MUTAML_TMP2__
+         else __MUTAML_TMP2__)
       then "positive"
       else "zero"
   let () =
-    (test (- (if __is_mutaml_mutant__ "test:4" then 6 else 5))) |>
+    (test (- (if __is_mutaml_mutant__ "test:6" then 6 else 5))) |>
       print_endline
   let () =
-    (test (if __is_mutaml_mutant__ "test:5" then 1 else 0)) |> print_endline
+    (test (if __is_mutaml_mutant__ "test:7" then 1 else 0)) |> print_endline
   let () =
-    (test (if __is_mutaml_mutant__ "test:6" then 6 else 5)) |> print_endline
+    (test (if __is_mutaml_mutant__ "test:8" then 6 else 5)) |> print_endline
 
 
   $ _build/default/test.bc
@@ -165,14 +171,14 @@ An example with nested ifs:
   positive
 
   $ MUTAML_MUTANT="test:3" _build/default/test.bc
-  zero
   negative
-  negative
+  positive
+  positive
 
   $ MUTAML_MUTANT="test:2" _build/default/test.bc
   negative
-  positive
   zero
+  positive
 
 
 
@@ -186,6 +192,8 @@ An example with nested ifs:
   Testing mutant test:4 ... passed
   Testing mutant test:5 ... passed
   Testing mutant test:6 ... passed
+  Testing mutant test:7 ... passed
+  Testing mutant test:8 ... passed
   Writing report data to mutaml-report.json
 
 
@@ -197,7 +205,7 @@ An example with nested ifs:
   
    target                          #mutations      #failed      #timeouts      #passed 
    -------------------------------------------------------------------------------------
-   test.ml                                7       0.0%    0     0.0%    0   100.0%    7
+   test.ml                                9       0.0%    0     0.0%    0   100.0%    9
    =====================================================================================
   
   Mutation programs passing the test suite:
@@ -221,14 +229,13 @@ An example with nested ifs:
   
   --- test.ml
   +++ test.ml-mutant1
-  @@ -1,6 +1,6 @@
+  @@ -1,5 +1,5 @@
    let test i =
-     if i<0 then "negative" else
-  -    if i>0 then "positive" else "zero"
-  +    if i>1 then "positive" else "zero"
+  -  if i<0 then "negative" else
+  +  if i <= 0 then "negative" else
+       if i>0 then "positive" else "zero"
    let () = test ~-5  |> print_endline
    let () = test 0    |> print_endline
-   let () = test 5    |> print_endline
   
   ---------------------------------------------------------------------------
   
@@ -240,7 +247,7 @@ An example with nested ifs:
    let test i =
      if i<0 then "negative" else
   -    if i>0 then "positive" else "zero"
-  +    if not (i > 0) then "positive" else "zero"
+  +    if i>1 then "positive" else "zero"
    let () = test ~-5  |> print_endline
    let () = test 0    |> print_endline
    let () = test 5    |> print_endline
@@ -251,6 +258,36 @@ An example with nested ifs:
   
   --- test.ml
   +++ test.ml-mutant3
+  @@ -1,6 +1,6 @@
+   let test i =
+     if i<0 then "negative" else
+  -    if i>0 then "positive" else "zero"
+  +    if i >= 0 then "positive" else "zero"
+   let () = test ~-5  |> print_endline
+   let () = test 0    |> print_endline
+   let () = test 5    |> print_endline
+  
+  ---------------------------------------------------------------------------
+  
+  Mutation "test.ml-mutant4" passed (see "_mutations/test.ml-mutant4.output"):
+  
+  --- test.ml
+  +++ test.ml-mutant4
+  @@ -1,6 +1,6 @@
+   let test i =
+     if i<0 then "negative" else
+  -    if i>0 then "positive" else "zero"
+  +    if not (i > 0) then "positive" else "zero"
+   let () = test ~-5  |> print_endline
+   let () = test 0    |> print_endline
+   let () = test 5    |> print_endline
+  
+  ---------------------------------------------------------------------------
+  
+  Mutation "test.ml-mutant5" passed (see "_mutations/test.ml-mutant5.output"):
+  
+  --- test.ml
+  +++ test.ml-mutant5
   @@ -1,5 +1,5 @@
    let test i =
   -  if i<0 then "negative" else
@@ -261,10 +298,10 @@ An example with nested ifs:
   
   ---------------------------------------------------------------------------
   
-  Mutation "test.ml-mutant4" passed (see "_mutations/test.ml-mutant4.output"):
+  Mutation "test.ml-mutant6" passed (see "_mutations/test.ml-mutant6.output"):
   
   --- test.ml
-  +++ test.ml-mutant4
+  +++ test.ml-mutant6
   @@ -1,6 +1,6 @@
    let test i =
      if i<0 then "negative" else
@@ -276,10 +313,10 @@ An example with nested ifs:
   
   ---------------------------------------------------------------------------
   
-  Mutation "test.ml-mutant5" passed (see "_mutations/test.ml-mutant5.output"):
+  Mutation "test.ml-mutant7" passed (see "_mutations/test.ml-mutant7.output"):
   
   --- test.ml
-  +++ test.ml-mutant5
+  +++ test.ml-mutant7
   @@ -2,5 +2,5 @@
      if i<0 then "negative" else
        if i>0 then "positive" else "zero"
@@ -290,10 +327,10 @@ An example with nested ifs:
   
   ---------------------------------------------------------------------------
   
-  Mutation "test.ml-mutant6" passed (see "_mutations/test.ml-mutant6.output"):
+  Mutation "test.ml-mutant8" passed (see "_mutations/test.ml-mutant8.output"):
   
   --- test.ml
-  +++ test.ml-mutant6
+  +++ test.ml-mutant8
   @@ -3,4 +3,4 @@
        if i>0 then "positive" else "zero"
    let () = test ~-5  |> print_endline
@@ -303,6 +340,6 @@ An example with nested ifs:
   
   ---------------------------------------------------------------------------
   
-  Mutation score: 0.0% (7 mutations: 0 failed, 0 timed out, 7 passed)
+  Mutation score: 0.0% (9 mutations: 0 failed, 0 timed out, 9 passed)
   The score is below 100%. Use --fail-under to accept a lower score.
   [2]
