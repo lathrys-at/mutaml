@@ -46,7 +46,7 @@ Set seed and (full) mutation rate as environment variables, for repeatability
   $ ../filter_dune_build.sh ./test.exe --instrument-with mutaml
   Running mutaml instrumentation on "test.ml"
   Randomness seed: 896745231   Mutation rate: 100   GADTs enabled: true
-  Created 2 mutations of test.ml
+  Created 3 mutations of test.ml
   Writing mutation info to test.muts
   
   let __MUTAML_MUTANT__ = Stdlib.Sys.getenv_opt "MUTAML_MUTANT"
@@ -54,13 +54,17 @@ Set seed and (full) mutation rate as environment variables, for repeatability
     match __MUTAML_MUTANT__ with
     | None -> false
     | Some mutant -> String.equal m mutant
-  let accepted_codes n = n = (if __is_mutaml_mutant__ "test:0" then 43 else 42)
+  let accepted_codes n =
+    let __MUTAML_TMP0__ = if __is_mutaml_mutant__ "test:0" then 43 else 42 in
+    if __is_mutaml_mutant__ "test:1"
+    then n <> __MUTAML_TMP0__
+    else n = __MUTAML_TMP0__
   let make status =
     let open Unix in
       let exit_status =
         ((match status with
           | WEXITED n when
-              (accepted_codes n) && (not (__is_mutaml_mutant__ "test:1")) ->
+              (accepted_codes n) && (not (__is_mutaml_mutant__ "test:2")) ->
               Ok n
           | WEXITED n -> Error (Printf.sprintf "Exited %n" n)
           | WSIGNALED n -> Error (Printf.sprintf "Signaled %n" n)
@@ -83,7 +87,8 @@ Set seed and (full) mutation rate as environment variables, for repeatability
   $ mutaml-runner _build/default/test.exe
   read mut file test.muts
   Testing mutant test:0 ... passed
-  Testing mutant test:1 ... passed
+  Testing mutant test:1 ... failed
+  Testing mutant test:2 ... passed
   Writing report data to mutaml-report.json
 
   $ mutaml-report
@@ -94,7 +99,7 @@ Set seed and (full) mutation rate as environment variables, for repeatability
   
    target                          #mutations      #failed      #timeouts      #passed 
    -------------------------------------------------------------------------------------
-   test.ml                                2       0.0%    0     0.0%    0   100.0%    2
+   test.ml                                3      33.3%    1     0.0%    0    66.7%    2
    =====================================================================================
   
   Mutation programs passing the test suite:
@@ -113,10 +118,10 @@ Set seed and (full) mutation rate as environment variables, for repeatability
   
   ---------------------------------------------------------------------------
   
-  Mutation "test.ml-mutant1" passed (see "_mutations/test.ml-mutant1.output"):
+  Mutation "test.ml-mutant2" passed (see "_mutations/test.ml-mutant2.output"):
   
   --- test.ml
-  +++ test.ml-mutant1
+  +++ test.ml-mutant2
   @@ -2,7 +2,6 @@
    let make status =
      let open Unix in
@@ -134,6 +139,7 @@ Set seed and (full) mutation rate as environment variables, for repeatability
 
   $ ls _mutations
   test.ml-mutant0
-  test.ml-mutant1
+  test.ml-mutant2
   test.muts-mutant0.output
   test.muts-mutant1.output
+  test.muts-mutant2.output

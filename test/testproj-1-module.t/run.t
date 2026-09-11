@@ -48,7 +48,7 @@ Set seed and (full) mutation rate as environment variables, for repeatability
   $ bash ../filter_dune_build.sh ./ounittest.exe --instrument-with mutaml
   Running mutaml instrumentation on "lib.ml"
   Randomness seed: 896745231   Mutation rate: 100   GADTs enabled: true
-  Created 13 mutations of lib.ml
+  Created 15 mutations of lib.ml
   Writing mutation info to lib.muts
 
   $ ls _build/default/*.exe _build/default/*.ml _build/default/*.muts _build/default/*.txt
@@ -69,11 +69,13 @@ Set seed and (full) mutation rate as environment variables, for repeatability
   Testing mutant lib:5 ... failed
   Testing mutant lib:6 ... passed
   Testing mutant lib:7 ... failed
-  Testing mutant lib:8 ... failed
+  Testing mutant lib:8 ... passed
   Testing mutant lib:9 ... failed
   Testing mutant lib:10 ... failed
   Testing mutant lib:11 ... failed
-  Testing mutant lib:12 ... passed
+  Testing mutant lib:12 ... failed
+  Testing mutant lib:13 ... failed
+  Testing mutant lib:14 ... passed
   Writing report data to mutaml-report.json
 
   $ mutaml-report mutaml-report.json
@@ -84,7 +86,7 @@ Set seed and (full) mutation rate as environment variables, for repeatability
   
    target                          #mutations      #failed      #timeouts      #passed 
    -------------------------------------------------------------------------------------
-   lib.ml                                13      84.6%   11     0.0%    0    15.4%    2
+   lib.ml                                15      80.0%   12     0.0%    0    20.0%    3
    =====================================================================================
   
   Mutation programs passing the test suite:
@@ -106,10 +108,26 @@ Set seed and (full) mutation rate as environment variables, for repeatability
   
   ---------------------------------------------------------------------------
   
-  Mutation "lib.ml-mutant12" passed (see "_mutations/lib.ml-mutant12.output"):
+  Mutation "lib.ml-mutant8" passed (see "_mutations/lib.ml-mutant8.output"):
   
   --- lib.ml
-  +++ lib.ml-mutant12
+  +++ lib.ml-mutant8
+  @@ -26,7 +26,7 @@
+       else
+         let x = 1.0 -. Random.float 2.0 in
+         let y = 1.0 -. Random.float 2.0 in
+  -      if x *. x +. y *. y <= 1.
+  +      if ((x *. x) +. (y *. y)) < 1.
+         then loop (n-1) (inside+1)
+         else loop (n-1) (inside)
+     in
+  
+  ---------------------------------------------------------------------------
+  
+  Mutation "lib.ml-mutant14" passed (see "_mutations/lib.ml-mutant14.output"):
+  
+  --- lib.ml
+  +++ lib.ml-mutant14
   @@ -30,4 +30,4 @@
          then loop (n-1) (inside+1)
          else loop (n-1) (inside)
@@ -133,11 +151,13 @@ Restarting runner should give the same output:
   Testing mutant lib:5 ... failed
   Testing mutant lib:6 ... passed
   Testing mutant lib:7 ... failed
-  Testing mutant lib:8 ... failed
+  Testing mutant lib:8 ... passed
   Testing mutant lib:9 ... failed
   Testing mutant lib:10 ... failed
   Testing mutant lib:11 ... failed
-  Testing mutant lib:12 ... passed
+  Testing mutant lib:12 ... failed
+  Testing mutant lib:13 ... failed
+  Testing mutant lib:14 ... passed
   Writing report data to mutaml-report.json
 
 
@@ -151,11 +171,13 @@ Restarting runner should give the same output:
   Testing mutant lib:5 ... failed
   Testing mutant lib:6 ... passed
   Testing mutant lib:7 ... failed
-  Testing mutant lib:8 ... failed
+  Testing mutant lib:8 ... passed
   Testing mutant lib:9 ... failed
   Testing mutant lib:10 ... failed
   Testing mutant lib:11 ... failed
-  Testing mutant lib:12 ... passed
+  Testing mutant lib:12 ... failed
+  Testing mutant lib:13 ... failed
+  Testing mutant lib:14 ... passed
   Writing report data to mutaml-report.json
 
 
@@ -169,7 +191,7 @@ Similarly for the reporter:
   
    target                          #mutations      #failed      #timeouts      #passed 
    -------------------------------------------------------------------------------------
-   lib.ml                                13      84.6%   11     0.0%    0    15.4%    2
+   lib.ml                                15      80.0%   12     0.0%    0    20.0%    3
    =====================================================================================
   
   Mutation programs passing the test suite:
@@ -191,10 +213,26 @@ Similarly for the reporter:
   
   ---------------------------------------------------------------------------
   
-  Mutation "lib.ml-mutant12" passed (see "_mutations/lib.ml-mutant12.output"):
+  Mutation "lib.ml-mutant8" passed (see "_mutations/lib.ml-mutant8.output"):
   
   --- lib.ml
-  +++ lib.ml-mutant12
+  +++ lib.ml-mutant8
+  @@ -26,7 +26,7 @@
+       else
+         let x = 1.0 -. Random.float 2.0 in
+         let y = 1.0 -. Random.float 2.0 in
+  -      if x *. x +. y *. y <= 1.
+  +      if ((x *. x) +. (y *. y)) < 1.
+         then loop (n-1) (inside+1)
+         else loop (n-1) (inside)
+     in
+  
+  ---------------------------------------------------------------------------
+  
+  Mutation "lib.ml-mutant14" passed (see "_mutations/lib.ml-mutant14.output"):
+  
+  --- lib.ml
+  +++ lib.ml-mutant14
   @@ -30,4 +30,4 @@
          then loop (n-1) (inside+1)
          else loop (n-1) (inside)
@@ -215,7 +253,7 @@ Try a second run to check that we get the same:
   
    target                          #mutations      #failed      #timeouts      #passed 
    -------------------------------------------------------------------------------------
-   lib.ml                                13      84.6%   11     0.0%    0    15.4%    2
+   lib.ml                                15      80.0%   12     0.0%    0    20.0%    3
    =====================================================================================
   
   Mutation programs passing the test suite:
@@ -237,10 +275,26 @@ Try a second run to check that we get the same:
   
   ---------------------------------------------------------------------------
   
-  Mutation "lib.ml-mutant12" passed (see "_mutations/lib.ml-mutant12.output"):
+  Mutation "lib.ml-mutant8" passed (see "_mutations/lib.ml-mutant8.output"):
   
   --- lib.ml
-  +++ lib.ml-mutant12
+  +++ lib.ml-mutant8
+  @@ -26,7 +26,7 @@
+       else
+         let x = 1.0 -. Random.float 2.0 in
+         let y = 1.0 -. Random.float 2.0 in
+  -      if x *. x +. y *. y <= 1.
+  +      if ((x *. x) +. (y *. y)) < 1.
+         then loop (n-1) (inside+1)
+         else loop (n-1) (inside)
+     in
+  
+  ---------------------------------------------------------------------------
+  
+  Mutation "lib.ml-mutant14" passed (see "_mutations/lib.ml-mutant14.output"):
+  
+  --- lib.ml
+  +++ lib.ml-mutant14
   @@ -30,4 +30,4 @@
          then loop (n-1) (inside+1)
          else loop (n-1) (inside)
@@ -262,7 +316,7 @@ Try without providing an explicit file name:
   
    target                          #mutations      #failed      #timeouts      #passed 
    -------------------------------------------------------------------------------------
-   lib.ml                                13      84.6%   11     0.0%    0    15.4%    2
+   lib.ml                                15      80.0%   12     0.0%    0    20.0%    3
    =====================================================================================
   
   Mutation programs passing the test suite:
@@ -284,10 +338,26 @@ Try without providing an explicit file name:
   
   ---------------------------------------------------------------------------
   
-  Mutation "lib.ml-mutant12" passed (see "_mutations/lib.ml-mutant12.output"):
+  Mutation "lib.ml-mutant8" passed (see "_mutations/lib.ml-mutant8.output"):
   
   --- lib.ml
-  +++ lib.ml-mutant12
+  +++ lib.ml-mutant8
+  @@ -26,7 +26,7 @@
+       else
+         let x = 1.0 -. Random.float 2.0 in
+         let y = 1.0 -. Random.float 2.0 in
+  -      if x *. x +. y *. y <= 1.
+  +      if ((x *. x) +. (y *. y)) < 1.
+         then loop (n-1) (inside+1)
+         else loop (n-1) (inside)
+     in
+  
+  ---------------------------------------------------------------------------
+  
+  Mutation "lib.ml-mutant14" passed (see "_mutations/lib.ml-mutant14.output"):
+  
+  --- lib.ml
+  +++ lib.ml-mutant14
   @@ -30,4 +30,4 @@
          then loop (n-1) (inside+1)
          else loop (n-1) (inside)
@@ -309,14 +379,15 @@ Now try the --no-diff option while providing an explicit file name:
   
    target                          #mutations      #failed      #timeouts      #passed 
    -------------------------------------------------------------------------------------
-   lib.ml                                13      84.6%   11     0.0%    0    15.4%    2
+   lib.ml                                15      80.0%   12     0.0%    0    20.0%    3
    =====================================================================================
   
   Mutation programs passing the test suite:
   -----------------------------------------
   
   Mutation "lib.ml-mutant6" passed (see "_mutations/lib.ml-mutant6.output")
-  Mutation "lib.ml-mutant12" passed (see "_mutations/lib.ml-mutant12.output")
+  Mutation "lib.ml-mutant8" passed (see "_mutations/lib.ml-mutant8.output")
+  Mutation "lib.ml-mutant14" passed (see "_mutations/lib.ml-mutant14.output")
 
 
 --------------------------------------------------------------------------------
@@ -332,14 +403,15 @@ And try the --no-diff option without providing an explicit file name:
   
    target                          #mutations      #failed      #timeouts      #passed 
    -------------------------------------------------------------------------------------
-   lib.ml                                13      84.6%   11     0.0%    0    15.4%    2
+   lib.ml                                15      80.0%   12     0.0%    0    20.0%    3
    =====================================================================================
   
   Mutation programs passing the test suite:
   -----------------------------------------
   
   Mutation "lib.ml-mutant6" passed (see "_mutations/lib.ml-mutant6.output")
-  Mutation "lib.ml-mutant12" passed (see "_mutations/lib.ml-mutant12.output")
+  Mutation "lib.ml-mutant8" passed (see "_mutations/lib.ml-mutant8.output")
+  Mutation "lib.ml-mutant14" passed (see "_mutations/lib.ml-mutant14.output")
 
 
 --------------------------------------------------------------------------------
@@ -356,7 +428,7 @@ And try with a different MUTAML_DIFF_COMMAND environment variable:
   
    target                          #mutations      #failed      #timeouts      #passed 
    -------------------------------------------------------------------------------------
-   lib.ml                                13      84.6%   11     0.0%    0    15.4%    2
+   lib.ml                                15      80.0%   12     0.0%    0    20.0%    3
    =====================================================================================
   
   Mutation programs passing the test suite:
@@ -376,10 +448,24 @@ And try with a different MUTAML_DIFF_COMMAND environment variable:
   
   ---------------------------------------------------------------------------
   
-  Mutation "lib.ml-mutant12" passed (see "_mutations/lib.ml-mutant12.output"):
+  Mutation "lib.ml-mutant8" passed (see "_mutations/lib.ml-mutant8.output"):
   
   --- lib.ml
-  +++ lib.ml-mutant12
+  +++ lib.ml-mutant8
+  @@ -27,5 +27,5 @@
+         let x = 1.0 -. Random.float 2.0 in
+         let y = 1.0 -. Random.float 2.0 in
+  -      if x *. x +. y *. y <= 1.
+  +      if ((x *. x) +. (y *. y)) < 1.
+         then loop (n-1) (inside+1)
+         else loop (n-1) (inside)
+  
+  ---------------------------------------------------------------------------
+  
+  Mutation "lib.ml-mutant14" passed (see "_mutations/lib.ml-mutant14.output"):
+  
+  --- lib.ml
+  +++ lib.ml-mutant14
   @@ -31,3 +31,3 @@
          else loop (n-1) (inside)
      in
@@ -400,14 +486,15 @@ Also check that MUTAML_DIFF_COMMAND doesn't affect --no-diff:
   
    target                          #mutations      #failed      #timeouts      #passed 
    -------------------------------------------------------------------------------------
-   lib.ml                                13      84.6%   11     0.0%    0    15.4%    2
+   lib.ml                                15      80.0%   12     0.0%    0    20.0%    3
    =====================================================================================
   
   Mutation programs passing the test suite:
   -----------------------------------------
   
   Mutation "lib.ml-mutant6" passed (see "_mutations/lib.ml-mutant6.output")
-  Mutation "lib.ml-mutant12" passed (see "_mutations/lib.ml-mutant12.output")
+  Mutation "lib.ml-mutant8" passed (see "_mutations/lib.ml-mutant8.output")
+  Mutation "lib.ml-mutant14" passed (see "_mutations/lib.ml-mutant14.output")
 
 
 Now clean-up MUTAML_DIFF_COMMAND again to default again
@@ -428,14 +515,15 @@ Now move file to a different name and retry the --no-diff option with the new na
   
    target                          #mutations      #failed      #timeouts      #passed 
    -------------------------------------------------------------------------------------
-   lib.ml                                13      84.6%   11     0.0%    0    15.4%    2
+   lib.ml                                15      80.0%   12     0.0%    0    20.0%    3
    =====================================================================================
   
   Mutation programs passing the test suite:
   -----------------------------------------
   
   Mutation "lib.ml-mutant6" passed (see "_mutations/lib.ml-mutant6.output")
-  Mutation "lib.ml-mutant12" passed (see "_mutations/lib.ml-mutant12.output")
+  Mutation "lib.ml-mutant8" passed (see "_mutations/lib.ml-mutant8.output")
+  Mutation "lib.ml-mutant14" passed (see "_mutations/lib.ml-mutant14.output")
 
 
 --------------------------------------------------------------------------------
@@ -457,7 +545,7 @@ Create a dune-workspace file with another build context:
   $ bash ../filter_dune_build.sh ./ounittest.exe
   Running mutaml instrumentation on "lib.ml"
   Randomness seed: 896745231   Mutation rate: 50   GADTs enabled: true
-  Created 9 mutations of lib.ml
+  Created 10 mutations of lib.ml
   Writing mutation info to lib.muts
 
   $ ls _* dune* *.ml some-report-name.json
@@ -475,13 +563,16 @@ Create a dune-workspace file with another build context:
   trace.csexp
   
   _mutations:
-  lib.ml-mutant12
+  lib.ml-mutant14
   lib.ml-mutant6
+  lib.ml-mutant8
   lib.muts-mutant0.output
   lib.muts-mutant1.output
   lib.muts-mutant10.output
   lib.muts-mutant11.output
   lib.muts-mutant12.output
+  lib.muts-mutant13.output
+  lib.muts-mutant14.output
   lib.muts-mutant2.output
   lib.muts-mutant3.output
   lib.muts-mutant4.output
@@ -511,11 +602,12 @@ Create a dune-workspace file with another build context:
   Testing mutant lib:1 ... failed
   Testing mutant lib:2 ... failed
   Testing mutant lib:3 ... failed
-  Testing mutant lib:4 ... passed
-  Testing mutant lib:5 ... failed
+  Testing mutant lib:4 ... failed
+  Testing mutant lib:5 ... passed
   Testing mutant lib:6 ... failed
   Testing mutant lib:7 ... failed
-  Testing mutant lib:8 ... passed
+  Testing mutant lib:8 ... failed
+  Testing mutant lib:9 ... passed
   Writing report data to mutaml-report.json
 
   $ mutaml-report
@@ -526,32 +618,32 @@ Create a dune-workspace file with another build context:
   
    target                          #mutations      #failed      #timeouts      #passed 
    -------------------------------------------------------------------------------------
-   lib.ml                                 9      77.8%    7     0.0%    0    22.2%    2
+   lib.ml                                10      80.0%    8     0.0%    0    20.0%    2
    =====================================================================================
   
   Mutation programs passing the test suite:
   -----------------------------------------
   
-  Mutation "lib.ml-mutant4" passed (see "_mutations/lib.ml-mutant4.output"):
+  Mutation "lib.ml-mutant5" passed (see "_mutations/lib.ml-mutant5.output"):
   
   --- lib.ml
-  +++ lib.ml-mutant4
-  @@ -21,7 +21,7 @@
-   
-   let pi total =
-     let rec loop n inside =
-  -    if n = 0 then
-  +    if n = 1 then
-         4. *. (float_of_int inside /. float_of_int total)
+  +++ lib.ml-mutant5
+  @@ -26,7 +26,7 @@
        else
          let x = 1.0 -. Random.float 2.0 in
+         let y = 1.0 -. Random.float 2.0 in
+  -      if x *. x +. y *. y <= 1.
+  +      if ((x *. x) +. (y *. y)) < 1.
+         then loop (n-1) (inside+1)
+         else loop (n-1) (inside)
+     in
   
   ---------------------------------------------------------------------------
   
-  Mutation "lib.ml-mutant8" passed (see "_mutations/lib.ml-mutant8.output"):
+  Mutation "lib.ml-mutant9" passed (see "_mutations/lib.ml-mutant9.output"):
   
   --- lib.ml
-  +++ lib.ml-mutant8
+  +++ lib.ml-mutant9
   @@ -30,4 +30,4 @@
          then loop (n-1) (inside+1)
          else loop (n-1) (inside)
@@ -567,7 +659,7 @@ Similar, but by passing a command line option:
   $ bash ../filter_dune_build.sh ./ounittest.exe
   Running mutaml instrumentation on "lib.ml"
   Randomness seed: 896745231   Mutation rate: 50   GADTs enabled: true
-  Created 9 mutations of lib.ml
+  Created 10 mutations of lib.ml
   Writing mutation info to lib.muts
 
   $ ls _build/mutation/*.exe _build/mutation/*.ml _build/mutation/*.muts _build/mutation/*.txt
@@ -585,11 +677,12 @@ Similar, but by passing a command line option:
   Testing mutant lib:1 ... failed
   Testing mutant lib:2 ... failed
   Testing mutant lib:3 ... failed
-  Testing mutant lib:4 ... passed
-  Testing mutant lib:5 ... failed
+  Testing mutant lib:4 ... failed
+  Testing mutant lib:5 ... passed
   Testing mutant lib:6 ... failed
   Testing mutant lib:7 ... failed
-  Testing mutant lib:8 ... passed
+  Testing mutant lib:8 ... failed
+  Testing mutant lib:9 ... passed
   Writing report data to mutaml-report.json
 
   $ mutaml-report
@@ -600,32 +693,32 @@ Similar, but by passing a command line option:
   
    target                          #mutations      #failed      #timeouts      #passed 
    -------------------------------------------------------------------------------------
-   lib.ml                                 9      77.8%    7     0.0%    0    22.2%    2
+   lib.ml                                10      80.0%    8     0.0%    0    20.0%    2
    =====================================================================================
   
   Mutation programs passing the test suite:
   -----------------------------------------
   
-  Mutation "lib.ml-mutant4" passed (see "_mutations/lib.ml-mutant4.output"):
+  Mutation "lib.ml-mutant5" passed (see "_mutations/lib.ml-mutant5.output"):
   
   --- lib.ml
-  +++ lib.ml-mutant4
-  @@ -21,7 +21,7 @@
-   
-   let pi total =
-     let rec loop n inside =
-  -    if n = 0 then
-  +    if n = 1 then
-         4. *. (float_of_int inside /. float_of_int total)
+  +++ lib.ml-mutant5
+  @@ -26,7 +26,7 @@
        else
          let x = 1.0 -. Random.float 2.0 in
+         let y = 1.0 -. Random.float 2.0 in
+  -      if x *. x +. y *. y <= 1.
+  +      if ((x *. x) +. (y *. y)) < 1.
+         then loop (n-1) (inside+1)
+         else loop (n-1) (inside)
+     in
   
   ---------------------------------------------------------------------------
   
-  Mutation "lib.ml-mutant8" passed (see "_mutations/lib.ml-mutant8.output"):
+  Mutation "lib.ml-mutant9" passed (see "_mutations/lib.ml-mutant9.output"):
   
   --- lib.ml
-  +++ lib.ml-mutant8
+  +++ lib.ml-mutant9
   @@ -30,4 +30,4 @@
          then loop (n-1) (inside+1)
          else loop (n-1) (inside)
@@ -643,7 +736,7 @@ Similar, but by passing a command line option:
   $ bash ../filter_dune_build.sh ./ounittest.exe
   Running mutaml instrumentation on "lib.ml"
   Randomness seed: 896745231   Mutation rate: 50   GADTs enabled: true
-  Created 9 mutations of lib.ml
+  Created 10 mutations of lib.ml
   Writing mutation info to lib.muts
 
   $ ls _build/mutation/*.exe _build/mutation/*.ml _build/mutation/*.muts _build/mutation/*.txt
@@ -661,11 +754,12 @@ Similar, but by passing a command line option:
   Testing mutant lib:1 ... failed
   Testing mutant lib:2 ... failed
   Testing mutant lib:3 ... failed
-  Testing mutant lib:4 ... passed
-  Testing mutant lib:5 ... failed
+  Testing mutant lib:4 ... failed
+  Testing mutant lib:5 ... passed
   Testing mutant lib:6 ... failed
   Testing mutant lib:7 ... failed
-  Testing mutant lib:8 ... passed
+  Testing mutant lib:8 ... failed
+  Testing mutant lib:9 ... passed
   Writing report data to mutaml-report.json
 
   $ mutaml-report
@@ -676,32 +770,32 @@ Similar, but by passing a command line option:
   
    target                          #mutations      #failed      #timeouts      #passed 
    -------------------------------------------------------------------------------------
-   lib.ml                                 9      77.8%    7     0.0%    0    22.2%    2
+   lib.ml                                10      80.0%    8     0.0%    0    20.0%    2
    =====================================================================================
   
   Mutation programs passing the test suite:
   -----------------------------------------
   
-  Mutation "lib.ml-mutant4" passed (see "_mutations/lib.ml-mutant4.output"):
+  Mutation "lib.ml-mutant5" passed (see "_mutations/lib.ml-mutant5.output"):
   
   --- lib.ml
-  +++ lib.ml-mutant4
-  @@ -21,7 +21,7 @@
-   
-   let pi total =
-     let rec loop n inside =
-  -    if n = 0 then
-  +    if n = 1 then
-         4. *. (float_of_int inside /. float_of_int total)
+  +++ lib.ml-mutant5
+  @@ -26,7 +26,7 @@
        else
          let x = 1.0 -. Random.float 2.0 in
+         let y = 1.0 -. Random.float 2.0 in
+  -      if x *. x +. y *. y <= 1.
+  +      if ((x *. x) +. (y *. y)) < 1.
+         then loop (n-1) (inside+1)
+         else loop (n-1) (inside)
+     in
   
   ---------------------------------------------------------------------------
   
-  Mutation "lib.ml-mutant8" passed (see "_mutations/lib.ml-mutant8.output"):
+  Mutation "lib.ml-mutant9" passed (see "_mutations/lib.ml-mutant9.output"):
   
   --- lib.ml
-  +++ lib.ml-mutant8
+  +++ lib.ml-mutant9
   @@ -30,4 +30,4 @@
          then loop (n-1) (inside+1)
          else loop (n-1) (inside)

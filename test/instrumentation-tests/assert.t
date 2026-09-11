@@ -120,7 +120,7 @@ Make an .ml-file:
   $ bash ../filter_dune_build.sh ./test.bc --instrument-with mutaml
   Running mutaml instrumentation on "test.ml"
   Randomness seed: 896745231   Mutation rate: 100   GADTs enabled: true
-  Created 4 mutations of test.ml
+  Created 9 mutations of test.ml
   Writing mutation info to test.muts
   
   let __MUTAML_MUTANT__ = Stdlib.Sys.getenv_opt "MUTAML_MUTANT"
@@ -130,16 +130,37 @@ Make an .ml-file:
     | Some mutant -> String.equal m mutant
   let () =
     let tmp =
-      (if __is_mutaml_mutant__ "test:0" then false else true) =
-        (not (if __is_mutaml_mutant__ "test:1" then true else false)) in
+      let __MUTAML_TMP1__ =
+        let __MUTAML_TMP0__ =
+          if __is_mutaml_mutant__ "test:0" then true else false in
+        if __is_mutaml_mutant__ "test:1"
+        then __MUTAML_TMP0__
+        else not __MUTAML_TMP0__ in
+      let __MUTAML_TMP2__ =
+        if __is_mutaml_mutant__ "test:2" then false else true in
+      if __is_mutaml_mutant__ "test:3"
+      then __MUTAML_TMP2__ <> __MUTAML_TMP1__
+      else __MUTAML_TMP2__ = __MUTAML_TMP1__ in
     assert tmp
   let () =
     let tmp =
-      (String.length (if __is_mutaml_mutant__ "test:2" then "" else " ")) =
-        (let __MUTAML_TMP0__ = String.length "" in
-         if __is_mutaml_mutant__ "test:3"
-         then __MUTAML_TMP0__
-         else 1 + __MUTAML_TMP0__) in
+      let __MUTAML_TMP4__ =
+        let __MUTAML_TMP3__ = String.length "" in
+        if __is_mutaml_mutant__ "test:4"
+        then __MUTAML_TMP3__
+        else 1 + __MUTAML_TMP3__ in
+      let __MUTAML_TMP6__ =
+        let __MUTAML_TMP5__ =
+          String.length (if __is_mutaml_mutant__ "test:5" then "" else " ") in
+        if __is_mutaml_mutant__ "test:7"
+        then __MUTAML_TMP5__ + 1
+        else
+          if __is_mutaml_mutant__ "test:6"
+          then __MUTAML_TMP5__ - 1
+          else __MUTAML_TMP5__ in
+      if __is_mutaml_mutant__ "test:8"
+      then __MUTAML_TMP6__ <> __MUTAML_TMP4__
+      else __MUTAML_TMP6__ = __MUTAML_TMP4__ in
     assert tmp
 
 
@@ -163,9 +184,29 @@ These should all fail however:
   [2]
 
   $ MUTAML_MUTANT="test:2" dune exec --no-build ./test.bc
-  Fatal error: exception Assert_failure("test.ml", 6, 2)
+  Fatal error: exception Assert_failure("test.ml", 3, 2)
   [2]
 
   $ MUTAML_MUTANT="test:3" dune exec --no-build ./test.bc
+  Fatal error: exception Assert_failure("test.ml", 3, 2)
+  [2]
+
+  $ MUTAML_MUTANT="test:4" dune exec --no-build ./test.bc
+  Fatal error: exception Assert_failure("test.ml", 6, 2)
+  [2]
+
+  $ MUTAML_MUTANT="test:5" dune exec --no-build ./test.bc
+  Fatal error: exception Assert_failure("test.ml", 6, 2)
+  [2]
+
+  $ MUTAML_MUTANT="test:6" dune exec --no-build ./test.bc
+  Fatal error: exception Assert_failure("test.ml", 6, 2)
+  [2]
+
+  $ MUTAML_MUTANT="test:7" dune exec --no-build ./test.bc
+  Fatal error: exception Assert_failure("test.ml", 6, 2)
+  [2]
+
+  $ MUTAML_MUTANT="test:8" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 6, 2)
   [2]
