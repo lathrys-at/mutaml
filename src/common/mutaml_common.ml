@@ -49,6 +49,25 @@ let fail_and_exit s =
   print_endline s;
   exit 1
 
+(** The outcome of one test run, read from the exit status of the test
+    process. [Crashed] means that a signal ended the test process, which
+    the shell reports as a status above 128. [Timed_out] means that the
+    [timeout] command stopped the test process. *)
+type outcome = Passed | Failed | Crashed | Timed_out
+
+let outcome_of_status status =
+  if status = 0 then Passed
+  else if status = 124 then Timed_out
+  else if status > 128 && status <= 128 + 64 then Crashed
+  else Failed
+
+(** The word that the tools print for an outcome. *)
+let outcome_word = function
+  | Passed    -> "passed"
+  | Failed    -> "failed"
+  | Crashed   -> "crashed"
+  | Timed_out -> "timeout"
+
 (* hack to derive yojson for ppxlib types *)
 (* https://github.com/ocaml-ppx/ppx_deriving#working-with-existing-types *)
 module Loc =
@@ -77,9 +96,14 @@ type mutant =
   } [@@deriving yojson]
 
 
-(** A common type to represent test results *)
+(** A common type to represent test results.
+    [status] is the exit status of the test process. [test_env] holds the
+    variables that the runner set in that process, in the order it set
+    them. For a mutant that the test suite killed, [test_env] is the
+    environment that killed it. *)
 type test_result =
   {
-    status  : int;
-    mutant  : mutant;
+    status   : int;
+    mutant   : mutant;
+    test_env : (string * string) list [@default []];
   } [@@deriving yojson]
