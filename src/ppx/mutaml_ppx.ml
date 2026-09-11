@@ -41,22 +41,15 @@ let add_preamble structure input_name =
   [%stri let __is_mutaml_mutant__ m = match __MUTAML_MUTANT__ with None -> false | Some mutant -> String.equal m mutant]::
   structure
 
-(** Write mutations of a file 'src/lib.ml' to a 'src/lib.muts' *)
+(** Write mutations of a file 'src/lib.ml' to a 'src/lib.muts', and add
+    that name to the list of .muts files that the runner reads.
+    Mutaml_side_files chooses the directory both go in. *)
 let write_muts_file input_name mutations =
-  let output_name = Filename.(remove_extension input_name) ^ ".muts" in
-  Printf.printf "Writing mutation info to %s\n%!"  output_name;
-  let ch = open_out output_name in
+  let out = Mutaml_side_files.resolve () in
   let ys = mutations |> List.rev |> List.map Mutaml_common.yojson_of_mutant in
-  Yojson.Safe.to_channel ch (`List ys);
-  close_out ch;
-  output_name
-
-(** Appends a file name 'src/lib.muts' to the log-file Mutaml_common.mutaml_mut_file *)
-let append_muts_file_to_log output_name =
-  let ch =
-    open_out_gen [Open_wronly; Open_append; Open_creat; Open_text] 0o660 Mutaml_common.defaults.mutaml_mut_file in
-  output_string ch (output_name ^ "\n");
-  close_out ch
+  let output_name = Mutaml_side_files.write_muts out ~input_name (`List ys) in
+  Printf.printf "Writing mutation info to %s\n%!" output_name;
+  Mutaml_side_files.record_muts_file out output_name
 
 (** Shorthand to ease string-conversion of surface changes *)
 let string_of_exp = Pprintast.string_of_expression
@@ -517,7 +510,6 @@ class mutate_mapper (rs : RS.t) =
     let mut_count = List.length mutations in
     Printf.printf "Created %i mutation%s of %s\n%!" mut_count (if mut_count=1 then "" else "s") input_name;
 
-    let output_name = write_muts_file input_name mutations in
-    let () = append_muts_file_to_log output_name in
+    let () = write_muts_file input_name mutations in
     errs @ (add_preamble instrumented_ast input_name)
 end
