@@ -112,6 +112,84 @@ These are all written to a dedicated directory named `_mutations`.
 
 
 
+Mutation Operators
+------------------
+
+A mutation operator is a rule that makes one kind of small change to
+the program. Each operator has a name that does not change, such as
+`compare-boundary`. Mutaml keeps a mutant only when it is sure the
+mutant still typechecks, which it must decide without types, so each
+operator below is safe for a reason of shape alone.
+
+The operators that this table marks "always on" have no switch. Each
+of the others has one command-line option and one environment
+variable: the option is the name of the operator with a hyphen in
+front of it, and the variable is the name in capitals after `MUTAML_`,
+with each hyphen changed to an underscore. So `compare-boundary` reads
+`-compare-boundary false` in a `dune` file, or
+`MUTAML_COMPARE_BOUNDARY=false` in the environment.
+
+| operator | change | default |
+|---|---|---|
+| `bool-constant` | `true` to `false`, and the reverse | always on |
+| `int-constant` | `1` to `0`; any other integer `i` to `i+1` | always on |
+| `space-string` | `" "` to `""` | always on |
+| `arith-operator` | `+` to `-`, `-` to `+`, `*` to `+`, `/` to `mod`, `mod` to `/` | always on |
+| `arith-identity` | `1 + e`, `e + 1` and `e - 1` to `e` | always on |
+| `if-condition` | the condition of an `if` is negated | always on |
+| `sequence` | in `e0; e1`, the expression `e0` becomes `()` | always on |
+| `omit-case` | a case of a pattern match fires never | always on |
+| `merge-cases` | two neighbouring cases become one or-pattern | always on |
+| `compare-boundary` | `<` to `<=`, `<=` to `<`, `>` to `>=`, `>=` to `>` | on |
+| `compare-negation` | `=` to `<>`, `<>` to `=` | on |
+| `equal-function` | `String.equal a b` to `not (String.equal a b)` | on |
+| `connective` | `&&` to `\|\|`, `\|\|` to `&&` | on |
+| `not-expression` | `not e` to `e` | on |
+| `some-to-none` | `Some e` to `None` | on |
+| `argument-off-by-one` | an integer argument, or an integer result, gains one or loses one | on |
+| `guard-always-true` | the `when` guard of a match case always holds | off |
+| `string-literal` | any string literal to `""`, and `""` to `" "` | off |
+
+Two of them are off by default because they make many mutants that no
+test suite can kill. A guard that always holds often lets a case do
+what a later case already does. Most string literals of a program are
+messages that no test reads. Turn each on when your tests do read what
+it changes.
+
+### What each operator cannot see
+
+The preprocessor works on the text of the program, and it has no
+types. Four operators therefore rest on a rule of shape that a program
+can break. Each names its switch, so that a program that breaks the
+rule can turn the operator off.
+
+- **`some-to-none`.** `Some e` and `None` both have type `'a option`,
+  so the mutant compiles. A program that defines its own constructor
+  named `Some`, in a type that has no `None`, breaks this. The build
+  then fails, and the error names the file. Set
+  `MUTAML_SOME_TO_NONE=false` or `-some-to-none false`.
+
+- **`argument-off-by-one`.** The preprocessor cannot see that an
+  argument has type `int`, so it holds a list of the functions of the
+  standard library whose arguments it knows: `String.sub`,
+  `String.get`, `Bytes.sub`, `Bytes.get` and `List.nth`, and
+  `String.length`, whose result is an integer. A program with its own
+  module named `String`, holding its own `sub` of another type, breaks
+  this. Set `MUTAML_ARGUMENT_OFF_BY_ONE=false`.
+
+- **`equal-function`.** The same, for the `equal` function of the
+  modules of the standard library that have one. Set
+  `MUTAML_EQUAL_FUNCTION=false`.
+
+- **`string-literal`.** A string literal that stands where a format is
+  wanted does not have type `string`, and `""` does not typecheck
+  there. The operator therefore leaves alone any literal that holds a
+  `%`. A format literal with no conversion in it, such as
+  `Printf.sprintf "plain"`, does typecheck as `""`, so the rule keeps
+  the mutants that are worth having. Set `MUTAML_STRING_LITERAL=false`
+  if a format of yours holds no `%` and still cannot be empty.
+
+
 Instrumentation Options and Environment Variables
 -------------------------------------------------
 
@@ -125,6 +203,13 @@ environment variables or instrumentation options in the `dune` file:
   by instrumentation option `-mut-rate`)
 - `MUTAML_GADT` - allow only pattern mutations compatible with GADTs
   (`true` or `false`, overridden by instrumentation option `-gadt`)
+
+Each mutation operator that has a switch adds one more variable and
+one more option, both named after the operator. The table under
+[Mutation Operators](#mutation-operators) above lists them. For
+example, `MUTAML_SOME_TO_NONE=false`, or the instrumentation option
+`-some-to-none false`, turns off the operator that changes `Some e`
+into `None`.
 
 
 For example, the following `dune` file sets all three instrumentation
