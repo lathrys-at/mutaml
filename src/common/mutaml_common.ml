@@ -1,5 +1,3 @@
-open Ppx_yojson_conv_lib.Yojson_conv.Primitives
-
 type defaults =
   {
     ppx_output_prefix  : string;
@@ -144,7 +142,7 @@ type mutant =
     number : int;
     repl   : string option;
     loc    : Loc.location;
-  } [@@deriving yojson]
+  } [@@deriving yojson { exn = true }]
 
 
 (** A common type to represent test results *)
@@ -152,4 +150,4 @@ type test_result =
   {
     status  : int;
     mutant  : mutant;
-  } [@@deriving yojson]
+  } [@@deriving yojson { exn = true }]
