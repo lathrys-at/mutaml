@@ -463,9 +463,12 @@ class mutate_mapper (rs : RS.t) =
         self#mutaml_mutant ctx loc(*e0.pexp_loc*) [%expr ()] e0' (string_of_exp e1) in
       { e0 with pexp_desc = Pexp_sequence (e0'',e1') }
 
-    | _, Pexp_function cases ->
+    | _, Pexp_function (params, constr, Pfunction_cases (cases, cases_loc, cases_attrs)) ->
       self#cases ctx cases >>| fun cases_pure -> (* all cases are pure in 'function' *)
-      let function_ = { e with pexp_desc = Pexp_function cases_pure } in
+      let function_ =
+        { e with pexp_desc =
+                   Pexp_function (params, constr,
+                                  Pfunction_cases (cases_pure, cases_loc, cases_attrs)) } in
       if Match.cases_contain_matching_patterns cases_pure
       then
         Exp.attr function_ (* disable pattern-match warning *)
