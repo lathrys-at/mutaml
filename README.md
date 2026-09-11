@@ -166,8 +166,22 @@ rule can turn the operator off.
 - **`some-to-none`.** `Some e` and `None` both have type `'a option`,
   so the mutant compiles. A program that defines its own constructor
   named `Some`, in a type that has no `None`, breaks this. The build
-  then fails, and the error names the file. Set
-  `MUTAML_SOME_TO_NONE=false` or `-some-to-none false`.
+  then fails at the file that holds the type, in one of two ways.
+  Either the compiler reports a type that does not match, naming your
+  type and `option`; or, where the compiler can read `Some e` as the
+  `Some` of `option`, it reports that a later pattern match is not
+  exhaustive:
+
+  ```
+  Error (warning 8 [partial-match]): this pattern-matching is not exhaustive.
+    Here is an example of a case that is not matched: None
+  ```
+
+  Neither message names this operator, because the failure lands in
+  your code and not in what the preprocessor wrote. If you see either
+  of them in a build that only mutaml changed, set
+  `MUTAML_SOME_TO_NONE=false`, or `-some-to-none false` in your `dune`
+  file, and build again.
 
 - **`argument-off-by-one`.** The preprocessor cannot see that an
   argument has type `int`, so it holds a list of the functions of the
@@ -197,9 +211,13 @@ rule can turn the operator off.
   operator as it is written. `x < y` is mutated; `Int.( < ) x y`,
   written with a module in front of the operator, is not. Swapping a
   qualified operator is not safe, because a module that exports `=`
-  need not export `<`. A module opened with `open`, such as `Base`,
-  shadows the whole family at once, and there the swap stays safe, so
-  the operators do mutate code written that way.
+  need not export `<`. A module brought in with `open` usually shadows
+  the whole family at once, as `Base` does, and there the swap stays
+  safe, so the operators do mutate code written that way. A module
+  that shadows only part of the family breaks the rule: one that
+  defines `=` and no `<>`, or `<` and no `<=`, gives a mutant that
+  does not compile. Set `MUTAML_COMPARE_NEGATION=false` or
+  `MUTAML_COMPARE_BOUNDARY=false` for such a file.
 
 - **`string-literal`.** A string literal that stands where a format is
   wanted does not have type `string`, and `""` does not typecheck
