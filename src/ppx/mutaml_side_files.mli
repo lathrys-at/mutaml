@@ -33,9 +33,6 @@ val resolve : unit -> t
     This function reads the environment and nothing else. It creates no
     directory and never fails. *)
 
-val dir : t -> string
-(** [dir t] is the directory as a path, for a message to a person. *)
-
 val write_muts : t -> input_name:string -> Yojson.Safe.t -> string
 (** [write_muts t ~input_name json] writes [json] as the [.muts] file of
     the source file [input_name], and returns the name of that file
@@ -58,6 +55,11 @@ val record_muts_file : t -> string -> unit
     files are instrumented by two separate runs of the instrumentation,
     possibly at the same time, so the runs take a lock on the directory
     and the first of them does the emptying.
+
+    The list is sorted, so that it does not depend on the order in which
+    dune happened to run the instrumentations. The runner reads the list
+    in order, so this is what makes its output the same from one run to
+    the next.
 
     Ends the process through {!Mutaml_common.fail_and_exit}, with a
     message that names the file, when the list cannot be read or

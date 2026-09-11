@@ -29,8 +29,6 @@ let resolve () =
                 (Filename.basename ctx) }
     | Some _ | None -> { dir = Filename.current_dir_name }
 
-let dir t = t.dir
-
 (* The identifier of the build that runs us. Dune runs every
    instrumentation of one build from one process, so the process that
    started us names the build. A later build has a different one. *)
@@ -121,5 +119,9 @@ let record_muts_file t name =
          build and the list starts again. *)
       let names =
         if read_lines marker_name = [id] then read_lines list_name else [] in
-      if not (List.mem name names) then write_lines list_name (names @ [name]);
+      (* Sorted, so that the list does not depend on the order in which
+         dune happened to run the instrumentations. Everything the runner
+         and the report print follows the order of this list. *)
+      if not (List.mem name names)
+      then write_lines list_name (List.sort_uniq String.compare (name::names));
       write_lines marker_name [id])
