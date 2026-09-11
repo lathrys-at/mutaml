@@ -38,7 +38,7 @@ let num_failed summary = Summary.count summary Failed + Summary.count summary Cr
 module CLI =
 struct
   let usage_msg =
-    Printf.sprintf "Usage: %s [-no-diff] [--fail-under <percent>] [file.json]\n%s\n%s\n%s\n" (Sys.argv.(0))
+    Printf.sprintf "Usage: %s [--no-diff] [--fail-under <percent>] [--markdown <path>] [file.json]\n%s\n%s\n%s\n" (Sys.argv.(0))
       "Generates a report summarizing the findings of a mutaml-driver run."
       "The mutation score is the share of mutations that failed or timed out."
       "Exits with 0 when the score is high enough, with 2 when it is not, and with 1 on an error."
@@ -47,6 +47,9 @@ struct
 
   (* The lowest score that the run may have. [None] means 100 percent. *)
   let fail_under = ref None
+
+  (* Where to write the Markdown summary. [None] means not to write it. *)
+  let markdown = ref None
 
   let set_fail_under str = match float_of_string_opt str with
     | Some percent when percent >= 0. && percent <= 100. -> fail_under := Some percent
@@ -57,7 +60,9 @@ struct
     Arg.align
       ["--no-diff", Arg.Clear print_diff, " Don't output diffs to the console";
        "--fail-under", Arg.String set_fail_under,
-       "<percent> Exit with an error when the score is below <percent>"]
+       "<percent> Exit with an error when the score is below <percent>";
+       "--markdown", Arg.String (fun path -> markdown := Some path),
+       "<path> Write a Markdown summary to <path>, for the summary page of a CI job"]
 
   let diff_cmd = match Sys.getenv_opt "MUTAML_DIFF_COMMAND", Sys.getenv_opt "CI" with
     | Some cmd, _       -> cmd
@@ -75,6 +80,36 @@ let file_contents_opt file_name =
     Fun.protect ~finally:(fun () -> close_in_noerr ch)
       (fun () -> Some (really_input_string ch (in_channel_length ch)))
   with Sys_error _ | End_of_file -> None
+
+(* The bytes of every source file that [results] names. A file that
+   cannot be read is left out, and named, because the report of its
+   mutants then holds no source. *)
+let read_sources results =
+  List.filter_map
+    (fun (file_name,_) -> match file_contents_opt file_name with
+       | Some contents -> Some (file_name,contents)
+       | None ->
+         Printf.printf "Could not read the source file %s\n%!" file_name;
+         None)
+    (Summary.by_file results)
+
+(* Writes [text] to [file_name], and stops the program when it cannot. *)
+let write_text_file file_name text =
+  try
+    let ch = open_out file_name in
+    Fun.protect ~finally:(fun () -> close_out_noerr ch)
+      (fun () -> output_string ch text; flush ch)
+  with Sys_error msg ->
+    fail_and_exit (Printf.sprintf "Could not write file %s" msg)
+
+(* Writes the report files that the command line asked for. *)
+let write_report_files results =
+  Option.iter
+    (fun path ->
+       let sources = read_sources results in
+       Printf.printf "Writing the Markdown summary to %s\n%!" path;
+       write_text_file path (Markdown_report.render ~sources ~results))
+    !CLI.markdown
 
 let write_mutated_version output_file ~start ~stop contents repl =
     let ch =
@@ -214,6 +249,7 @@ let () =
   let results = read_reports report_file in
   if results = []
   then fail_and_exit (Printf.sprintf "Found no test results in %s" report_file);
+  write_report_files results;
   let passed = print_report results in
   print_crashed results;
   if passed <> []

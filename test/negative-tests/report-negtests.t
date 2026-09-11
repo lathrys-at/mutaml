@@ -69,3 +69,22 @@ Now confirm that the report tool gives no score for it:
   Attempting to read from empty-report.json...
   Found no test results in empty-report.json
   [1]
+
+Create a report file that holds one test result:
+  $ cat > one-result.json <<'EOF'
+  > [ { "status" : 0,
+  >     "mutant" : { "number" : 0, "binding" : "f", "kind" : "arith-operator",
+  >                  "original" : "+", "ordinal" : 0, "repl" : "-",
+  >                  "loc" : { "loc_start" : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 12 },
+  >                            "loc_end"   : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 13 },
+  >                            "loc_ghost" : false } } } ]
+  > EOF
+
+Check that the report tool says so when it cannot write the Markdown
+summary:
+  $ mutaml-report --markdown no-such-directory/summary.md one-result.json
+  Attempting to read from one-result.json...
+  Could not read the source file lib.ml
+  Writing the Markdown summary to no-such-directory/summary.md
+  Could not write file no-such-directory/summary.md: No such file or directory
+  [1]
