@@ -270,6 +270,65 @@ rule can turn the operator off.
   if a format of yours holds no `%` and still cannot be empty.
 
 
+The Name of a Mutation
+----------------------
+
+Every mutation has a name. The preprocessor writes the name into the
+program it instruments, `mutaml-runner` puts it in the environment
+variable `MUTAML_MUTANT` to turn that one mutation on, and the JSON
+report gives it as the `id` of the mutation. You can run one mutation
+yourself with it:
+
+```
+$ MUTAML_MUTANT="src/lib.ml:classify:compare-boundary:5a1dd3dc:0" dune exec ./test.exe
+```
+
+The name holds five fields, with a `:` between them:
+
+| field | example | what it is |
+|---|---|---|
+| file | `src/lib.ml` | the source file, as the build system named it |
+| binding | `classify` | the top-level binding that holds the mutation |
+| operator | `compare-boundary` | the mutation operator that made it |
+| digest | `5a1dd3dc` | eight hexadecimal characters, from the text |
+| ordinal | `0` | counts from 0 among mutations that agree in all four fields above |
+
+The **binding** is the name that the `let` binds, with the path of the
+modules around it in front: a mutation in `let f` inside
+`module Inner` is in the binding `Inner.f`. A mutation outside every
+top-level binding, such as one in a `let () = ...`, is in the binding
+`toplevel`. A `let` inside an expression does not count: renaming a
+local definition does not rename a mutation.
+
+The **digest** stands for the text that the mutation replaces and the
+text that replaces it. It reads both with each run of white space
+turned into one space, so a source file laid out again over more lines
+keeps the names it had.
+
+The **ordinal** tells apart two mutations that agree in all of the
+first four fields, such as the two mutations of `1` in
+`(if b then 1 else 0, if b then 1 else 0)`. It counts them in the
+order the preprocessor walks the file, so adding a third one below
+them leaves the first two as they were.
+
+The name holds no line number and no counter over the file. So a
+function added above another does not rename the mutations below it,
+and a list of names that your project keeps goes on naming the same
+code. The name does change when you rename the file, rename the
+binding, change the text that the mutation replaces, or change the
+text that replaces it. It also changes when you rename a mutation
+operator, which mutaml does not do.
+
+Two mutations of one file never take one name. Where two would, the
+preprocessor stops with an error that names both. That can happen only
+if two different pieces of text gave one digest, which has not been
+seen; report it if you meet it.
+
+The `lib.muts` file also holds a `number` for each mutation, which
+counts the mutations of the file from 0. It is not a name. It names
+the file under `_mutations` that holds the output of the test run, and
+it moves whenever the file above the mutation changes.
+
 Instrumentation Options and Environment Variables
 -------------------------------------------------
 
