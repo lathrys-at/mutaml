@@ -121,40 +121,51 @@ the program. Each operator has a name that does not change, such as
 mutant still typechecks, which it must decide without types, so each
 operator below is safe for a reason of shape alone.
 
-The operators that this table marks "always on" have no switch. Each
-of the others has one command-line option and one environment
-variable: the option is the name of the operator with a hyphen in
-front of it, and the variable is the name in capitals after `MUTAML_`,
-with each hyphen changed to an underscore. So `compare-boundary` reads
-`-compare-boundary false` in a `dune` file, or
-`MUTAML_COMPARE_BOUNDARY=false` in the environment.
+Every operator has a switch that turns it on or off, and the name of
+the operator gives the name of the switch. The command-line option is
+the name with a hyphen in front of it; the environment variable is the
+name in capitals after `MUTAML_`, with each hyphen changed to an
+underscore. So `compare-boundary` reads `-compare-boundary false` in a
+`dune` file, or `MUTAML_COMPARE_BOUNDARY=false` in the environment.
+The table gives both for each operator.
 
-| operator | change | default |
-|---|---|---|
-| `bool-constant` | `true` to `false`, and the reverse | always on |
-| `int-constant` | `1` to `0`; any other integer `i` to `i+1` | always on |
-| `space-string` | `" "` to `""` | always on |
-| `arith-operator` | `+` to `-`, `-` to `+`, `*` to `+`, `/` to `mod`, `mod` to `/` | always on |
-| `arith-identity` | `1 + e`, `e + 1` and `e - 1` to `e` | always on |
-| `if-condition` | the condition of an `if` is negated | always on |
-| `sequence` | in `e0; e1`, the expression `e0` becomes `()` | always on |
-| `omit-case` | a case of a pattern match fires never | always on |
-| `merge-cases` | two neighbouring cases become one or-pattern | always on |
-| `compare-boundary` | `<` to `<=`, `<=` to `<`, `>` to `>=`, `>=` to `>` | on |
-| `compare-negation` | `=` to `<>`, `<>` to `=` | on |
-| `equal-function` | `String.equal a b` to `not (String.equal a b)` | on |
-| `connective` | `&&` to `\|\|`, `\|\|` to `&&` | on |
-| `not-expression` | `not e` to `e` | on |
-| `some-to-none` | `Some e` to `None` | on |
-| `argument-off-by-one` | an integer argument, or an integer result, gains one or loses one | on |
-| `guard-always-true` | the `when` guard of a match case always holds | off |
-| `string-literal` | any string literal to `""`, and `""` to `" "` | off |
+| operator | change | default | option | variable |
+|---|---|---|---|---|
+| `bool-constant` | `true` to `false`, and the reverse | on | `-bool-constant` | `MUTAML_BOOL_CONSTANT` |
+| `int-constant` | `1` to `0`; any other integer `i` to `i+1` | on | `-int-constant` | `MUTAML_INT_CONSTANT` |
+| `space-string` | `" "` to `""` | on | `-space-string` | `MUTAML_SPACE_STRING` |
+| `arith-operator` | `+` to `-`, `-` to `+`, `*` to `+`, `/` to `mod`, `mod` to `/` | on | `-arith-operator` | `MUTAML_ARITH_OPERATOR` |
+| `arith-identity` | `1 + e`, `e + 1` and `e - 1` to `e` | on | `-arith-identity` | `MUTAML_ARITH_IDENTITY` |
+| `if-condition` | the condition of an `if` is negated | on | `-if-condition` | `MUTAML_IF_CONDITION` |
+| `sequence` | in `e0; e1`, the expression `e0` becomes `()` | on | `-sequence` | `MUTAML_SEQUENCE` |
+| `omit-case` | a case of a pattern match fires never | on | `-omit-case` | `MUTAML_OMIT_CASE` |
+| `merge-cases` | two neighbouring cases become one or-pattern | on | `-merge-cases` | `MUTAML_MERGE_CASES` |
+| `compare-boundary` | `<` to `<=`, `<=` to `<`, `>` to `>=`, `>=` to `>` | on | `-compare-boundary` | `MUTAML_COMPARE_BOUNDARY` |
+| `compare-negation` | `=` to `<>`, `<>` to `=` | on | `-compare-negation` | `MUTAML_COMPARE_NEGATION` |
+| `equal-function` | `String.equal a b` to `not (String.equal a b)` | on | `-equal-function` | `MUTAML_EQUAL_FUNCTION` |
+| `connective` | `&&` to `\|\|`, `\|\|` to `&&` | on | `-connective` | `MUTAML_CONNECTIVE` |
+| `not-expression` | `not e` to `e` | on | `-not-expression` | `MUTAML_NOT_EXPRESSION` |
+| `some-to-none` | `Some e` to `None` | on | `-some-to-none` | `MUTAML_SOME_TO_NONE` |
+| `argument-off-by-one` | an integer argument, or an integer result, gains one or loses one | on | `-argument-off-by-one` | `MUTAML_ARGUMENT_OFF_BY_ONE` |
+| `guard-always-true` | the `when` guard of a match case always holds | off | `-guard-always-true` | `MUTAML_GUARD_ALWAYS_TRUE` |
+| `string-literal` | any string literal to `""`, and `""` to `" "` | off | `-string-literal` | `MUTAML_STRING_LITERAL` |
 
 Two of them are off by default because they make many mutants that no
 test suite can kill. A guard that always holds often lets a case do
 what a later case already does. Most string literals of a program are
 messages that no test reads. Turn each on when your tests do read what
 it changes.
+
+Turning an operator off does not stop the preprocessor looking inside
+the expression: `n + 1` with both `arith-identity` and `arith-operator`
+off still gives the literal `1` the mutant of `int-constant`.
+
+Two of the operators work on the same expressions, so it is worth
+saying how they meet. `arith-identity` takes `1 + e`, `e + 1` and
+`e - 1` and gives back `e`. While it is on, those three shapes are its
+own and `arith-operator` does not touch them. Turn `arith-identity`
+off and `arith-operator` takes them instead, turning the `+` into a
+`-`.
 
 ### What each operator cannot see
 
@@ -242,9 +253,9 @@ environment variables or instrumentation options in the `dune` file:
 - `MUTAML_GADT` - allow only pattern mutations compatible with GADTs
   (`true` or `false`, overridden by instrumentation option `-gadt`)
 
-Each mutation operator that has a switch adds one more variable and
-one more option, both named after the operator. The table under
-[Mutation Operators](#mutation-operators) above lists them. For
+Each mutation operator adds one more variable and one more option,
+both named after the operator, and the table under
+[Mutation Operators](#mutation-operators) above lists all of them. For
 example, `MUTAML_SOME_TO_NONE=false`, or the instrumentation option
 `-some-to-none false`, turns off the operator that changes `Some e`
 into `None`.
