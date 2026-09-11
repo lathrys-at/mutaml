@@ -16,10 +16,11 @@ Next release
   the page of a CI job: the mutation score, a table with a row for each
   source file, and every mutation that the test suite did not catch,
   with its name and its diff
-- Read the source file of a mutation that the test suite did not catch
-  into an option in `mutaml-report`, so that a file that is no longer
-  in the project gives one line that names it and not an uncaught
-  exception
+- Give one line that names the source file, in `mutaml-report`, when the
+  source of a mutation that the test suite did not catch is no longer in
+  the project, and when that file changed so that the place the mutation
+  sits in is outside it. Each of the two ended the tool with an uncaught
+  exception and no score before
 - Support ppxlib.0.36 and above, where one parse tree constructor holds
   both `fun` and `function`
 - Write the preprocessor's `lib.muts` files and `mutaml-mut-files.txt`
