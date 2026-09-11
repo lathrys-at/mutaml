@@ -26,7 +26,7 @@
  (tags ("test" "mutation testing"))
  (depends
   (ocaml (>= 4.12.0))
-  (ppxlib (>= 0.28.0))
+  (ppxlib (>= 0.36.0))
   (ppx_yojson_conv (>= v0.14.0))
   stdlib-random
   conf-timeout
