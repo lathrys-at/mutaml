@@ -205,11 +205,17 @@ let env_prefix test_env =
 
 (* Runs [test_cmd] once, with [mut_id] in MUTAML_MUTANT and with [test_env]
    set, and with its output in [output_file]. The empty [mut_id] runs the
-   program without a mutant. Returns the exit status of the test process. *)
+   program without a mutant. Returns the exit status of the test process.
+
+   The command runs inside a brace group, so that the redirection also
+   takes the line the shell itself prints when the test process dies by
+   a signal ("Segmentation fault: 11" on macOS). That line then goes into
+   [output_file] with the rest of the run, and not into the runner's
+   own output. *)
 let run_test_command test_cmd ~test_env ~timeout ~mut_id ~output_file =
   ensure_output_dir (Filename.dirname output_file);
   let env_test_cmd =
-    Printf.sprintf "%sMUTAML_MUTANT=%s %s %i %s > %s 2>&1"
+    Printf.sprintf "{ %sMUTAML_MUTANT=%s %s %i %s; } > %s 2>&1"
       (env_prefix test_env) (Filename.quote mut_id) timeout_cmd timeout
       test_cmd output_file in
   let ret = Sys.command env_test_cmd in (*tests can both succeed and err*)
