@@ -23,7 +23,11 @@ val resolve : unit -> t
 
     - [MUTAML_PPX_OUT_DIR], when it is set and not empty. Set it when
       the instrumentation runs outside dune, or to put the files
-      somewhere of your own choosing. Under dune you do not need it.
+      somewhere of your own choosing. Under dune you do not need it. A
+      relative directory is taken from the root of the project, which
+      dune names in [DUNE_SOURCEROOT]; it cannot be taken from the
+      working directory, because under dune that is the sandbox
+      directory that dune deletes.
     - [<build dir>/.mutaml/<context name>], when dune has set
       [INSIDE_DUNE] to the build context directory, which dune does for
       every action it runs. For an ordinary project that is

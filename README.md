@@ -146,7 +146,10 @@ environment variables or instrumentation options in the `dune` file:
   `dune`, which tells the preprocessor where its build context is.
   Set it when another build system runs the preprocessor, or when you
   want the files somewhere of your own choosing. Pass the same
-  directory to `mutaml-runner` as its `--build-context`.
+  directory to `mutaml-runner` as its `--build-context`. A relative
+  directory is taken from the root of your project, not from the
+  directory the preprocessor runs in, which under `dune` is a sandbox
+  directory that `dune` deletes.
 
 
 For example, the following `dune` file sets all three instrumentation

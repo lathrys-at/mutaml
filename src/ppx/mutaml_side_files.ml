@@ -14,7 +14,15 @@ let getenv_non_empty name = match Sys.getenv_opt name with
 
 let resolve () =
   match getenv_non_empty "MUTAML_PPX_OUT_DIR" with
-  | Some dir -> { dir }
+  | Some dir when not (Filename.is_relative dir) -> { dir }
+  | Some dir ->
+    (* A relative directory means a directory of the project. It cannot
+       mean a directory of the working directory, because dune runs us in
+       a sandbox directory that it then deletes. Dune names the root of
+       the project in DUNE_SOURCEROOT. *)
+    (match getenv_non_empty "DUNE_SOURCEROOT" with
+     | Some root -> { dir = Filename.concat root dir }
+     | None -> { dir })
   | None ->
     (* Dune sets INSIDE_DUNE to the build context directory of the build
        that runs us, as an absolute path. It does so even when it runs us

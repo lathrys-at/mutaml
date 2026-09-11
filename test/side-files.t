@@ -120,3 +120,18 @@ build system runs the preprocessor, or to choose the place yourself.
   lib1.muts
   $ test -d _build/.mutaml && echo found || echo none
   none
+
+A relative MUTAML_PPX_OUT_DIR is taken from the root of the project. It
+cannot be taken from the directory the preprocessor runs in, because
+under dune that is the sandbox directory that dune deletes.
+
+  $ dune clean
+  $ export MUTAML_PPX_OUT_DIR=chosen-relative
+  $ dune build @all --instrument-with mutaml 2>&1 | grep Created | sort
+  Created 2 mutations of lib1/lib1.ml
+  Created 2 mutations of lib2/lib2.ml
+  $ sort chosen-relative/mutaml-mut-files.txt
+  lib1/lib1.muts
+  lib2/lib2.muts
+  $ ls chosen-relative/lib2
+  lib2.muts
