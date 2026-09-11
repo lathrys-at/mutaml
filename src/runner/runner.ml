@@ -125,15 +125,17 @@ let read_instrumentation_overview ppx_output_prefix file_name =
 let read_module_mutations_json ppx_output_prefix file_name =
   try
     let ch = open_in (full_ppx_path ppx_output_prefix file_name) in
-    let mutants = match Yojson.Safe.from_channel ch with
-      | `List ys -> List.map mutant_of_yojson_exn ys
-      | _        -> fail_and_exit ("Could not parse " ^ file_name)
-    in
-    mutants
+    Fun.protect ~finally:(fun () -> close_in_noerr ch)
+      (fun () -> match Yojson.Safe.from_channel ch with
+         | `List ys -> List.map mutant_of_yojson_exn ys
+         | _        -> fail_and_exit ("Could not parse " ^ file_name))
   with Sys_error msg ->
     fail_and_exit (Printf.sprintf "Could not read file %s - %s" file_name msg)
-     | Failure msg ->
-       fail_and_exit (Printf.sprintf "Failure while reading file %s - %s" file_name msg)
+     | Failure _ ->
+       fail_and_exit
+         (Printf.sprintf
+            "A mutation in %s does not hold the fields that this release of mutaml reads. A mutation file that an older mutaml wrote needs a new build with --instrument-with mutaml."
+            file_name)
 
 let read_all_mutations ppx_output_prefix file_name =
   (* Sorted, so that the order of the report does not depend on the order

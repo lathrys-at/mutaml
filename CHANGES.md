@@ -19,6 +19,10 @@ Next release
 - Say in `mutaml-report`, when a report file holds a test result of the
   shape that an older mutaml wrote, that the result has not the fields
   this release reads, instead of saying that the file is not JSON
+- Say in `mutaml-runner`, when a `lib.muts` file holds a mutation of the
+  shape that an older mutaml wrote, that the mutation has not the fields
+  this release reads and that a new build with `--instrument-with
+  mutaml` writes them
 - Give one line that names the source file, in `mutaml-report`, when the
   source of a mutation that the test suite did not catch is no longer in
   the project, and when that file changed so that the place the mutation
