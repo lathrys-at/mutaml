@@ -464,6 +464,17 @@ class mutate_mapper (rs : RS.t) =
         let e_new = { e with pexp_desc = Pexp_constant c' } in
         return (self#mutaml_mutant ctx loc e_new e (string_of_exp e_new))
 
+    (* [Some e] becomes [None]. Both have type ['a option], so the
+       mutant compiles, unless the program defines its own constructor
+       named [Some] in a type that has no [None]. The preprocessor
+       cannot see that, so a program that does so must turn this
+       operator off with -some-to-none false. *)
+    | _, Pexp_construct ({ txt = Lident "Some"; _ }, Some _)
+      when self#enabled Mutaml_common.Some_to_none && self#choose_to_mutate ->
+      super#expression ctx e >>| fun e' ->
+      let none_exp = { e with pexp_desc = [%expr None].pexp_desc } in
+      self#mutaml_mutant ctx loc none_exp e' (string_of_exp none_exp)
+
     (* we negate an if's condition rather than swapping its branches:
         * it avoids duplication
         * it works for 1-armed ifs too
