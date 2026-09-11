@@ -5,13 +5,12 @@
     that file's mutations, and one list naming those [.muts] files. The
     runner reads both.
 
-    Dune knows about neither file, and that governs where they can go.
-    From dune language 3.3 on, dune runs a preprocessor in a sandbox
-    directory that it deletes afterwards, so a file written to the
-    working directory is lost. Dune also deletes files it does not know
-    about from a build context directory, at the start of the next
-    build. So the files go beside the build context directory instead of
-    inside it. {!resolve} gives the place. *)
+    Dune knows about neither file. From dune language 3.3 on, dune runs
+    a preprocessor in a sandbox directory that it deletes afterwards, so
+    a file written to the working directory is lost. Dune also deletes
+    files it does not know about from a build context directory, at the
+    start of the next build. The files therefore go beside the build
+    context directory and not inside it. *)
 
 type t
 (** The directory that holds the side files of one build. Get one from
