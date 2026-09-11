@@ -48,5 +48,11 @@ jobs:
       - name: Build
         run: opam exec -- dune build @all
 
+      # The cram tests record the text that the compiler prints, and
+      # that text changes between compiler releases: OCaml 5.4 indents
+      # the explanation of a non-exhaustive match and 5.3 does not. The
+      # recordings follow the newest compiler, so only that column
+      # checks them; the older columns prove that the code builds.
       - name: Test
+        if: ${{ matrix.ocaml-compiler == '5.5.x' }}
         run: opam exec -- dune build @runtest
