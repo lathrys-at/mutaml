@@ -87,10 +87,21 @@ process.
    `_build/.mutaml/mutation` for a build context named `mutation`.
    They go beside the build context and not in it because `dune`
    removes from a build context directory every file it does not know
-   about, and it knows about neither of these. `dune clean` removes
-   them with the rest of the build.
-   The overview file names the files of the current build alone: the
-   first `lib.muts` file of a build empties it before adding itself.
+   about, and it knows about neither of these.
+   `dune` names its build context in the environment variable
+   `INSIDE_DUNE`, which is how the preprocessor finds the place without
+   being told. That variable is not part of `dune`'s documented
+   interface. A `dune` that stopped setting it would make the
+   preprocessor write to its working directory, and `mutaml-runner`
+   would then say that it cannot read `mutaml-mut-files.txt`.
+   `dune clean` removes the whole `_build` directory, and with it every
+   `lib.muts` file and the overview file.
+   The overview file names every `lib.muts` file that is present. `dune`
+   runs the preprocessor again only for a source file that changed, and
+   the `lib.muts` file of a file that did not change still describes the
+   program that was built, so a build that changes one file of several
+   leaves all of them listed. A name leaves the list when its `lib.muts`
+   file is gone, which is what `dune clean` leaves behind.
 
 
 3. Start `mutaml-runner`, passing the name of the test executable to run:
@@ -277,12 +288,11 @@ rebuild](https://github.com/ocaml/dune/issues/4390). This can affect
 
 - The output files are not registered with `dune`. They are written
   beside the build context to keep `dune` from deleting them, so steps
-  2, 3 and 4 above can be run again, but one rough edge remains. `dune`
-  runs the preprocessor again only for a source file that changed. A
-  build that changes one file of several therefore leaves
-  `mutaml-mut-files.txt` naming that one file, and `mutaml-runner` then
-  tests the mutations of that file alone. Build every instrumented file
-  in one command, or run `dune clean` first, to test them all.
+  2, 3 and 4 above can be run again. A source file that you delete
+  without running `dune clean` leaves its `lib.muts` file behind.
+  `mutaml-runner` passes over a `lib.muts` file whose source file it
+  cannot find, and says which one, so the mutations of a deleted file do
+  not enter the score. Run `dune clean` to remove the file itself.
 
 - ...
 

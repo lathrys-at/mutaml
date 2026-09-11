@@ -76,10 +76,10 @@ to put the data files in place.
   lib1/lib1.muts
   lib2/lib2.muts
 
-A source change makes the preprocessor run again for that file. The list
-must not then name the file twice. Dune does not run the preprocessor
-again for the file that did not change, so the list names the changed
-file alone, and the runner would test the mutations of that file alone.
+A source change makes the preprocessor run again for that file alone.
+Dune does not run it again for the file that did not change, and that
+file's `.muts` file still describes the program that was built, so the
+list must keep both names and must not name either twice.
 
   $ cat > lib1/lib1.ml <<EOF
   > let add x = x + 2
@@ -89,12 +89,43 @@ file alone, and the runner would test the mutations of that file alone.
   Created 2 mutations of lib1/lib1.ml
   $ sort _build/.mutaml/default/mutaml-mut-files.txt
   lib1/lib1.muts
+  lib2/lib2.muts
 
-Building every instrumented file in one command lists them all again:
+The same holds when the other file is the one that changes:
 
+  $ cat > lib2/lib2.ml <<EOF
+  > let double x = x * 3
+  > EOF
+
+  $ dune build @all --instrument-with mutaml 2>&1 | grep Created | sort
+  Created 2 mutations of lib2/lib2.ml
+  $ sort _build/.mutaml/default/mutaml-mut-files.txt
+  lib1/lib1.muts
+  lib2/lib2.muts
+
+A name leaves the list when its `.muts` file is gone. `dune clean` takes
+every `.muts` file away, so the build after it lists the source files it
+instruments and nothing else:
+
+  $ rm -rf lib2
   $ dune clean
   $ dune build @all --instrument-with mutaml 2>&1 | grep Created | sort
   Created 2 mutations of lib1/lib1.ml
+  $ sort _build/.mutaml/default/mutaml-mut-files.txt
+  lib1/lib1.muts
+
+Put lib2 back for the rest of this test:
+
+  $ mkdir -p lib2
+  $ cat > lib2/dune <<EOF
+  > (library
+  >  (name lib2)
+  >  (instrumentation (backend mutaml)))
+  > EOF
+  $ cat > lib2/lib2.ml <<EOF
+  > let double x = x * 2
+  > EOF
+  $ dune build @all --instrument-with mutaml 2>&1 | grep Created | sort
   Created 2 mutations of lib2/lib2.ml
   $ sort _build/.mutaml/default/mutaml-mut-files.txt
   lib1/lib1.muts

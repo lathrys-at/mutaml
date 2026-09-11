@@ -82,12 +82,14 @@ let write_lines name lines =
     Fun.protect ~finally:(fun () -> close_out_noerr ch)
       (fun () -> List.iter (fun line -> output_string ch (line ^ "\n")) lines)
 
+(* The name of a .muts file as it is on disk. A name that is not
+   implicit, such as an absolute path, is not under [t.dir]. *)
+let muts_path t name =
+  if Filename.is_implicit name then Filename.concat t.dir name else name
+
 let write_muts t ~input_name json =
   let rel_name = Filename.(remove_extension input_name) ^ ".muts" in
-  let full_name =
-    if Filename.is_implicit rel_name
-    then Filename.concat t.dir rel_name
-    else rel_name in
+  let full_name = muts_path t rel_name in
   make_dir (Filename.dirname full_name);
   (match open_out full_name with
    | exception Sys_error msg ->
@@ -122,14 +124,18 @@ let record_muts_file t name =
       let list_name = Filename.concat t.dir Mutaml_common.defaults.mutaml_mut_file in
       let marker_name = Filename.concat t.dir build_marker_file in
       let id = build_id () in
-      (* The list holds the files of this build alone. When the marker
-         names another build, this is the first .muts file of a new
-         build and the list starts again. *)
-      let names =
-        if read_lines marker_name = [id] then read_lines list_name else [] in
+      let same_build = read_lines marker_name = [id] in
+      let previous = read_lines list_name in
+      (* The build system runs the instrumentation again only for a
+         source file that changed, so the first .muts file of a new build
+         keeps the names whose .muts file is still there. A name whose
+         .muts file is gone is dropped. *)
+      let kept =
+        if same_build then previous
+        else List.filter (fun n -> Sys.file_exists (muts_path t n)) previous in
       (* Sorted, so that the list does not depend on the order in which
          dune happened to run the instrumentations. Everything the runner
          and the report print follows the order of this list. *)
-      if not (List.mem name names)
-      then write_lines list_name (List.sort_uniq String.compare (name::names));
-      write_lines marker_name [id])
+      let names = List.sort_uniq String.compare (name::kept) in
+      if names <> previous then write_lines list_name names;
+      if not same_build then write_lines marker_name [id])
