@@ -7,9 +7,10 @@ Next release
   beside the build context, in `_build/.mutaml/<context>`, so that
   `dune`'s preprocessor sandbox and its cleaning of the build directory
   no longer delete them #16 #18 #31 #34 #42
-- Name in `mutaml-mut-files.txt` the files of the current build alone,
-  so that a second build no longer makes the runner test every mutation
-  twice
+- Name in `mutaml-mut-files.txt` every `lib.muts` file that is present,
+  each of them once, so that a second build no longer makes the runner
+  test every mutation twice and an incremental build no longer drops the
+  mutations of the files it did not rebuild
 - Run the test command twice with no mutation before testing any
   mutation, and stop when a run fails or the two runs do not agree
 - Add `--test-env NAME=VALUE` to `mutaml-runner`, repeatable, and write
