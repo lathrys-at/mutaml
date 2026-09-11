@@ -272,6 +272,24 @@ Instrument and check that it was received
     -seed                       Set randomness seed for mutaml's instrumentation
     -mut-rate                   Set probability in % of mutating a syntax tree node (default: 50%)
     -gadt                       Allow only pattern mutations compatible with GADTs (default: true)
+    -bool-constant              Use the bool-constant mutation operator (default: true)
+    -int-constant               Use the int-constant mutation operator (default: true)
+    -space-string               Use the space-string mutation operator (default: true)
+    -arith-operator             Use the arith-operator mutation operator (default: true)
+    -arith-identity             Use the arith-identity mutation operator (default: true)
+    -if-condition               Use the if-condition mutation operator (default: true)
+    -sequence                   Use the sequence mutation operator (default: true)
+    -omit-case                  Use the omit-case mutation operator (default: true)
+    -merge-cases                Use the merge-cases mutation operator (default: true)
+    -compare-boundary           Use the compare-boundary mutation operator (default: true)
+    -compare-negation           Use the compare-negation mutation operator (default: true)
+    -equal-function             Use the equal-function mutation operator (default: true)
+    -connective                 Use the connective mutation operator (default: true)
+    -not-expression             Use the not-expression mutation operator (default: true)
+    -some-to-none               Use the some-to-none mutation operator (default: true)
+    -argument-off-by-one        Use the argument-off-by-one mutation operator (default: true)
+    -guard-always-true          Use the guard-always-true mutation operator (default: false)
+    -string-literal             Use the string-literal mutation operator (default: false)
     -help                       Display this list of options
     --help                      Display this list of options
   File "dune", line 4, characters 1-42:

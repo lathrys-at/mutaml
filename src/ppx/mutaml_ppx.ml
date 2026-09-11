@@ -66,6 +66,59 @@ struct
   let seed = ref 0
   let mut_rate = ref 100
   let gadt = ref false
+
+  (* One switch for each mutation operator. The value each [ref] holds
+     here is the default of that operator. [entry.ml] reads the
+     defaults once, when the program starts, and then overwrites each
+     switch from the command line or from the environment. *)
+
+  (* the operators that upstream mutaml has. Each is on by default, so
+     a project that sets nothing sees what it saw before. *)
+  let bool_constant       = ref true
+  let int_constant        = ref true
+  let space_string        = ref true
+  let arith_operator      = ref true
+  let arith_identity      = ref true
+  let if_condition        = ref true
+  let sequence            = ref true
+  let omit_case           = ref true
+  let merge_cases         = ref true
+
+  (* the operators that this fork adds *)
+  let compare_boundary    = ref true
+  let compare_negation    = ref true
+  let equal_function      = ref true
+  let connective          = ref true
+  let not_expression      = ref true
+  let some_to_none        = ref true
+  let argument_off_by_one = ref true
+  let guard_always_true   = ref false
+  let string_literal      = ref false
+
+  (* Every switch, paired with the operator that names it. [entry.ml]
+     walks this list to build one command line option and one
+     environment variable for each switch, so a new operator needs no
+     change there. *)
+  let switches = Mutaml_common.[
+    Bool_constant,       bool_constant;
+    Int_constant,        int_constant;
+    Space_string,        space_string;
+    Arith_operator,      arith_operator;
+    Arith_identity,      arith_identity;
+    If_condition,        if_condition;
+    Sequence,            sequence;
+    Omit_case,           omit_case;
+    Merge_cases,         merge_cases;
+    Compare_boundary,    compare_boundary;
+    Compare_negation,    compare_negation;
+    Equal_function,      equal_function;
+    Connective,          connective;
+    Not_expression,      not_expression;
+    Some_to_none,        some_to_none;
+    Argument_off_by_one, argument_off_by_one;
+    Guard_always_true,   guard_always_true;
+    String_literal,      string_literal;
+  ]
 end
 
 module Match =
@@ -191,6 +244,79 @@ module Match =
   end
 
 
+(* The modules of the standard library whose [equal] takes two
+   arguments and returns a [bool]. The preprocessor has no types, so it
+   cannot see the result type of a function; this list is what it knows
+   instead. A module outside the list keeps its [equal] unmutated, even
+   when that [equal] does return a [bool]. *)
+let equal_function_modules =
+  [ "Bool"; "Bytes"; "Char"; "Float"; "Int"; "Int32"; "Int64";
+    "Nativeint"; "String"; "Unit" ]
+
+(** [is_equal_function path] is [true] when [path] names the [equal]
+    function of one of the modules above, with or without the [Stdlib]
+    prefix. A local module of the same name shadows the one of the
+    standard library, and then the answer is wrong; this is the same
+    hole that every other path-matching rule in the tool has. *)
+let is_equal_function path = match path with
+  | Longident.Ldot (Longident.Lident m, "equal") ->
+    List.mem m equal_function_modules
+  | Longident.Ldot (Longident.Ldot (Longident.Lident "Stdlib", m), "equal") ->
+    List.mem m equal_function_modules
+  | _ -> false
+
+(** [path_of_longident lid] is the dotted name [lid] as the list of
+    its parts, so that [String.sub] reads as [["String"; "sub"]]. A
+    leading [Stdlib] is dropped, so that [Stdlib.String.sub] reads the
+    same. The answer is [None] for the application of one module to
+    another, which never names a function. *)
+let path_of_longident lid =
+  let rec parts = function
+    | Longident.Lident s      -> Some [s]
+    | Longident.Ldot (lid,s)  -> Option.map (fun p -> p @ [s]) (parts lid)
+    | Longident.Lapply _      -> None in
+  match parts lid with
+  | Some ("Stdlib"::rest) -> Some rest
+  | answer                -> answer
+
+(** Functions of the standard library that take an argument of type
+    [int]. The number beside each path is the position of such an
+    argument, counting the first argument of the function as zero. The
+    preprocessor has no types, so this list is what keeps an
+    off-by-one mutant compiling.
+
+    A module of the program under test that has the same name as one
+    of these, and its own function of the same name with another type,
+    defeats the list, and the mutant then fails to build. Such a
+    program turns the off-by-one operator off. This is the same hole
+    that every other rule in the tool that matches a path has. *)
+let int_argument_table =
+  [ ["String"; "sub"], [1; 2];
+    ["String"; "get"], [1];
+    ["Bytes";  "sub"], [1; 2];
+    ["Bytes";  "get"], [1];
+    ["List";   "nth"], [1] ]
+
+(** Functions of the standard library whose result has type [int], so
+    that the result itself takes an off-by-one. The same hole applies. *)
+let int_result_table = [ ["String"; "length"] ]
+
+(** [int_argument_positions lid] is the list of positions of the
+    arguments of [lid] that have type [int]. It is the empty list when
+    the table does not hold [lid]. *)
+let int_argument_positions lid = match path_of_longident lid with
+  | None      -> []
+  | Some path ->
+    (match List.assoc_opt path int_argument_table with
+     | None           -> []
+     | Some positions -> positions)
+
+(** [has_int_result lid] is [true] when the result of [lid] has type
+    [int] by the table above. *)
+let has_int_result lid = match path_of_longident lid with
+  | None      -> false
+  | Some path -> List.mem path int_result_table
+
 (* Monadic Ppxlib error handling *)
 let return = Ppxlib.With_errors.return
 let (>>=) = Ppxlib.With_errors.(>>=)
@@ -205,6 +331,15 @@ class mutate_mapper (rs : RS.t) =
   val mutable tmp_var_count = 0
 
   method choose_to_mutate = RS.int rs 100 <= !Options.mut_rate
+
+  (* [self#enabled k] says whether the mutation operator [k] is on.
+     Every operator has a switch in [Options.switches], so the second
+     case never runs; it is there so that the method stays total if an
+     operator is ever added to [Mutaml_common.kind] and not to the
+     list. *)
+  method enabled kind = match List.assoc_opt kind Options.switches with
+    | Some switch -> !switch
+    | None        -> true
 
   method incr_count =
     let old_count = mut_count in
@@ -243,14 +378,31 @@ class mutate_mapper (rs : RS.t) =
 
   method! constant _ctx e = return e
   method mutate_constant _ctx c = match c with
-    | Pconst_integer (i,None) ->
+    | Pconst_integer (i,None) when self#enabled Mutaml_common.Int_constant ->
       (match i with
        (* replace 1 with 0 *)
        | "1" -> Const.integer "0"  (*FIXME: choose between this mutation and the below by coin flip *)
        (* replace literal i with [1+i] - but not l,L,n literals *)
        | _   -> Const.int (1 + int_of_string i))
     (* replace " " strings with "" *)
-    | Pconst_string (" ",loc,None) -> Const.string ~loc ""
+    | Pconst_string (" ",loc,None)
+      when self#enabled Mutaml_common.Space_string -> Const.string ~loc ""
+    (* Any other string literal becomes "", and "" becomes " ". This
+       operator is off by default: most string literals of a program
+       are messages that no test reads, so most of its mutants are
+       equivalent and only add noise to a report.
+
+       A literal that holds a '%' is left alone. Such a literal may
+       stand where a format is wanted, and there its type is not
+       [string] but [format], and [""] does not typecheck. A format
+       with no conversion in it, such as [Format.asprintf "hello"],
+       does typecheck as [""], so the rule loses nothing that matters
+       and it needs no types. *)
+    | Pconst_string ("",loc,_)
+      when self#enabled Mutaml_common.String_literal -> Const.string ~loc " "
+    | Pconst_string (str,loc,_)
+      when self#enabled Mutaml_common.String_literal
+        && not (String.contains str '%') -> Const.string ~loc ""
     (* FIXME: add more constant mutations over char,float,int32,int64 *)
     | _ -> c
 
@@ -267,7 +419,7 @@ class mutate_mapper (rs : RS.t) =
                  else __mutaml_tmp26 + __mutaml_tmp25  *)
     match e with
     (* A special case mutations: omit 1+ *)
-    | [%expr 1 + [%e? exp]] ->
+    | [%expr 1 + [%e? exp]] when self#enabled Mutaml_common.Arith_identity ->
       super#expression ctx exp >>| fun exp' -> (* super avoids mut of exp in  1 + exp *)
       let k, tmp_var = self#let_bind ~loc:exp.pexp_loc exp' in
       k (self#mutaml_mutant ctx loc
@@ -276,7 +428,7 @@ class mutate_mapper (rs : RS.t) =
            (string_of_exp exp))
     (* Two special case mutations: omit +1/-1 *)
     | [%expr [%e? exp] + 1]
-    | [%expr [%e? exp] - 1] ->
+    | [%expr [%e? exp] - 1] when self#enabled Mutaml_common.Arith_identity ->
       let op = (match e.pexp_desc with | Pexp_apply (op, _args) -> op | _ -> assert false) in
       super#expression ctx exp >>| fun exp' -> (* super avoids mut of exp in  exp +/- 1 *)
       let k, tmp_var = self#let_bind ~loc:exp.pexp_loc exp' in
@@ -285,17 +437,35 @@ class mutate_mapper (rs : RS.t) =
            { e with pexp_desc = [%expr [%e op] [%e tmp_var] 1].pexp_desc }
            (string_of_exp exp))
     (* General binary operator mutations:
-        turn "+" into "-", "-" into "+", "*" into "+", "/" into "mod", "mod" into "/" *)
+        turn "+" into "-", "-" into "+", "*" into "+", "/" into "mod", "mod" into "/",
+        "<" into "<=", "<=" into "<", ">" into ">=", ">=" into ">",
+        "=" into "<>", and "<>" into "=".
+       The six comparisons all have type ['a -> 'a -> bool], so a swap
+       inside that family keeps the type of the whole expression. *)
     | [%expr [%e? op] [%e? exp1] [%e? exp2]] ->
-      let mut_op = { op with pexp_desc = (match op.pexp_desc with
-          | Pexp_ident ({ txt = Lident "+";   loc }) -> Pexp_ident { txt = Lident "-"; loc }
-          | Pexp_ident ({ txt = Lident "-";   loc }) -> Pexp_ident { txt = Lident "+"; loc }
-          | Pexp_ident ({ txt = Lident "*";   loc }) -> Pexp_ident { txt = Lident "+"; loc }
-          | Pexp_ident ({ txt = Lident "/";   loc }) -> Pexp_ident { txt = Lident "mod"; loc }
-          | Pexp_ident ({ txt = Lident "mod"; loc }) -> Pexp_ident { txt = Lident "/"; loc }
+      (* Each row gives the operator to swap in and the mutation
+         operator that row belongs to, so that the row answers to the
+         right switch. The three arithmetic rows and the six
+         comparison rows are three different mutation operators. *)
+      let swapped, kind = (match op.pexp_desc with
+          | Pexp_ident ({ txt = Lident "+";   loc }) -> Pexp_ident { txt = Lident "-"; loc },   Mutaml_common.Arith_operator
+          | Pexp_ident ({ txt = Lident "-";   loc }) -> Pexp_ident { txt = Lident "+"; loc },   Mutaml_common.Arith_operator
+          | Pexp_ident ({ txt = Lident "*";   loc }) -> Pexp_ident { txt = Lident "+"; loc },   Mutaml_common.Arith_operator
+          | Pexp_ident ({ txt = Lident "/";   loc }) -> Pexp_ident { txt = Lident "mod"; loc }, Mutaml_common.Arith_operator
+          | Pexp_ident ({ txt = Lident "mod"; loc }) -> Pexp_ident { txt = Lident "/"; loc },   Mutaml_common.Arith_operator
+          | Pexp_ident ({ txt = Lident "<";   loc }) -> Pexp_ident { txt = Lident "<="; loc },  Mutaml_common.Compare_boundary
+          | Pexp_ident ({ txt = Lident "<=";  loc }) -> Pexp_ident { txt = Lident "<";  loc },  Mutaml_common.Compare_boundary
+          | Pexp_ident ({ txt = Lident ">";   loc }) -> Pexp_ident { txt = Lident ">="; loc },  Mutaml_common.Compare_boundary
+          | Pexp_ident ({ txt = Lident ">=";  loc }) -> Pexp_ident { txt = Lident ">";  loc },  Mutaml_common.Compare_boundary
+          | Pexp_ident ({ txt = Lident "=";   loc }) -> Pexp_ident { txt = Lident "<>"; loc },  Mutaml_common.Compare_negation
+          | Pexp_ident ({ txt = Lident "<>";  loc }) -> Pexp_ident { txt = Lident "=";  loc },  Mutaml_common.Compare_negation
           | _ ->
-            failwith ("mutaml_ppx, mutate_arithmetic: found some other operator case: " ^  (string_of_exp op))
-        )} in
+            failwith ("mutaml_ppx, mutate_arithmetic: found some other operator case: " ^  (string_of_exp op))) in
+      (* When the operator of this row is off we make no mutant here,
+         but we must still walk into the operands, or they lose the
+         mutants of every other operator. *)
+      if not (self#enabled kind) then super#expression ctx e else
+      let mut_op = { op with pexp_desc = swapped } in
          (* Note: we bind exp2 before exp1 to preserve the current (unspecified) OCaml evaluation order. *)
          self#expression ctx exp2 >>= fun exp2' ->
          let k2, tmp_var2 = self#let_bind ~loc:exp2.pexp_loc exp2' in
@@ -305,10 +475,171 @@ class mutate_mapper (rs : RS.t) =
                    { e with pexp_desc = [%expr [%e mut_op] [%e tmp_var1] [%e tmp_var2]].pexp_desc }
                    { e with pexp_desc = [%expr [%e op]     [%e tmp_var1] [%e tmp_var2]].pexp_desc }
                          (string_of_exp [%expr [%e mut_op] [%e exp1]     [%e exp2]])))
-    | _ -> failwith "mutaml_ppx, mutate_arithmetic: pattern matching on case is was not applied to"
+    | _ -> super#expression ctx e
+
+  (* Short-circuit connectives: "&&" becomes "||", and "||" becomes "&&".
+
+     We must not let-bind the right operand, as mutate_arithmetic does
+     for its operands. That would evaluate the right operand even when
+     the connective does not ask for it, and it would evaluate it
+     before the left one. Both are changes to the program with no
+     mutant active, which the tool must never make.
+
+     We bind the left operand and we delay the right one instead:
+
+       let __MUTAML_TMP0__ = exp1 in
+       let __MUTAML_TMP1__ = fun () -> exp2 in
+       if __is_mutaml_mutant__ "src/lib:42"
+       then __MUTAML_TMP0__ || __MUTAML_TMP1__ ()
+       else __MUTAML_TMP0__ && __MUTAML_TMP1__ ()
+
+     Each branch is still an application of a connective, which the
+     compiler still compiles as a short circuit, so the delayed right
+     operand runs only when the connective asks for it. *)
+  method mutate_shortcircuit ctx e =
+    let loc = e.pexp_loc in
+    let exp1,exp2,op_name,mut_name = match e with
+      | [%expr [%e? exp1] && [%e? exp2]] -> exp1,exp2,"&&","||"
+      | [%expr [%e? exp1] || [%e? exp2]] -> exp1,exp2,"||","&&"
+      | _ -> failwith "mutaml_ppx, mutate_shortcircuit: pattern matching on case is was not applied to" in
+    let connective name = Exp.ident ~loc { txt = Lident name; loc } in
+    self#expression ctx exp1 >>= fun exp1' ->
+    self#expression ctx exp2 >>| fun exp2' ->
+    let k1, tmp_var1 = self#let_bind ~loc:exp1.pexp_loc exp1' in
+    let thunk = self#make_tmp_var () in
+    let demand = [%expr [%e Exp.ident ~loc { txt = Lident thunk; loc }] ()] in
+    let body =
+      self#mutaml_mutant ctx loc
+        { e with pexp_desc = [%expr [%e connective mut_name] [%e tmp_var1] [%e demand]].pexp_desc }
+        { e with pexp_desc = [%expr [%e connective op_name]  [%e tmp_var1] [%e demand]].pexp_desc }
+        (string_of_exp [%expr [%e connective mut_name] [%e exp1] [%e exp2]]) in
+    k1 (Exp.let_ ~loc Nonrecursive
+          [Vb.mk (Pat.var { txt = thunk; loc }) [%expr fun () -> [%e exp2']]]
+          body)
+
+  (* "not exp" becomes "exp":
+
+       let __MUTAML_TMP0__ = exp in
+       if __is_mutaml_mutant__ "src/lib:42"
+       then __MUTAML_TMP0__
+       else not __MUTAML_TMP0__
+
+     Both [exp] and [not exp] have type [bool], so the type of the
+     whole expression does not change. *)
+  method mutate_not ctx e exp =
+    let loc = e.pexp_loc in
+    self#expression ctx exp >>| fun exp' ->
+    let k, tmp_var = self#let_bind ~loc:exp.pexp_loc exp' in
+    k (self#mutaml_mutant ctx loc
+         { e with pexp_desc = tmp_var.pexp_desc }
+         { e with pexp_desc = [%expr not [%e tmp_var]].pexp_desc }
+         (string_of_exp exp))
+
+  (* "String.equal a b" becomes "not (String.equal a b)", for the
+     modules that [equal_function_modules] names. The negation is the
+     same mutation that "=" to "<>" makes, for code that calls the
+     typed equality function instead of the polymorphic operator.
+
+     The application has type [bool], and so does its negation, so the
+     type of the whole expression does not change. *)
+  method mutate_equal_function ctx e =
+    let loc = e.pexp_loc in
+    super#expression ctx e >>| fun e' -> (* super: mutate the arguments, not the call again *)
+    let k, tmp_var = self#let_bind ~loc e' in
+    k (self#mutaml_mutant ctx loc
+         { e with pexp_desc = [%expr not [%e tmp_var]].pexp_desc }
+         { e with pexp_desc = tmp_var.pexp_desc }
+         (string_of_exp [%expr not [%e e]]))
+
+  (* [self#off_by_one ctx ~loc ~original recursed] wraps an expression
+     of type [int] in two mutants: one that adds one to it and one
+     that takes one from it. [recursed] is the expression after the
+     preprocessor has walked inside it, and [original] is the
+     expression as the source file writes it, which the record of the
+     mutation shows. The expression is bound to a name first, so that
+     it is written once and evaluated once, whichever mutant is on. *)
+  method off_by_one ctx ~loc ~original recursed =
+    let k, tmp = self#let_bind ~loc recursed in
+    let minus =
+      self#mutaml_mutant ctx loc
+        [%expr [%e tmp] - 1] tmp (string_of_exp [%expr [%e original] - 1]) in
+    k (self#mutaml_mutant ctx loc
+         [%expr [%e tmp] + 1] minus (string_of_exp [%expr [%e original] + 1]))
+
+  (* Off by one on each argument of a call that the table says has
+     type [int]. Every other argument is walked as usual. The
+     arguments keep their places, so the order in which the program
+     evaluates them does not change. *)
+  method mutate_int_arguments ctx e fn positions args =
+    let rec walk position acc args = match args with
+      | [] -> return (List.rev acc)
+      | (Nolabel, arg)::rest when List.mem position positions ->
+        self#expression ctx arg >>= fun arg' ->
+        let arg'' =
+          self#off_by_one ctx ~loc:arg.pexp_loc ~original:arg arg' in
+        walk (position+1) ((Nolabel, arg'')::acc) rest
+      | (Nolabel, arg)::rest ->
+        self#expression ctx arg >>= fun arg' ->
+        walk (position+1) ((Nolabel, arg')::acc) rest
+      | (label, arg)::rest ->
+        (* a labelled argument has no position among the others *)
+        self#expression ctx arg >>= fun arg' ->
+        walk position ((label, arg')::acc) rest in
+    walk 0 [] args >>| fun args' ->
+    { e with pexp_desc = Pexp_apply (fn, args') }
+
+  (* Off by one on the result of a call that the table says has type
+     [int], such as [String.length s]. *)
+  method mutate_int_result ctx e =
+    super#expression ctx e >>| fun e' ->
+    self#off_by_one ctx ~loc:e.pexp_loc ~original:e e'
+
+  (* [self#mutate_guards ctx cases] gives each case that has a [when]
+     guard a mutant that makes the guard always hold:
+
+       | pat when guard        ~~>  | pat when __is_mutaml_mutant__ id || guard
+
+     so that the case fires where the program says it must not. This
+     is the opposite of the mutation that mutaml already had, which
+     makes a guarded case fire never; the two find different defects.
+
+     The guard stays a Boolean expression, so the mutant typechecks,
+     and the case still has a guard, so the compiler still treats the
+     case as one that can fail and reports no new warning.
+
+     The record of the mutation covers the text from the end of the
+     pattern to the end of the guard, which is the text "when guard",
+     and deletes it, so that a report shows the guard taken away.
+
+     This operator is off by default. A guard that always holds is
+     often an equivalent mutant, because a later case does the same
+     thing. *)
+  method mutate_guards ctx cases =
+    List.map
+      (fun case -> match case.pc_guard with
+         | None -> case
+         | Some guard ->
+           if not (self#enabled Mutaml_common.Guard_always_true
+                   && self#choose_to_mutate)
+           then case
+           else
+             let loc = guard.pexp_loc in
+             let span =
+               { case.pc_lhs.ppat_loc with
+                 loc_start = case.pc_lhs.ppat_loc.loc_end;
+                 loc_end   = guard.pexp_loc.loc_end } in
+             let mut_no, mut_id_exp = self#make_mut_number_and_id loc ctx in
+             let mutation =
+               Mutaml_common.{ number = mut_no; repl = None; loc = span } in
+             mutations <- mutation::mutations;
+             { case with
+               pc_guard =
+                 Some [%expr __is_mutaml_mutant__ [%e mut_id_exp] || [%e guard]] })
+      cases
 
   method! cases ctx cases =
     super#cases ctx cases >>| fun cases -> (* visit individual cases first *)
+    let cases = self#mutate_guards ctx cases in
     let cases_exc, cases_pure =
       List.partition (fun c -> Match.pat_matches_exception c.pc_lhs) cases in
     let cases_contain_catch_all
@@ -327,9 +658,20 @@ class mutate_mapper (rs : RS.t) =
       if Match.pat_is_catch_all case1.pc_lhs
       then case1::cases' (* neither match for omit-pattern or merge-consecutive *)
       else
+      (* The two mutations below are two different operators, and each
+         has its own switch. Which of the two this case takes is
+         settled here, before the mutation is made, so that a case
+         whose operator is off draws no random number and leaves the
+         mutants of every other operator where they were. *)
+      let takes_omit_case = cases_contain_catch_all || case1.pc_guard <> None in
+      let kind =
+        if takes_omit_case
+        then Mutaml_common.Omit_case
+        else Mutaml_common.Merge_cases in
       if (not cases_contain_catch_all
       && (not (Match.patterns_agree case1.pc_lhs case2.pc_lhs)
           || Match.pat_is_catch_all case2.pc_lhs))
+      || not (self#enabled kind)
       || not self#choose_to_mutate
       then case1::cases'
       else
@@ -343,7 +685,7 @@ class mutate_mapper (rs : RS.t) =
             | Some g -> Some [%expr [%e g] && [%e mut_guard] ]) in
         let case1' = { case1 with pc_guard = guard } in
 
-        if cases_contain_catch_all || case1.pc_guard <> None
+        if takes_omit_case
         then
           (* drop case from pattern-match when there is a '_'-catch all case and >1 additional cases *)
           (* match f x with             match f x with
@@ -406,10 +748,12 @@ class mutate_mapper (rs : RS.t) =
     | [%expr assert [%e? _]], _-> return e
 
     (* swap bool constructors *)
-    | [%expr true],_ when self#choose_to_mutate ->
+    | [%expr true],_
+      when self#enabled Mutaml_common.Bool_constant && self#choose_to_mutate ->
       let false_exp = { e with pexp_desc = [%expr false].pexp_desc } in
       return (self#mutaml_mutant ctx loc false_exp e (string_of_exp false_exp))
-    | [%expr false],_ when self#choose_to_mutate ->
+    | [%expr false],_
+      when self#enabled Mutaml_common.Bool_constant && self#choose_to_mutate ->
       let true_exp = { e with pexp_desc = [%expr true].pexp_desc } in
       return (self#mutaml_mutant ctx loc true_exp e (string_of_exp true_exp))
 
@@ -417,14 +761,76 @@ class mutate_mapper (rs : RS.t) =
     | [%expr [%e? _] - [%e? _]],_
     | [%expr [%e? _] * [%e? _]],_
     | [%expr [%e? _] / [%e? _]],_
-    | [%expr [%e? _] mod [%e? _]],_ when self#choose_to_mutate ->
+    | [%expr [%e? _] mod [%e? _]],_
+      when (self#enabled Mutaml_common.Arith_operator
+            || self#enabled Mutaml_common.Arith_identity)
+        && self#choose_to_mutate ->
       self#mutate_arithmetic ctx e
+
+    (* move a comparison by one boundary *)
+    | [%expr [%e? _] <  [%e? _]],_
+    | [%expr [%e? _] <= [%e? _]],_
+    | [%expr [%e? _] >  [%e? _]],_
+    | [%expr [%e? _] >= [%e? _]],_
+      when self#enabled Mutaml_common.Compare_boundary && self#choose_to_mutate ->
+      self#mutate_arithmetic ctx e
+
+    (* negate an equality test *)
+    | [%expr [%e? _] =  [%e? _]],_
+    | [%expr [%e? _] <> [%e? _]],_
+      when self#enabled Mutaml_common.Compare_negation && self#choose_to_mutate ->
+      self#mutate_arithmetic ctx e
+
+    (* swap a Boolean connective, keeping its short-circuit behaviour *)
+    | [%expr [%e? _] && [%e? _]],_
+    | [%expr [%e? _] || [%e? _]],_
+      when self#enabled Mutaml_common.Connective && self#choose_to_mutate ->
+      self#mutate_shortcircuit ctx e
+
+    (* drop a negation *)
+    | [%expr not [%e? exp]],_
+      when self#enabled Mutaml_common.Not_expression && self#choose_to_mutate ->
+      self#mutate_not ctx e exp
+
+    (* negate a call of a typed equality function, such as String.equal *)
+    | _, Pexp_apply ({ pexp_desc = Pexp_ident { txt = path; _ }; _ },
+                     [(Nolabel,_); (Nolabel,_)])
+      when is_equal_function path
+        && self#enabled Mutaml_common.Equal_function && self#choose_to_mutate ->
+      self#mutate_equal_function ctx e
 
     | _, Pexp_constant c when self#choose_to_mutate ->
       let c' = self#mutate_constant ctx c in
       if c = c' then return e else
         let e_new = { e with pexp_desc = Pexp_constant c' } in
         return (self#mutaml_mutant ctx loc e_new e (string_of_exp e_new))
+
+    (* [Some e] becomes [None]. Both have type ['a option], so the
+       mutant compiles, unless the program defines its own constructor
+       named [Some] in a type that has no [None]. The preprocessor
+       cannot see that, so a program that does so must turn this
+       operator off with -some-to-none false. *)
+    | _, Pexp_construct ({ txt = Lident "Some"; _ }, Some _)
+      when self#enabled Mutaml_common.Some_to_none && self#choose_to_mutate ->
+      super#expression ctx e >>| fun e' ->
+      let none_exp = { e with pexp_desc = [%expr None].pexp_desc } in
+      self#mutaml_mutant ctx loc none_exp e' (string_of_exp none_exp)
+
+    (* off by one on an integer argument of a call whose argument
+       types the table knows *)
+    | _, Pexp_apply (({ pexp_desc = Pexp_ident { txt = path; _ }; _ } as fn), args)
+      when self#enabled Mutaml_common.Argument_off_by_one
+        && int_argument_positions path <> []
+        && self#choose_to_mutate ->
+      self#mutate_int_arguments ctx e fn (int_argument_positions path) args
+
+    (* off by one on the integer result of a call whose result type
+       the table knows *)
+    | _, Pexp_apply ({ pexp_desc = Pexp_ident { txt = path; _ }; _ }, _)
+      when self#enabled Mutaml_common.Argument_off_by_one
+        && has_int_result path
+        && self#choose_to_mutate ->
+      self#mutate_int_result ctx e
 
     (* we negate an if's condition rather than swapping its branches:
         * it avoids duplication
@@ -435,7 +841,8 @@ class mutate_mapper (rs : RS.t) =
                                               then not __MUTAML_TMP__ else __MUTAML_TMP__)
                                            then e1
                                            else e2       *)
-    | _, Pexp_ifthenelse (e0,e1,e2_opt) when self#choose_to_mutate ->
+    | _, Pexp_ifthenelse (e0,e1,e2_opt)
+      when self#enabled Mutaml_common.If_condition && self#choose_to_mutate ->
       self#expression ctx e0 >>= fun e0' ->
       self#expression ctx e1 >>= fun e1' ->
       let cont e2_opt' =
@@ -456,16 +863,20 @@ class mutate_mapper (rs : RS.t) =
                              (if __is_mutaml_mutant__ [%e mut_id_exp]
        e0; e1  ~~>            then ()
                               else e0'); e'  *)
-    | _, Pexp_sequence (e0,e1) when self#choose_to_mutate ->
+    | _, Pexp_sequence (e0,e1)
+      when self#enabled Mutaml_common.Sequence && self#choose_to_mutate ->
       self#expression ctx e0 >>= fun e0' ->
       self#expression ctx e1 >>| fun e1' ->
       let e0'' =
         self#mutaml_mutant ctx loc(*e0.pexp_loc*) [%expr ()] e0' (string_of_exp e1) in
       { e0 with pexp_desc = Pexp_sequence (e0'',e1') }
 
-    | _, Pexp_function cases ->
+    | _, Pexp_function (params, constr, Pfunction_cases (cases, cases_loc, cases_attrs)) ->
       self#cases ctx cases >>| fun cases_pure -> (* all cases are pure in 'function' *)
-      let function_ = { e with pexp_desc = Pexp_function cases_pure } in
+      let function_ =
+        { e with pexp_desc =
+                   Pexp_function (params, constr,
+                                  Pfunction_cases (cases_pure, cases_loc, cases_attrs)) } in
       if Match.cases_contain_matching_patterns cases_pure
       then
         Exp.attr function_ (* disable pattern-match warning *)

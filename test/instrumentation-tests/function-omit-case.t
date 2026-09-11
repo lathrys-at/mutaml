@@ -314,7 +314,7 @@ Another test w/tuples and wildcards:
   $ bash ../filter_dune_build.sh ./test.bc --instrument-with mutaml
   Running mutaml instrumentation on "test.ml"
   Randomness seed: 896745231   Mutation rate: 100   GADTs enabled: true
-  Created 2 mutations of test.ml
+  Created 6 mutations of test.ml
   Writing mutation info to test.muts
   
   let __MUTAML_MUTANT__ = Stdlib.Sys.getenv_opt "MUTAML_MUTANT"
@@ -327,9 +327,16 @@ Another test w/tuples and wildcards:
     | (Some x, _) when not (__is_mutaml_mutant__ "test:1") -> x
     | (_, Some y) when not (__is_mutaml_mutant__ "test:0") -> y
     | (_, _) -> fallback
-  ;;(prioritize "3rd" ((Some "1st"), (Some "2nd"))) |> print_endline
-  ;;(prioritize "3rd" ((Some "1st"), None)) |> print_endline
-  ;;(prioritize "3rd" (None, (Some "2nd"))) |> print_endline
+  ;;(prioritize "3rd"
+       ((if __is_mutaml_mutant__ "test:2" then None else Some "1st"),
+         (if __is_mutaml_mutant__ "test:3" then None else Some "2nd")))
+      |> print_endline
+  ;;(prioritize "3rd"
+       ((if __is_mutaml_mutant__ "test:4" then None else Some "1st"), None))
+      |> print_endline
+  ;;(prioritize "3rd"
+       (None, (if __is_mutaml_mutant__ "test:5" then None else Some "2nd")))
+      |> print_endline
   ;;(prioritize "3rd" (None, None)) |> print_endline
 
   $ _build/default/test.bc
@@ -357,6 +364,10 @@ Start runner and generate report to ensure mutants print correctly:
   read mut file test.muts
   Testing mutant test:0 ... passed
   Testing mutant test:1 ... passed
+  Testing mutant test:2 ... passed
+  Testing mutant test:3 ... passed
+  Testing mutant test:4 ... passed
+  Testing mutant test:5 ... passed
   Writing report data to mutaml-report.json
 
 
@@ -368,7 +379,7 @@ Start runner and generate report to ensure mutants print correctly:
   
    target                          #mutations      #failed      #timeouts      #passed 
    -------------------------------------------------------------------------------------
-   test.ml                                2       0.0%    0     0.0%    0   100.0%    2
+   test.ml                                6       0.0%    0     0.0%    0   100.0%    6
    =====================================================================================
   
   Mutation programs passing the test suite:
@@ -401,6 +412,67 @@ Start runner and generate report to ensure mutants print correctly:
   
   ---------------------------------------------------------------------------
   
+  Mutation "test.ml-mutant2" passed (see "_mutations/test.ml-mutant2.output"):
+  
+  --- test.ml
+  +++ test.ml-mutant2
+  @@ -2,7 +2,7 @@
+     | Some x, _  -> x
+     | _, Some y  -> y
+     | _, _       -> fallback;;
+  -prioritize "3rd" (Some "1st",Some "2nd") |> print_endline;;
+  +prioritize "3rd" (None,Some "2nd") |> print_endline;;
+   prioritize "3rd" (Some "1st",None      ) |> print_endline;;
+   prioritize "3rd" (None      ,Some "2nd") |> print_endline;;
+   prioritize "3rd" (None      ,None      ) |> print_endline
+  
+  ---------------------------------------------------------------------------
+  
+  Mutation "test.ml-mutant3" passed (see "_mutations/test.ml-mutant3.output"):
+  
+  --- test.ml
+  +++ test.ml-mutant3
+  @@ -2,7 +2,7 @@
+     | Some x, _  -> x
+     | _, Some y  -> y
+     | _, _       -> fallback;;
+  -prioritize "3rd" (Some "1st",Some "2nd") |> print_endline;;
+  +prioritize "3rd" (Some "1st",None) |> print_endline;;
+   prioritize "3rd" (Some "1st",None      ) |> print_endline;;
+   prioritize "3rd" (None      ,Some "2nd") |> print_endline;;
+   prioritize "3rd" (None      ,None      ) |> print_endline
+  
+  ---------------------------------------------------------------------------
+  
+  Mutation "test.ml-mutant4" passed (see "_mutations/test.ml-mutant4.output"):
+  
+  --- test.ml
+  +++ test.ml-mutant4
+  @@ -3,6 +3,6 @@
+     | _, Some y  -> y
+     | _, _       -> fallback;;
+   prioritize "3rd" (Some "1st",Some "2nd") |> print_endline;;
+  -prioritize "3rd" (Some "1st",None      ) |> print_endline;;
+  +prioritize "3rd" (None,None      ) |> print_endline;;
+   prioritize "3rd" (None      ,Some "2nd") |> print_endline;;
+   prioritize "3rd" (None      ,None      ) |> print_endline
+  
+  ---------------------------------------------------------------------------
+  
+  Mutation "test.ml-mutant5" passed (see "_mutations/test.ml-mutant5.output"):
+  
+  --- test.ml
+  +++ test.ml-mutant5
+  @@ -4,5 +4,5 @@
+     | _, _       -> fallback;;
+   prioritize "3rd" (Some "1st",Some "2nd") |> print_endline;;
+   prioritize "3rd" (Some "1st",None      ) |> print_endline;;
+  -prioritize "3rd" (None      ,Some "2nd") |> print_endline;;
+  +prioritize "3rd" (None      ,None) |> print_endline;;
+   prioritize "3rd" (None      ,None      ) |> print_endline
+  
+  ---------------------------------------------------------------------------
+  
 
 
 Same example without wildcards will not be instrumented with this mutation:
@@ -421,7 +493,7 @@ Same example without wildcards will not be instrumented with this mutation:
   $ bash ../filter_dune_build.sh ./test.bc --instrument-with mutaml
   Running mutaml instrumentation on "test.ml"
   Randomness seed: 896745231   Mutation rate: 100   GADTs enabled: true
-  Created 0 mutations of test.ml
+  Created 4 mutations of test.ml
   Writing mutation info to test.muts
   
   let __MUTAML_MUTANT__ = Stdlib.Sys.getenv_opt "MUTAML_MUTANT"
@@ -431,7 +503,14 @@ Same example without wildcards will not be instrumented with this mutation:
     | Some mutant -> String.equal m mutant
   let prioritize fallback =
     function | (Some x, _) -> x | (_, Some y) -> y | (None, None) -> fallback
-  ;;(prioritize "3rd" ((Some "1st"), (Some "2nd"))) |> print_endline
-  ;;(prioritize "3rd" ((Some "1st"), None)) |> print_endline
-  ;;(prioritize "3rd" (None, (Some "2nd"))) |> print_endline
+  ;;(prioritize "3rd"
+       ((if __is_mutaml_mutant__ "test:0" then None else Some "1st"),
+         (if __is_mutaml_mutant__ "test:1" then None else Some "2nd")))
+      |> print_endline
+  ;;(prioritize "3rd"
+       ((if __is_mutaml_mutant__ "test:2" then None else Some "1st"), None))
+      |> print_endline
+  ;;(prioritize "3rd"
+       (None, (if __is_mutaml_mutant__ "test:3" then None else Some "2nd")))
+      |> print_endline
   ;;(prioritize "3rd" (None, None)) |> print_endline
