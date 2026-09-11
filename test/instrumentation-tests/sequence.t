@@ -66,6 +66,8 @@ Check that instrumentation hasn't changed the program's behaviour
 
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
+  Testing without a mutant ... passed
+  Testing without a mutant a second time ... passed
   Testing mutant test:0 ... failed
   Testing mutant test:1 ... failed
   Testing mutant test:2 ... failed
@@ -125,6 +127,8 @@ Check that instrumentation hasn't changed the program's behaviour
 
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
+  Testing without a mutant ... passed
+  Testing without a mutant a second time ... passed
   Testing mutant test:0 ... passed
   Testing mutant test:1 ... passed
   Testing mutant test:2 ... passed
@@ -210,3 +214,6 @@ Check that instrumentation hasn't changed the program's behaviour
   
   ---------------------------------------------------------------------------
   
+  Mutation score: 0.0% (4 mutations: 0 failed, 0 timed out, 4 passed)
+  The score is below 100%. Use --fail-under to accept a lower score.
+  [1]

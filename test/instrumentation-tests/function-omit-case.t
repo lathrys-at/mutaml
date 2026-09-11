@@ -74,6 +74,8 @@ Start runner and generate report to ensure mutants print correctly:
 
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
+  Testing without a mutant ... passed
+  Testing without a mutant a second time ... passed
   Testing mutant test:0 ... passed
   Testing mutant test:1 ... passed
   Testing mutant test:2 ... passed
@@ -136,6 +138,9 @@ Start runner and generate report to ensure mutants print correctly:
   
   ---------------------------------------------------------------------------
   
+  Mutation score: 0.0% (3 mutations: 0 failed, 0 timed out, 3 passed)
+  The score is below 100%. Use --fail-under to accept a lower score.
+  [1]
 
 
 Test that same example with a variable will be instrumented with this mutation:
@@ -216,6 +221,8 @@ Test that same example with a variable will be instrumented with this mutation:
 
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
+  Testing without a mutant ... passed
+  Testing without a mutant a second time ... passed
   Testing mutant test:0 ... passed
   Testing mutant test:1 ... passed
   Testing mutant test:2 ... passed
@@ -295,6 +302,9 @@ Test that same example with a variable will be instrumented with this mutation:
   
   ---------------------------------------------------------------------------
   
+  Mutation score: 0.0% (4 mutations: 0 failed, 0 timed out, 4 passed)
+  The score is below 100%. Use --fail-under to accept a lower score.
+  [1]
 
 
 Another test w/tuples and wildcards:
@@ -355,6 +365,8 @@ Start runner and generate report to ensure mutants print correctly:
 
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
+  Testing without a mutant ... passed
+  Testing without a mutant a second time ... passed
   Testing mutant test:0 ... passed
   Testing mutant test:1 ... passed
   Writing report data to mutaml-report.json
@@ -401,6 +413,9 @@ Start runner and generate report to ensure mutants print correctly:
   
   ---------------------------------------------------------------------------
   
+  Mutation score: 0.0% (2 mutations: 0 failed, 0 timed out, 2 passed)
+  The score is below 100%. Use --fail-under to accept a lower score.
+  [1]
 
 
 Same example without wildcards will not be instrumented with this mutation:

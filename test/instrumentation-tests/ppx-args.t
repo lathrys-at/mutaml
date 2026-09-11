@@ -390,15 +390,15 @@ And a dune file:
 
 
   $ ls _build/mutation
-  mutaml-mut-files.txt
   test.bc
   test.ml
-  test.muts
   test.pp.ml
 
   $ export MUTAML_BUILD_CONTEXT="_build/mutation"
   $ mutaml-runner _build/mutation/test.bc
   read mut file test.muts
+  Testing without a mutant ... passed
+  Testing without a mutant a second time ... passed
   Testing mutant test:0 ... passed
   Testing mutant test:1 ... passed
   Testing mutant test:2 ... passed

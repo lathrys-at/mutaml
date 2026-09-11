@@ -42,13 +42,11 @@ Set seed and (full) mutation rate as environment variables, for repeatability
 
   $ ls _build
   default
-  log
+  trace.csexp
 
   $ ls _build/default
-  mutaml-mut-files.txt
   test.exe
   test.ml
-  test.muts
   test.pp.ml
 
   $ mutaml-runner _build/default/test.exe

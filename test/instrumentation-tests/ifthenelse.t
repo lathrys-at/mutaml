@@ -44,6 +44,8 @@ Example with a simple if-then-else:
 
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
+  Testing without a mutant ... passed
+  Testing without a mutant a second time ... passed
   Testing mutant test:0 ... passed
   Testing mutant test:1 ... passed
   Testing mutant test:2 ... passed
@@ -100,6 +102,9 @@ Example with a simple if-then-else:
   
   ---------------------------------------------------------------------------
   
+  Mutation score: 0.0% (3 mutations: 0 failed, 0 timed out, 3 passed)
+  The score is below 100%. Use --fail-under to accept a lower score.
+  [1]
 
 
 
@@ -174,6 +179,8 @@ An example with nested ifs:
 
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
+  Testing without a mutant ... passed
+  Testing without a mutant a second time ... passed
   Testing mutant test:0 ... passed
   Testing mutant test:1 ... passed
   Testing mutant test:2 ... passed
@@ -298,3 +305,6 @@ An example with nested ifs:
   
   ---------------------------------------------------------------------------
   
+  Mutation score: 0.0% (7 mutations: 0 failed, 0 timed out, 7 passed)
+  The score is below 100%. Use --fail-under to accept a lower score.
+  [1]

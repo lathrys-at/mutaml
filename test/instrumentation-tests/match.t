@@ -226,6 +226,8 @@ Same example but with GADT-unsafe mutations enabled:
 
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
+  Testing without a mutant ... passed
+  Testing without a mutant a second time ... passed
   Testing mutant test:0 ... passed
   Testing mutant test:1 ... passed
   Writing report data to mutaml-report.json
@@ -279,6 +281,9 @@ Same example but with GADT-unsafe mutations enabled:
   
   ---------------------------------------------------------------------------
   
+  Mutation score: 0.0% (2 mutations: 0 failed, 0 timed out, 2 passed)
+  The score is below 100%. Use --fail-under to accept a lower score.
+  [1]
 
   $ unset MUTAML_GADT
 
@@ -365,6 +370,8 @@ Instead we trigger the collapse-consecutive-patterns mutation:
 
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
+  Testing without a mutant ... passed
+  Testing without a mutant a second time ... passed
   Testing mutant test:0 ... passed
   Testing mutant test:1 ... passed
   Testing mutant test:2 ... passed
@@ -577,6 +584,9 @@ Instead we trigger the collapse-consecutive-patterns mutation:
   
   ---------------------------------------------------------------------------
   
+  Mutation score: 0.0% (13 mutations: 0 failed, 0 timed out, 13 passed)
+  The score is below 100%. Use --fail-under to accept a lower score.
+  [1]
 
 
 
@@ -654,6 +664,8 @@ Another example that would trigger merge-of-consecutive-patterns w/GADT true:
 
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
+  Testing without a mutant ... passed
+  Testing without a mutant a second time ... passed
   Testing mutant test:0 ... passed
   Testing mutant test:1 ... passed
   Testing mutant test:2 ... passed
@@ -745,6 +757,9 @@ Another example that would trigger merge-of-consecutive-patterns w/GADT true:
   
   ---------------------------------------------------------------------------
   
+  Mutation score: 0.0% (5 mutations: 0 failed, 0 timed out, 5 passed)
+  The score is below 100%. Use --fail-under to accept a lower score.
+  [1]
 
 
 
@@ -805,6 +820,8 @@ Same example that triggers merge-of-consecutive-patterns w/GADT false:
 
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
+  Testing without a mutant ... passed
+  Testing without a mutant a second time ... passed
   Testing mutant test:0 ... passed
   Testing mutant test:1 ... passed
   Testing mutant test:2 ... passed
@@ -862,19 +879,21 @@ Same example that triggers merge-of-consecutive-patterns w/GADT false:
   
   --- test.ml
   +++ test.ml-mutant2
-  @@ -7,11 +7,7 @@
+  @@ -7,13 +7,9 @@
    let rec interpret xval ae = match ae with
      | X -> xval
      | Lit i -> i
   -  | Binop (ae0, Add, ae1) ->
-  -    let v0 = interpret xval ae0 in
-  -    let v1 = interpret xval ae1 in
-  -    v0 + v1
-  -  | Binop (ae0, Mul, ae1) ->
   +  | Binop (ae0, Add, ae1) | Binop (ae0, Mul, ae1) ->
        let v0 = interpret xval ae0 in
        let v1 = interpret xval ae1 in
+  -    v0 + v1
+  -  | Binop (ae0, Mul, ae1) ->
+  -    let v0 = interpret xval ae0 in
+  -    let v1 = interpret xval ae1 in
        v0 * v1
+   
+   let () = interpret 2 (Binop (Lit 1, Add, Binop (X, Mul, Lit 3))) |> Printf.printf "1 + x*3 = %i\n"
   
   ---------------------------------------------------------------------------
   
@@ -917,6 +936,9 @@ Same example that triggers merge-of-consecutive-patterns w/GADT false:
   
   ---------------------------------------------------------------------------
   
+  Mutation score: 0.0% (6 mutations: 0 failed, 0 timed out, 6 passed)
+  The score is below 100%. Use --fail-under to accept a lower score.
+  [1]
   $ unset MUTAML_GADT
 
 
@@ -967,9 +989,9 @@ Another example that would trigger merge-of-consecutive-patterns:
   5 |   | [| _;_;_ |] -> 3
   6 |   | _ when true -> 1000
   Error (warning 8 [partial-match]): this pattern-matching is not exhaustive.
-  Here is an example of a case that is not matched:
-  [| _ ; _ ; _ ; _ |]
-  (However, some guarded clause may match this value.)
+    Here is an example of a case that is not matched:
+      [| _ ; _ ; _ ; _ |]
+      (However, some guarded clause may match this value.)
 
 
 
