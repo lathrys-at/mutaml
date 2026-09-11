@@ -186,6 +186,13 @@ rule can turn the operator off.
   with its own module named `String` breaks the rule. Set
   `MUTAML_EQUAL_FUNCTION=false`.
 
+- **`connective` and `not-expression`.** These read `&&`, `||` and
+  `not` as the standard library defines them: two Boolean values in,
+  one Boolean value out. A program that gives one of the three another
+  meaning, and does not give its partner the same meaning, breaks the
+  rule, and the mutant does not compile. Set
+  `MUTAML_CONNECTIVE=false` or `MUTAML_NOT_EXPRESSION=false`.
+
 - **`compare-boundary` and `compare-negation`.** These read the
   operator as it is written. `x < y` is mutated; `Int.( < ) x y`,
   written with a module in front of the operator, is not. Swapping a
