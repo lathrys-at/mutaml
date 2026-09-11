@@ -18,19 +18,25 @@ Set seed and (full) mutation rate as environment variables, for repeatability
   $ export MUTAML_SEED=896745231
   $ export MUTAML_MUT_RATE=100
 
-  $ bash ../filter_dune_build.sh test/ounittest.exe --instrument-with mutaml
-  Running mutaml instrumentation on "src/lib1.ml"
-  Randomness seed: 896745231   Mutation rate: 100   GADTs enabled: true
+Dune instruments the two modules in whatever order it likes, and it
+prints the messages of each in the order it finished them, so sort the
+output. Everything after this point is in a fixed order, because the
+list of mutation files is sorted.
+
+  $ bash ../filter_dune_build.sh test/ounittest.exe --instrument-with mutaml | sort
   Created 3 mutations of src/lib1.ml
-  Writing mutation info to src/lib1.muts
-  Running mutaml instrumentation on "src/lib2.ml"
-  Randomness seed: 896745231   Mutation rate: 100   GADTs enabled: true
   Created 6 mutations of src/lib2.ml
+  Randomness seed: 896745231   Mutation rate: 100   GADTs enabled: true
+  Randomness seed: 896745231   Mutation rate: 100   GADTs enabled: true
+  Running mutaml instrumentation on "src/lib1.ml"
+  Running mutaml instrumentation on "src/lib2.ml"
+  Writing mutation info to src/lib1.muts
   Writing mutation info to src/lib2.muts
 
   $ mutaml-runner _build/default/test/ounittest.exe
   read mut file src/lib1.muts
   read mut file src/lib2.muts
+  Testing without a mutant ... passed
   Testing mutant src/lib1:0 ... failed
   Testing mutant src/lib1:1 ... failed
   Testing mutant src/lib1:2 ... failed
@@ -103,9 +109,13 @@ Set seed and (full) mutation rate as environment variables, for repeatability
   
   ---------------------------------------------------------------------------
   
+  Mutation score: 66.7% (9 mutations: 6 failed, 0 timed out, 3 passed)
+  The score is below 100%. Use --fail-under to accept a lower score.
+  [2]
 Now try testing only the mutations in src/lib1.muts:
 
   $ mutaml-runner --muts src/lib1.muts _build/default/test/ounittest.exe
+  Testing without a mutant ... passed
   Testing mutant src/lib1:0 ... failed
   Testing mutant src/lib1:1 ... failed
   Testing mutant src/lib1:2 ... failed
@@ -124,10 +134,12 @@ And report a summary:
    src/lib1.ml                            3     100.0%    3     0.0%    0     0.0%    0
    =====================================================================================
   
+  Mutation score: 100.0% (3 mutations: 3 failed, 0 timed out, 0 passed)
 
 Now try the same for src/lib2.muts:
 
   $ mutaml-runner --muts src/lib2.muts _build/default/test/ounittest.exe
+  Testing without a mutant ... passed
   Testing mutant src/lib2:0 ... passed
   Testing mutant src/lib2:1 ... passed
   Testing mutant src/lib2:2 ... passed
@@ -155,3 +167,6 @@ And report a diff-free summary:
   Mutation "src/lib2.ml-mutant0" passed (see "_mutations/src/lib2.ml-mutant0.output")
   Mutation "src/lib2.ml-mutant1" passed (see "_mutations/src/lib2.ml-mutant1.output")
   Mutation "src/lib2.ml-mutant2" passed (see "_mutations/src/lib2.ml-mutant2.output")
+  Mutation score: 50.0% (6 mutations: 3 failed, 0 timed out, 3 passed)
+  The score is below 100%. Use --fail-under to accept a lower score.
+  [2]

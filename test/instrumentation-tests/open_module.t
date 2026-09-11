@@ -90,12 +90,16 @@ Test mutation of an 'assert false':
 
   $ ls _build/default
   a.ml
-  a.muts
   a.pp.ml
   b.bc
   b.ml
-  b.muts
   b.pp.ml
+
+  $ ls _build/.mutaml/default
+  a.muts
+  b.muts
+  mutaml-build-id.txt
+  mutaml-mut-files.lock
   mutaml-mut-files.txt
 
   $ dune exec --no-build -- ./b.bc

@@ -82,7 +82,27 @@ process.
    This creates/overwrites an individual `lib.muts` file for each
    instrumented `lib.ml` file and an overview file
    `mutaml-mut-files.txt` listing them.
-   These files are written to `dune`'s current build context.
+   These files are written *beside* `dune`'s current build context, in
+   `_build/.mutaml/default` for an ordinary project, or in
+   `_build/.mutaml/mutation` for a build context named `mutation`.
+   They go beside the build context and not in it because `dune`
+   removes from a build context directory every file it does not know
+   about, and it knows about neither of these.
+   `dune` names its build context in the environment variable
+   `INSIDE_DUNE`, which is how the preprocessor finds the place without
+   being told. That variable is not part of `dune`'s documented
+   interface. A `dune` that stopped setting it would make the
+   preprocessor write to its working directory, and `mutaml-runner`
+   would then say that it cannot read `mutaml-mut-files.txt`.
+   `dune clean` removes the whole `_build` directory, and with it every
+   `lib.muts` file and the overview file.
+   The overview file names every `lib.muts` file that is present. `dune`
+   runs the preprocessor again only for a source file that changed, and
+   the `lib.muts` file of a file that did not change still describes the
+   program that was built, so a build that changes one file of several
+   leaves all of them listed. A name leaves the overview file when its
+   `lib.muts` file is no longer there. After `dune clean` the overview
+   file is gone too, so the next build starts the list from nothing.
 
 
 3. Start `mutaml-runner`, passing the name of the test executable to run:
@@ -91,6 +111,11 @@ process.
    ```
    This reads from the files written in step 2. Running the command also
    creates/overwrites the file `mutaml-report.json`.
+   Before it tests any mutation, `mutaml-runner` runs the test command
+   twice with no mutation. A test suite that fails with no mutation
+   makes every mutation look killed, and a test suite that answers
+   differently in the two runs makes the score meaningless, so the
+   runner stops with an error in both cases.
    You can also pass a command that runs the executable through `dune`
    if you prefer:
    ```
@@ -105,6 +130,8 @@ process.
    By default this prints `diff`s for each mutation that flew under
    the radar of your test suite. The `diff` output can be suppressed by
    passing `--no-diff`.
+   `mutaml-report` prints the mutation score and exits with 1 when the
+   score is too low, so it can decide a build.
 
 
 Steps 3 and 4 output a number of additional files.
@@ -252,6 +279,16 @@ environment variables or instrumentation options in the `dune` file:
   by instrumentation option `-mut-rate`)
 - `MUTAML_GADT` - allow only pattern mutations compatible with GADTs
   (`true` or `false`, overridden by instrumentation option `-gadt`)
+- `MUTAML_PPX_OUT_DIR` - the directory to write `lib.muts` and
+  `mutaml-mut-files.txt` into, instead of the one named in step 2
+  above. It has no instrumentation option. You do not need it under
+  `dune`, which tells the preprocessor where its build context is.
+  Set it when another build system runs the preprocessor, or when you
+  want the files somewhere of your own choosing. Pass the same
+  directory to `mutaml-runner` as its `--build-context`. A relative
+  directory is taken from the root of your project, not from the
+  directory the preprocessor runs in, which under `dune` is a sandbox
+  directory that `dune` deletes.
 
 Each mutation operator adds one more variable and one more option,
 both named after the operator, and the table under
@@ -284,8 +321,10 @@ Runner Options and Environment Variables
 ----------------------------------------
 
 By default, `mutaml-runner` expects to find the preprocessor's output
-files in the default build context `_build/default`. This can be
-configured via an environment variable or a command-line option, e.g.,
+files beside the default build context `_build/default`, that is, in
+`_build/.mutaml/default`. You name the build context itself, and the
+runner looks beside it. This can be configured via an environment
+variable or a command-line option, e.g.,
 if [instrumentation is enabled via another `dune-workspace` build context](https://dune.readthedocs.io/en/stable/instrumentation.html#enabling-disabling-instrumentation):
 
 - `MUTAML_BUILD_CONTEXT` - a path prefix string (overridden by
@@ -299,6 +338,49 @@ mutaml-runner --muts lib/lib2.muts _build/default/test/mytests.exe
 ```
 will only consider mutations of the corresponding library
 `lib/lib2.ml`, which the runner searches for in the build context.
+
+The other options of `mutaml-runner` are:
+
+- `--timeout seconds` - the time that one test run may take. The
+  default is 20 seconds. A run that takes longer is stopped and counted
+  as a timeout. The environment variable `MUTAML_TIMEOUT` sets the same
+  value, and the command-line option takes precedence over it.
+
+- `--test-env NAME=VALUE` - set `NAME` to `VALUE` in every test
+  process. Repeat the option for each variable you want to set. Use it
+  to fix the seed of a test suite that draws random values, for example
+  `--test-env QCHECK_SEED=1234`, so that the whole run repeats exactly.
+  `mutaml-runner` writes the variables it set beside every result in
+  `mutaml-report.json`, so the result of a killed mutation names the
+  environment that killed it.
+
+- `--baseline-env NAME=VALUE` - run the test suite a second time with no
+  mutation, with `NAME` set to `VALUE` on top of what `--test-env` sets.
+  Repeat the option for each variable you want to change. Use it to run
+  the second time with another seed, for example `--test-env
+  QCHECK_SEED=1 --baseline-env QCHECK_SEED=2`. A test suite that passes
+  under one seed and fails under another does not give a mutation score
+  any meaning, and this is how to find that out before the run.
+
+`mutaml-runner` runs the test command with no mutation before it tests
+any mutation, and again a second time when `--baseline-env` is given. It
+stops with an error when a run fails, because every mutation would then
+look killed, and when the two runs do not agree. It writes the output of
+the runs to `_mutations/baseline-1.output` and, when there is a second
+run, `_mutations/baseline-2.output`.
+
+`mutaml-runner` skips a `lib.muts` file whose source file `lib.ml` is
+not in the project, and says on one line that it did. `dune` runs the
+preprocessor again only for a source file that changed, so the list of
+`.muts` files can name a file you have since deleted or renamed.
+
+`mutaml-runner` runs every test through the `timeout` command, which
+must be on `PATH`. It reads the exit status of that command to tell
+what happened: 124 means that the run took too long, and a status above
+128 means that a signal ended the run, which the runner reports as a
+crash and not as a timeout. GNU coreutils `timeout` follows those
+rules. macOS has no `timeout` command of its own, so install GNU
+coreutils there.
 
 
 Report Options and Environment Variables
@@ -316,6 +398,27 @@ configured with an environment variable:
 
 Passing the option `--no-diff` to `mutaml-report` prevents any
 mutation `diff`s from being printed.
+
+`mutaml-report` prints the mutation score, and exits with 2 when the
+score is below 100 percent. The mutation score is the share of the
+mutations that failed or timed out, of all the mutations that ran. A
+mutation that timed out counts with the mutations that failed, because
+a test run that never ends is a fault that the test suite found.
+
+- `--fail-under percent` - accept a score of `percent` or above.
+  `mutaml-report` then exits with 2 only when the score is below the
+  number, and a score equal to the number passes. `--fail-under 0`
+  accepts every score.
+
+The three exit codes of `mutaml-report` are:
+
+| code | meaning |
+|---|---|
+| 0 | the score is at or above the limit |
+| 2 | the score is below the limit |
+| 1 | the tool could not do its work, for example because it could not read its input |
+
+A job that must tell a low score from a broken run reads the code.
 
 
 
@@ -340,10 +443,13 @@ rebuild](https://github.com/ocaml/dune/issues/4390). This can affect
   Mutaml, e.g., in case just an environment variable changed. `dune
   clean` is a crude but effective work-around to this issue.
 
-- The output files to `_build/default` are not registered with `dune`.
-  This means rerunning steps 2,3,4 above will fail, as the additional
-  output files in `_build/default` are not cached by `dune` and hence
-  deleted. Again `dune clean` is a crude but effective work-around.
+- The output files are not registered with `dune`. They are written
+  beside the build context to keep `dune` from deleting them, so steps
+  2, 3 and 4 above can be run again. A source file that you delete
+  without running `dune clean` leaves its `lib.muts` file behind.
+  `mutaml-runner` passes over a `lib.muts` file whose source file it
+  cannot find, and says which one, so the mutations of a deleted file do
+  not enter the score. Run `dune clean` to remove the file itself.
 
 - ...
 

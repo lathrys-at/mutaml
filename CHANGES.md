@@ -1,6 +1,36 @@
 Next release
 ------------
 
+- Support ppxlib.0.36 and above, where one parse tree constructor holds
+  both `fun` and `function`
+- Write the preprocessor's `lib.muts` files and `mutaml-mut-files.txt`
+  beside the build context, in `_build/.mutaml/<context>`, so that
+  `dune`'s preprocessor sandbox and its cleaning of the build directory
+  no longer delete them #16 #18 #31 #34 #42
+- Name in `mutaml-mut-files.txt` every `lib.muts` file that is present,
+  each of them once, so that a second build no longer makes the runner
+  test every mutation twice and an incremental build no longer drops the
+  mutations of the files it did not rebuild
+- Run the test command with no mutation before testing any mutation, and
+  stop when it fails
+- Add `--baseline-env NAME=VALUE` to `mutaml-runner`, repeatable, which
+  runs the test command a second time with no mutation and those
+  variables set, and stops when the two runs do not agree
+- Skip in `mutaml-runner` a `lib.muts` file whose source file `lib.ml`
+  is not in the project, and say so
+- Add `--test-env NAME=VALUE` to `mutaml-runner`, repeatable, and write
+  the variables it set beside every result in `mutaml-report.json`
+- Add `--timeout <seconds>` and `MUTAML_TIMEOUT` to `mutaml-runner`,
+  and report a test run that a signal ended as a crash and not as a
+  timeout #32
+- Name a mutation and its output file after the source file that the
+  mutation belongs to, so that a `--muts` path that starts at the root
+  of the file system no longer reports every mutation as passing
+- Exit with 2 from `mutaml-report` when the mutation score is too low,
+  keeping 1 for a fault of the tool itself, and add
+  `--fail-under <percent>` to accept a lower score
+- Print the mutation score in `mutaml-report`, counting a mutation that
+  timed out with the mutations that failed
 - Add mutation operators for the comparisons `<`, `<=`, `>` and `>=`,
   for the equality tests `=` and `<>`, for the `equal` function of the
   modules of the standard library, for the Boolean connectives `&&`

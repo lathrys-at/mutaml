@@ -226,6 +226,7 @@ Same example but with GADT-unsafe mutations enabled:
 
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
+  Testing without a mutant ... passed
   Testing mutant test:0 ... passed
   Testing mutant test:1 ... passed
   Writing report data to mutaml-report.json
@@ -279,6 +280,9 @@ Same example but with GADT-unsafe mutations enabled:
   
   ---------------------------------------------------------------------------
   
+  Mutation score: 0.0% (2 mutations: 0 failed, 0 timed out, 2 passed)
+  The score is below 100%. Use --fail-under to accept a lower score.
+  [2]
 
   $ unset MUTAML_GADT
 
@@ -365,6 +369,7 @@ Instead we trigger the collapse-consecutive-patterns mutation:
 
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
+  Testing without a mutant ... passed
   Testing mutant test:0 ... passed
   Testing mutant test:1 ... passed
   Testing mutant test:2 ... passed
@@ -577,6 +582,9 @@ Instead we trigger the collapse-consecutive-patterns mutation:
   
   ---------------------------------------------------------------------------
   
+  Mutation score: 0.0% (13 mutations: 0 failed, 0 timed out, 13 passed)
+  The score is below 100%. Use --fail-under to accept a lower score.
+  [2]
 
 
 
@@ -654,6 +662,7 @@ Another example that would trigger merge-of-consecutive-patterns w/GADT true:
 
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
+  Testing without a mutant ... passed
   Testing mutant test:0 ... passed
   Testing mutant test:1 ... passed
   Testing mutant test:2 ... passed
@@ -745,6 +754,9 @@ Another example that would trigger merge-of-consecutive-patterns w/GADT true:
   
   ---------------------------------------------------------------------------
   
+  Mutation score: 0.0% (5 mutations: 0 failed, 0 timed out, 5 passed)
+  The score is below 100%. Use --fail-under to accept a lower score.
+  [2]
 
 
 
@@ -805,6 +817,7 @@ Same example that triggers merge-of-consecutive-patterns w/GADT false:
 
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
+  Testing without a mutant ... passed
   Testing mutant test:0 ... passed
   Testing mutant test:1 ... passed
   Testing mutant test:2 ... passed
@@ -917,6 +930,9 @@ Same example that triggers merge-of-consecutive-patterns w/GADT false:
   
   ---------------------------------------------------------------------------
   
+  Mutation score: 0.0% (6 mutations: 0 failed, 0 timed out, 6 passed)
+  The score is below 100%. Use --fail-under to accept a lower score.
+  [2]
   $ unset MUTAML_GADT
 
 
@@ -967,9 +983,9 @@ Another example that would trigger merge-of-consecutive-patterns:
   5 |   | [| _;_;_ |] -> 3
   6 |   | _ when true -> 1000
   Error (warning 8 [partial-match]): this pattern-matching is not exhaustive.
-  Here is an example of a case that is not matched:
-  [| _ ; _ ; _ ; _ |]
-  (However, some guarded clause may match this value.)
+    Here is an example of a case that is not matched:
+      [| _ ; _ ; _ ; _ |]
+      (However, some guarded clause may match this value.)
 
 
 
