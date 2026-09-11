@@ -83,20 +83,23 @@ gives the same mutant names, and the same results:
   Testing mutant lib:1 ... passed
   Writing report data to mutaml-report.json
 
---timeout stops a test run that takes too long, and the runner tells a
-run that a signal ended from a run that timed out. The mutant lib:1 makes
-the suite run for ever, and the runner stops it after five seconds:
+The runner tells a test run that a signal ended from a test run that the
+timeout command stopped. The timeout command answers 124 when it stops a
+run, and a status above 128 when a signal ended one, so the suite below
+answers 124 for the mutant lib:1 and takes a signal for the mutant
+lib:0. A suite that really waits would make this test depend on how busy
+the machine is, and the limit below is high for the same reason:
 
   $ cat > mixed.sh <<'EOF'
   > #!/bin/sh
   > case "$MUTAML_MUTANT" in
   >   lib:0) kill -s SEGV $$ ;;
-  >   lib:1) sleep 60 ;;
+  >   lib:1) exit 124 ;;
   >   *)     exit 0 ;;
   > esac
   > EOF
   $ chmod +x mixed.sh
-  $ mutaml-runner --timeout 5 ./mixed.sh
+  $ mutaml-runner --timeout 60 ./mixed.sh
   read mut file lib.muts
   Testing without a mutant ... passed
   Testing without a mutant a second time ... passed
