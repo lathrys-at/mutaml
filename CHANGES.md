@@ -1,6 +1,17 @@
 Next release
 ------------
 
+- Add `--json-report <path>` to `mutaml-report`, which writes the run in
+  the mutation-testing-elements format that Stryker, Infection and Mull
+  share, so that the HTML viewer of that format can show it
+- Add `--markdown <path>` to `mutaml-report`, which writes a summary for
+  the page of a CI job: the mutation score, a table with a row for each
+  source file, and every mutation that the test suite did not catch,
+  with its name and its diff
+- Read the source file of a mutation that the test suite did not catch
+  into an option in `mutaml-report`, so that a file that is no longer
+  in the project gives one line that names it and not an uncaught
+  exception
 - Support ppxlib.0.36 and above, where one parse tree constructor holds
   both `fun` and `function`
 - Write the preprocessor's `lib.muts` files and `mutaml-mut-files.txt`

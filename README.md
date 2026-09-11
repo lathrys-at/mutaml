@@ -130,8 +130,12 @@ process.
    By default this prints `diff`s for each mutation that flew under
    the radar of your test suite. The `diff` output can be suppressed by
    passing `--no-diff`.
-   `mutaml-report` prints the mutation score and exits with 1 when the
+   `mutaml-report` prints the mutation score and exits with 2 when the
    score is too low, so it can decide a build.
+   It can also write the report to a file, as a Markdown summary for
+   the page of a CI job or in the mutation-testing-elements format that
+   a viewer of that format reads. See "Report Options and Environment
+   Variables" below.
 
 
 Steps 3 and 4 output a number of additional files.
@@ -409,6 +413,49 @@ a test run that never ends is a fault that the test suite found.
   `mutaml-report` then exits with 2 only when the score is below the
   number, and a score equal to the number passes. `--fail-under 0`
   accepts every score.
+
+### Report files
+
+`mutaml-report` prints its report to the terminal. Two options write
+the report to a file as well. You may give both in one run.
+
+- `--markdown path` - write a Markdown summary to `path`. The summary
+  holds the mutation score, a table with one row for each source file
+  and one row for the total, and every mutation that the test suite did
+  not catch, with its name, its place in the file, and its diff.
+  GitHub Actions shows the Markdown of the file that its variable
+  `GITHUB_STEP_SUMMARY` names on the page of the job, so this step puts
+  the summary there:
+  ```
+  - run: mutaml-report --markdown "$GITHUB_STEP_SUMMARY"
+  ```
+- `--json-report path` - write the report to `path` in the
+  mutation-testing-elements format. [Stryker](https://stryker-mutator.io/),
+  [Infection](https://infection.github.io/) and
+  [Mull](https://mull.readthedocs.io/) write the same format, and the
+  HTML viewer
+  [mutation-test-report-app](https://github.com/stryker-mutator/mutation-testing-elements)
+  reads it.
+
+The table of the Markdown summary counts the four outcomes apart, so
+its columns add up to the number of mutations of the file. The score
+counts a mutation that timed out and a mutation that a signal ended
+with the mutations that failed.
+
+The JSON report gives every mutation one of the statuses of the format:
+
+| outcome of the test run | status | note |
+|---|---|---|
+| a test failed | `Killed` | |
+| the run took too long | `Timeout` | the viewer counts it as caught |
+| a signal ended the run | `Killed` | `statusReason` names the signal |
+| the test suite passed | `Survived` | |
+
+In the JSON report, the `id` of a mutation is its name, the same string
+that `MUTAML_MUTANT` takes, and `mutatorName` is the name of the
+mutation operator that made it. `thresholds.low` is the value of
+`--fail-under`, or 0 when you do not give that option, and
+`thresholds.high` is 100.
 
 The three exit codes of `mutaml-report` are:
 
