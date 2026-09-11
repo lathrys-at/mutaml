@@ -66,6 +66,37 @@ struct
   let seed = ref 0
   let mut_rate = ref 100
   let gadt = ref false
+
+  (* One switch for each mutation operator that this fork adds. The
+     value each [ref] holds here is the default of that operator.
+     [entry.ml] reads the defaults once, when the program starts, and
+     then overwrites each switch from the command line or from the
+     environment. *)
+  let compare_boundary    = ref true
+  let compare_negation    = ref true
+  let equal_function      = ref true
+  let connective          = ref true
+  let not_expression      = ref true
+  let some_to_none        = ref true
+  let argument_off_by_one = ref true
+  let guard_always_true   = ref false
+  let string_literal      = ref false
+
+  (* Every switch, paired with the operator that names it. [entry.ml]
+     walks this list to build one command line option and one
+     environment variable for each switch, so a new operator needs no
+     change there. *)
+  let switches = Mutaml_common.[
+    Compare_boundary,    compare_boundary;
+    Compare_negation,    compare_negation;
+    Equal_function,      equal_function;
+    Connective,          connective;
+    Not_expression,      not_expression;
+    Some_to_none,        some_to_none;
+    Argument_off_by_one, argument_off_by_one;
+    Guard_always_true,   guard_always_true;
+    String_literal,      string_literal;
+  ]
 end
 
 module Match =
@@ -205,6 +236,13 @@ class mutate_mapper (rs : RS.t) =
   val mutable tmp_var_count = 0
 
   method choose_to_mutate = RS.int rs 100 <= !Options.mut_rate
+
+  (* [self#enabled k] says whether the mutation operator [k] is on.
+     An operator that has no switch in [Options.switches] is always
+     on; that is every operator upstream mutaml already had. *)
+  method enabled kind = match List.assoc_opt kind Options.switches with
+    | Some switch -> !switch
+    | None        -> true
 
   method incr_count =
     let old_count = mut_count in
