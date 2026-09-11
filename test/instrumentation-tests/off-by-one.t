@@ -30,28 +30,34 @@ mutaml already had.
     | Some mutant -> String.equal m mutant
   let head s n =
     String.sub s
-      (let __MUTAML_TMP0__ = if __is_mutaml_mutant__ "test:0" then 1 else 0 in
-       if __is_mutaml_mutant__ "test:2"
+      (let __MUTAML_TMP0__ =
+         if __is_mutaml_mutant__ "test.ml:head:int-constant:92be9951:0"
+         then 1
+         else 0 in
+       if __is_mutaml_mutant__ "test.ml:head:argument-off-by-one:1dc645bb:0"
        then __MUTAML_TMP0__ + 1
        else
-         if __is_mutaml_mutant__ "test:1"
+         if __is_mutaml_mutant__ "test.ml:head:argument-off-by-one:c8fc2b9e:0"
          then __MUTAML_TMP0__ - 1
          else __MUTAML_TMP0__)
-      (if __is_mutaml_mutant__ "test:4"
+      (if __is_mutaml_mutant__ "test.ml:head:argument-off-by-one:459b10bf:0"
        then n + 1
-       else if __is_mutaml_mutant__ "test:3" then n - 1 else n)
+       else
+         if __is_mutaml_mutant__ "test.ml:head:argument-off-by-one:af7a2276:0"
+         then n - 1
+         else n)
   ;;assert ((head "abc" 2) = "ab")
 
 Check that instrumentation hasn't changed the program's behaviour
   $ dune exec --no-build ./test.bc
 
 A start one too large takes the wrong part of the string
-  $ MUTAML_MUTANT="test:2" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:head:argument-off-by-one:1dc645bb:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 2, 0)
   [2]
 
 A length one too small takes too little of it
-  $ MUTAML_MUTANT="test:3" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:head:argument-off-by-one:af7a2276:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 2, 0)
   [2]
 
@@ -78,11 +84,14 @@ List.nth that is the index, and not the list:
     | Some mutant -> String.equal m mutant
   let item xs =
     List.nth xs
-      (let __MUTAML_TMP0__ = if __is_mutaml_mutant__ "test:0" then 0 else 1 in
-       if __is_mutaml_mutant__ "test:2"
+      (let __MUTAML_TMP0__ =
+         if __is_mutaml_mutant__ "test.ml:item:int-constant:50c5a5ff:0"
+         then 0
+         else 1 in
+       if __is_mutaml_mutant__ "test.ml:item:argument-off-by-one:01485684:0"
        then __MUTAML_TMP0__ + 1
        else
-         if __is_mutaml_mutant__ "test:1"
+         if __is_mutaml_mutant__ "test.ml:item:argument-off-by-one:e91e18c4:0"
          then __MUTAML_TMP0__ - 1
          else __MUTAML_TMP0__)
   ;;assert ((item [0; 1; 2]) = 1)
@@ -90,7 +99,7 @@ List.nth that is the index, and not the list:
   $ dune exec --no-build ./test.bc
 
 An index one too small reads the item before the wanted one
-  $ MUTAML_MUTANT="test:1" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:item:argument-off-by-one:e91e18c4:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 2, 0)
   [2]
 
@@ -117,10 +126,10 @@ result gains the two mutants:
     | Some mutant -> String.equal m mutant
   let size s =
     let __MUTAML_TMP0__ = String.length s in
-    if __is_mutaml_mutant__ "test:1"
+    if __is_mutaml_mutant__ "test.ml:size:argument-off-by-one:e25e40b6:0"
     then __MUTAML_TMP0__ + 1
     else
-      if __is_mutaml_mutant__ "test:0"
+      if __is_mutaml_mutant__ "test.ml:size:argument-off-by-one:b5307632:0"
       then __MUTAML_TMP0__ - 1
       else __MUTAML_TMP0__
   ;;assert ((size "abc") = 3)
@@ -128,7 +137,7 @@ result gains the two mutants:
   $ dune exec --no-build ./test.bc
 
 A size one too small
-  $ MUTAML_MUTANT="test:0" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:size:argument-off-by-one:b5307632:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 2, 0)
   [2]
 
@@ -181,7 +190,10 @@ operator off:
     | None -> false
     | Some mutant -> String.equal m mutant
   let head s n =
-    String.sub s (if __is_mutaml_mutant__ "test:0" then 1 else 0) n
+    String.sub s
+      (if __is_mutaml_mutant__ "test.ml:head:int-constant:92be9951:0"
+       then 1
+       else 0) n
   ;;assert ((head "abc" 2) = "ab")
 
   $ dune exec --no-build ./test.bc
@@ -211,5 +223,8 @@ The instrumentation option -argument-off-by-one false does the same:
     | None -> false
     | Some mutant -> String.equal m mutant
   let head s n =
-    String.sub s (if __is_mutaml_mutant__ "test:0" then 1 else 0) n
+    String.sub s
+      (if __is_mutaml_mutant__ "test.ml:head:int-constant:92be9951:0"
+       then 1
+       else 0) n
   ;;assert ((head "abc" 2) = "ab")

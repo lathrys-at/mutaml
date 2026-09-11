@@ -10,11 +10,13 @@ and the list of mutation files.
   > let f x = x + 1
   > EOF
   $ cat > _build/.mutaml/default/lib.muts <<'EOF'
-  > [ { "number" : 0, "repl" : "2",
+  > [ { "number" : 0, "binding" : "f", "kind" : "int-constant",
+  >     "original" : "1", "ordinal" : 0, "repl" : "2",
   >     "loc" : { "loc_start" : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 14 },
   >               "loc_end"   : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 15 },
   >               "loc_ghost" : false } },
-  >   { "number" : 1, "repl" : "-",
+  >   { "number" : 1, "binding" : "f", "kind" : "arith-operator",
+  >     "original" : "+", "ordinal" : 0, "repl" : "-",
   >     "loc" : { "loc_start" : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 12 },
   >               "loc_end"   : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 13 },
   >               "loc_ghost" : false } } ]
@@ -24,28 +26,30 @@ and the list of mutation files.
   > EOF
 
 Write a stand-in test suite. It prints the two variables that it reads,
-and it fails for the mutant lib:0 only:
+and it fails for the first of the two mutants only. A mutant is named by
+its file, the binding it sits in, the mutation operator that made it, a
+digest of the text it changes, and an ordinal:
 
   $ cat > tests.sh <<'EOF'
   > #!/bin/sh
   > echo "MUTAML_MUTANT=[$MUTAML_MUTANT] QCHECK_SEED=[$QCHECK_SEED]"
   > case "$MUTAML_MUTANT" in
-  >   lib:0) exit 3 ;;
+  >   lib.ml:f:int-constant:4fad8996:0) exit 3 ;;
   >   *)     exit 0 ;;
   > esac
   > EOF
   $ chmod +x tests.sh
 
 The runner tests the suite once without a mutant, and then once for each
-mutant. The suite fails for the mutant lib:0, which means that the suite
-killed it. The suite passes for the mutant lib:1, which means that lib:1
-survived:
+mutant. The suite fails for the int-constant mutant, which means that the
+suite killed it. The suite passes for the arith-operator mutant, which
+means that the arith-operator mutant survived:
 
   $ mutaml-runner --test-env QCHECK_SEED=7 ./tests.sh
   read mut file lib.muts
   Testing without a mutant ... passed
-  Testing mutant lib:0 ... failed
-  Testing mutant lib:1 ... passed
+  Testing mutant lib.ml:f:int-constant:4fad8996:0 ... failed
+  Testing mutant lib.ml:f:arith-operator:b614c1c7:0 ... passed
   Writing report data to mutaml-report.json
 
 The run without a mutant had the variable set:
@@ -68,8 +72,8 @@ score no meaning, and this finds that out before the mutants run:
   read mut file lib.muts
   Testing without a mutant ... passed
   Testing without a mutant a second time ... passed
-  Testing mutant lib:0 ... failed
-  Testing mutant lib:1 ... passed
+  Testing mutant lib.ml:f:int-constant:4fad8996:0 ... failed
+  Testing mutant lib.ml:f:arith-operator:b614c1c7:0 ... passed
   Writing report data to mutaml-report.json
   $ cat _mutations/baseline-1.output
   MUTAML_MUTANT=[] QCHECK_SEED=[7]
@@ -97,22 +101,23 @@ gives the same mutant names, and the same results:
   $ rm -rf _mutations mutaml-report.json
   $ mutaml-runner --muts "$(pwd)/_build/.mutaml/default/lib.muts" --test-env QCHECK_SEED=7 ./tests.sh
   Testing without a mutant ... passed
-  Testing mutant lib:0 ... failed
-  Testing mutant lib:1 ... passed
+  Testing mutant lib.ml:f:int-constant:4fad8996:0 ... failed
+  Testing mutant lib.ml:f:arith-operator:b614c1c7:0 ... passed
   Writing report data to mutaml-report.json
 
 The runner tells a test run that a signal ended from a test run that the
 timeout command stopped. The timeout command answers 124 when it stops a
 run, and a status above 128 when a signal ended one, so the suite below
-answers 124 for the mutant lib:1 and takes a signal for the mutant
-lib:0. A suite that really waits would make this test depend on how busy
-the machine is, and the limit below is high for the same reason:
+answers 124 for the arith-operator mutant and takes a signal for the
+int-constant mutant. A suite that really waits would make this test
+depend on how busy the machine is, and the limit below is high for the
+same reason:
 
   $ cat > mixed.sh <<'EOF'
   > #!/bin/sh
   > case "$MUTAML_MUTANT" in
-  >   lib:0) kill -s SEGV $$ ;;
-  >   lib:1) exit 124 ;;
+  >   lib.ml:f:int-constant:4fad8996:0) kill -s SEGV $$ ;;
+  >   lib.ml:f:arith-operator:b614c1c7:0) exit 124 ;;
   >   *)     exit 0 ;;
   > esac
   > EOF
@@ -120,8 +125,8 @@ the machine is, and the limit below is high for the same reason:
   $ mutaml-runner --timeout 60 ./mixed.sh
   read mut file lib.muts
   Testing without a mutant ... passed
-  Testing mutant lib:0 ... crashed
-  Testing mutant lib:1 ... timeout
+  Testing mutant lib.ml:f:int-constant:4fad8996:0 ... crashed
+  Testing mutant lib.ml:f:arith-operator:b614c1c7:0 ... timeout
   Writing report data to mutaml-report.json
 
 A test suite that fails without a mutant stops the run. Every mutant
@@ -179,8 +184,8 @@ changed. The runner says so and tests the rest:
   read mut file lib.muts
   Skipping gone.muts: the source file gone.ml does not exist
   Testing without a mutant ... passed
-  Testing mutant lib:0 ... failed
-  Testing mutant lib:1 ... passed
+  Testing mutant lib.ml:f:int-constant:4fad8996:0 ... failed
+  Testing mutant lib.ml:f:arith-operator:b614c1c7:0 ... passed
   Writing report data to mutaml-report.json
 
 When no mutation file is left, the runner stops, because a score over no

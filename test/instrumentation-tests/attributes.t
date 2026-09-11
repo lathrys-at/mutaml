@@ -189,11 +189,11 @@ Preprocess, check for attribute and error
     | None -> false
     | Some mutant -> String.equal m mutant
   let t =
-    if __is_mutaml_mutant__ "test:0"
+    if __is_mutaml_mutant__ "test.ml:t:bool-constant:7192cab6:0"
     then ((false)[@testattr "true attr"])
     else ((true)[@testattr "true attr"])
   let f =
-    if __is_mutaml_mutant__ "test:1"
+    if __is_mutaml_mutant__ "test.ml:f:bool-constant:df61aa90:0"
     then ((true)[@testattr "false attr"])
     else ((false)[@testattr "false attr"])
 
@@ -219,7 +219,7 @@ Preprocess, check for attribute and error
     | None -> false
     | Some mutant -> String.equal m mutant
   let str =
-    if __is_mutaml_mutant__ "test:0"
+    if __is_mutaml_mutant__ "test.ml:str:space-string:798d6c82:0"
     then (("")[@testattr "str attr"])
     else ((" ")[@testattr "str attr"])
 
@@ -245,7 +245,7 @@ Preprocess, check for attribute and error
     | None -> false
     | Some mutant -> String.equal m mutant
   let f x =
-    if __is_mutaml_mutant__ "test:0"
+    if __is_mutaml_mutant__ "test.ml:f:arith-identity:dce8c76c:0"
     then ((x)[@testattr "str attr"])
     else ((x + 1)[@testattr "str attr"])
 

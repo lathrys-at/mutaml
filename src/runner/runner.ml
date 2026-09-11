@@ -227,7 +227,9 @@ let status_word status = outcome_word (outcome_of_status status)
 
 let run_single_test test_cmd ~test_env ~timeout mut =
   let file_name = mut.loc.loc_start.pos_fname in
-  let mut_id = make_mut_id file_name mut.number in
+  (* The preprocessor wrote this same name into the program it
+     instrumented, through this same function, so the two agree. *)
+  let mut_id = mutant_name mut in
   let output_file = output_file_name file_name mut.number in
   let () = Printf.printf "Testing mutant %s ... %!" mut_id in
   let ret = run_test_command test_cmd ~test_env ~timeout ~mut_id ~output_file in

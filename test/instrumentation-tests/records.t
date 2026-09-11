@@ -32,8 +32,13 @@ An simple record example
     y: int }
   let f =
     function
-    | { x = v; y = 0 } when not (__is_mutaml_mutant__ "test:2") -> v
-    | { x = 0; y = v } when not (__is_mutaml_mutant__ "test:1") -> v
-    | { x; y } -> if __is_mutaml_mutant__ "test:0" then x - y else x + y
+    | { x = v; y = 0 } when
+        not (__is_mutaml_mutant__ "test.ml:f:omit-case:6979c12d:0") -> v
+    | { x = 0; y = v } when
+        not (__is_mutaml_mutant__ "test.ml:f:omit-case:73776dfc:0") -> v
+    | { x; y } ->
+        if __is_mutaml_mutant__ "test.ml:f:arith-operator:7f357222:0"
+        then x - y
+        else x + y
 
 

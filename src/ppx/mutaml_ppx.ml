@@ -54,6 +54,48 @@ let write_muts_file input_name mutations =
 (** Shorthand to ease string-conversion of surface changes *)
 let string_of_exp = Pprintast.string_of_expression
 
+(* [binding_name pat] is the name that a top-level [let] with the
+   pattern [pat] binds, and [None] when it binds no name. A pattern
+   that binds more than one name gives the first, in the order the
+   source file writes them, because a mutation names one binding and
+   not a list of them. *)
+let rec binding_name pat =
+  let first pats = List.fold_left
+      (fun found pat -> match found with
+         | Some _ -> found
+         | None   -> binding_name pat)
+      None pats in
+  match pat.ppat_desc with
+  | Ppat_var name
+  | Ppat_alias (_,name)          -> Some name.txt
+  | Ppat_constraint (pat,_)
+  | Ppat_lazy pat
+  | Ppat_open (_,pat)
+  | Ppat_exception pat
+  | Ppat_variant (_,Some pat)
+  | Ppat_construct (_,Some (_,pat)) -> binding_name pat
+  | Ppat_tuple pats
+  | Ppat_array pats              -> first pats
+  | Ppat_or (pat1,pat2)          -> first [pat1; pat2]
+  | Ppat_record (fields,_)       -> first (List.map snd fields)
+  | Ppat_any | Ppat_constant _ | Ppat_interval _ | Ppat_construct (_,None)
+  | Ppat_variant (_,None) | Ppat_type _ | Ppat_unpack _
+  | Ppat_extension _             -> None
+
+(* [file_text name] is the whole of the file [name]. It is the empty
+   text when the file cannot be read, and then the preprocessor says so
+   once for that file. *)
+let file_text name =
+  try
+    let ch = open_in_bin name in
+    Fun.protect ~finally:(fun () -> close_in_noerr ch)
+      (fun () -> really_input_string ch (in_channel_length ch))
+  with Sys_error _ | End_of_file ->
+    Printf.printf
+      "Warning: could not read %s, so the names of its mutants hold no original text\n%!"
+      name;
+    ""
+
 module Options =
 struct
   let seed = ref 0
@@ -323,6 +365,22 @@ class mutate_mapper (rs : RS.t) =
   val mutable mutations     = []
   val mutable tmp_var_count = 0
 
+  (* The top-level binding the walk is inside, and the modules around
+     it, innermost first. The name of a mutation holds both. *)
+  val mutable enclosing     = None
+  val mutable module_path   = []
+
+  (* The text of each file the walk has read, so that it is read once. *)
+  val mutable file_texts    = []
+
+  (* How many mutations of this file already agree with a given
+     binding, kind, original text and replacement text. The count is
+     the ordinal of the next such mutation. *)
+  val ordinals              = Hashtbl.create 64
+
+  (* The mutation that took each name, so that no two take one name. *)
+  val names                 = Hashtbl.create 64
+
   method choose_to_mutate = RS.int rs 100 <= !Options.mut_rate
 
   (* [self#enabled k] says whether the mutation operator [k] is on.
@@ -355,31 +413,95 @@ class mutate_mapper (rs : RS.t) =
         Exp.let_ ~loc Nonrecursive [Vb.mk (Pat.var { txt = tmp; loc }) exp] e in (*let tmp=[%e exp] in e *)
       cont, tmp_id
 
-  method make_mut_number_and_id loc ctx =
-    let mut_no = self#incr_count in
-    let mut_id = Mutaml_common.make_mut_id (Base_exp_context.input_name ctx) mut_no in
-    mut_no, Ast_builder.Default.estring ~loc mut_id
+  (* [self#current_binding] is the top-level binding the walk is inside,
+     with the path of the modules around it in front of it. A mutation
+     outside every top-level binding is in the binding "toplevel". *)
+  method current_binding =
+    let last = match enclosing with Some name -> name | None -> "toplevel" in
+    String.concat "." (List.rev (last::module_path))
 
-  method mutaml_mutant ctx loc e_new e_rec repl_str =
-    let mut_no,mut_id_exp = self#make_mut_number_and_id loc ctx in
-    let mutation = Mutaml_common.{ number = mut_no; repl = Some repl_str; loc } in
+  (* [self#span_text span] is the text of the source file that [span]
+     covers. It is the empty text when the file cannot be read and when
+     [span] does not lie inside it. *)
+  method span_text (span : Location.t) =
+    let name = span.loc_start.pos_fname in
+    let text = match List.assoc_opt name file_texts with
+      | Some text -> text
+      | None ->
+        let text = file_text name in
+        file_texts <- (name,text)::file_texts;
+        text in
+    let start = span.loc_start.pos_cnum
+    and stop  = span.loc_end.pos_cnum in
+    if 0 <= start && start <= stop && stop <= String.length text
+    then String.sub text start (stop - start)
+    else ""
+
+  (* [self#next_ordinal key] is the number of mutations of this file
+     that already agree with [key] in binding, kind, original text and
+     replacement text. It counts [key] in. *)
+  method next_ordinal key =
+    let used = match Hashtbl.find_opt ordinals key with
+      | Some used -> used
+      | None      -> 0 in
+    Hashtbl.replace ordinals key (used+1);
+    used
+
+  (* [self#record_mutation ~kind ~span ~repl ~loc] writes down one mutation and
+     gives back the expression that holds its name. [span] covers the
+     text of the source file that the mutation replaces, [repl] is the
+     text that replaces it and [None] takes the text away, and [loc] is
+     where the name goes in the tree.
+
+     Two mutations of one file never take one name: the ordinal tells
+     apart two mutations that agree in every other part of the name,
+     and the only way left to a shared name is a clash of the short
+     digest, which stops the preprocessor here. *)
+  method record_mutation ~kind ~span ~repl ~loc =
+    let number = self#incr_count in
+    let binding = self#current_binding in
+    let original = self#span_text span in
+    let ordinal = self#next_ordinal (binding,kind,original,repl) in
+    let mutation =
+      Mutaml_common.{ number; binding; kind; original; ordinal; repl; loc = span } in
+    let name = Mutaml_common.mutant_name mutation in
+    let () = match Hashtbl.find_opt names name with
+      | None -> Hashtbl.add names name mutation
+      | Some earlier ->
+        let line (pos : Lexing.position) =
+          Printf.sprintf "line %i, character %i"
+            pos.pos_lnum (pos.pos_cnum - pos.pos_bol) in
+        Location.raise_errorf ~loc
+          "mutaml: mutation %i, at %s, and mutation %i, at %s, would both take the name %s. The short digest of the two is the same. Report this, and turn one of the two mutation operators off to build in the meantime."
+          earlier.Mutaml_common.number (line earlier.Mutaml_common.loc.loc_start)
+          number (line span.loc_start) name in
     mutations <- mutation::mutations;
+    Ast_builder.Default.estring ~loc name
+
+  method mutaml_mutant ~kind loc e_new e_rec repl_str =
+    let mut_id_exp = self#record_mutation ~kind ~span:loc ~repl:(Some repl_str) ~loc in
     [%expr
       if __is_mutaml_mutant__ [%e mut_id_exp]
       then [%e e_new]
       else [%e e_rec]]
 
   method! constant _ctx e = return e
-  method mutate_constant _ctx c = match c with
+  (* [self#mutate_constant c] is the constant that replaces [c], with the
+     operator that replaces it, and [None] when no operator replaces
+     [c]. *)
+  method mutate_constant c = match c with
     | Pconst_integer (i,None) when self#enabled Mutaml_common.Int_constant ->
-      (match i with
-       (* replace 1 with 0 *)
-       | "1" -> Const.integer "0"  (*FIXME: choose between this mutation and the below by coin flip *)
-       (* replace literal i with [1+i] - but not l,L,n literals *)
-       | _   -> Const.int (1 + int_of_string i))
+      Some
+        ((match i with
+          (* replace 1 with 0 *)
+          | "1" -> Const.integer "0"  (*FIXME: choose between this mutation and the below by coin flip *)
+          (* replace literal i with [1+i] - but not l,L,n literals *)
+          | _   -> Const.int (1 + int_of_string i)),
+         Mutaml_common.Int_constant)
     (* replace " " strings with "" *)
     | Pconst_string (" ",loc,None)
-      when self#enabled Mutaml_common.Space_string -> Const.string ~loc ""
+      when self#enabled Mutaml_common.Space_string ->
+      Some (Const.string ~loc "", Mutaml_common.Space_string)
     (* Any other string literal becomes "", and "" becomes " ". This
        operator is off by default: most string literals of a program
        are messages that no test reads, so most of its mutants are
@@ -392,12 +514,14 @@ class mutate_mapper (rs : RS.t) =
        does typecheck as [""], so the rule loses nothing that matters
        and it needs no types. *)
     | Pconst_string ("",loc,_)
-      when self#enabled Mutaml_common.String_literal -> Const.string ~loc " "
+      when self#enabled Mutaml_common.String_literal ->
+      Some (Const.string ~loc " ", Mutaml_common.String_literal)
     | Pconst_string (str,loc,_)
       when self#enabled Mutaml_common.String_literal
-        && not (String.contains str '%') -> Const.string ~loc ""
+        && not (String.contains str '%') ->
+      Some (Const.string ~loc "", Mutaml_common.String_literal)
     (* FIXME: add more constant mutations over char,float,int32,int64 *)
-    | _ -> c
+    | _ -> None
 
   method mutate_arithmetic ctx e =
     let loc = e.pexp_loc in
@@ -415,7 +539,7 @@ class mutate_mapper (rs : RS.t) =
     | [%expr 1 + [%e? exp]] when self#enabled Mutaml_common.Arith_identity ->
       super#expression ctx exp >>| fun exp' -> (* super avoids mut of exp in  1 + exp *)
       let k, tmp_var = self#let_bind ~loc:exp.pexp_loc exp' in
-      k (self#mutaml_mutant ctx loc
+      k (self#mutaml_mutant ~kind:Mutaml_common.Arith_identity loc
            { e with pexp_desc = tmp_var.pexp_desc }
            { e with pexp_desc = [%expr 1 + [%e tmp_var]].pexp_desc }
            (string_of_exp exp))
@@ -425,7 +549,7 @@ class mutate_mapper (rs : RS.t) =
       let op = (match e.pexp_desc with | Pexp_apply (op, _args) -> op | _ -> assert false) in
       super#expression ctx exp >>| fun exp' -> (* super avoids mut of exp in  exp +/- 1 *)
       let k, tmp_var = self#let_bind ~loc:exp.pexp_loc exp' in
-      k (self#mutaml_mutant ctx loc
+      k (self#mutaml_mutant ~kind:Mutaml_common.Arith_identity loc
            { e with pexp_desc = tmp_var.pexp_desc }
            { e with pexp_desc = [%expr [%e op] [%e tmp_var] 1].pexp_desc }
            (string_of_exp exp))
@@ -464,7 +588,7 @@ class mutate_mapper (rs : RS.t) =
          let k2, tmp_var2 = self#let_bind ~loc:exp2.pexp_loc exp2' in
          self#expression ctx exp1 >>| fun exp1' ->
          let k1, tmp_var1 = self#let_bind ~loc:exp1.pexp_loc exp1' in
-         k2 (k1 (self#mutaml_mutant ctx loc
+         k2 (k1 (self#mutaml_mutant ~kind loc
                    { e with pexp_desc = [%expr [%e mut_op] [%e tmp_var1] [%e tmp_var2]].pexp_desc }
                    { e with pexp_desc = [%expr [%e op]     [%e tmp_var1] [%e tmp_var2]].pexp_desc }
                          (string_of_exp [%expr [%e mut_op] [%e exp1]     [%e exp2]])))
@@ -502,7 +626,7 @@ class mutate_mapper (rs : RS.t) =
     let thunk = self#make_tmp_var () in
     let demand = [%expr [%e Exp.ident ~loc { txt = Lident thunk; loc }] ()] in
     let body =
-      self#mutaml_mutant ctx loc
+      self#mutaml_mutant ~kind:Mutaml_common.Connective loc
         { e with pexp_desc = [%expr [%e connective mut_name] [%e tmp_var1] [%e demand]].pexp_desc }
         { e with pexp_desc = [%expr [%e connective op_name]  [%e tmp_var1] [%e demand]].pexp_desc }
         (string_of_exp [%expr [%e connective mut_name] [%e exp1] [%e exp2]]) in
@@ -523,7 +647,7 @@ class mutate_mapper (rs : RS.t) =
     let loc = e.pexp_loc in
     self#expression ctx exp >>| fun exp' ->
     let k, tmp_var = self#let_bind ~loc:exp.pexp_loc exp' in
-    k (self#mutaml_mutant ctx loc
+    k (self#mutaml_mutant ~kind:Mutaml_common.Not_expression loc
          { e with pexp_desc = tmp_var.pexp_desc }
          { e with pexp_desc = [%expr not [%e tmp_var]].pexp_desc }
          (string_of_exp exp))
@@ -539,7 +663,7 @@ class mutate_mapper (rs : RS.t) =
     let loc = e.pexp_loc in
     super#expression ctx e >>| fun e' -> (* super: mutate the arguments, not the call again *)
     let k, tmp_var = self#let_bind ~loc e' in
-    k (self#mutaml_mutant ctx loc
+    k (self#mutaml_mutant ~kind:Mutaml_common.Equal_function loc
          { e with pexp_desc = [%expr not [%e tmp_var]].pexp_desc }
          { e with pexp_desc = tmp_var.pexp_desc }
          (string_of_exp [%expr not [%e e]]))
@@ -551,12 +675,13 @@ class mutate_mapper (rs : RS.t) =
      expression as the source file writes it, which the record of the
      mutation shows. The expression is bound to a name first, so that
      it is written once and evaluated once, whichever mutant is on. *)
-  method off_by_one ctx ~loc ~original recursed =
+  method off_by_one ~loc ~original recursed =
+    let kind = Mutaml_common.Argument_off_by_one in
     let k, tmp = self#let_bind ~loc recursed in
     let minus =
-      self#mutaml_mutant ctx loc
+      self#mutaml_mutant ~kind loc
         [%expr [%e tmp] - 1] tmp (string_of_exp [%expr [%e original] - 1]) in
-    k (self#mutaml_mutant ctx loc
+    k (self#mutaml_mutant ~kind loc
          [%expr [%e tmp] + 1] minus (string_of_exp [%expr [%e original] + 1]))
 
   (* Off by one on each argument of a call that the table says has
@@ -569,7 +694,7 @@ class mutate_mapper (rs : RS.t) =
       | (Nolabel, arg)::rest when List.mem position positions ->
         self#expression ctx arg >>= fun arg' ->
         let arg'' =
-          self#off_by_one ctx ~loc:arg.pexp_loc ~original:arg arg' in
+          self#off_by_one ~loc:arg.pexp_loc ~original:arg arg' in
         walk (position+1) ((Nolabel, arg'')::acc) rest
       | (Nolabel, arg)::rest ->
         self#expression ctx arg >>= fun arg' ->
@@ -585,7 +710,7 @@ class mutate_mapper (rs : RS.t) =
      [int], such as [String.length s]. *)
   method mutate_int_result ctx e =
     super#expression ctx e >>| fun e' ->
-    self#off_by_one ctx ~loc:e.pexp_loc ~original:e e'
+    self#off_by_one ~loc:e.pexp_loc ~original:e e'
 
   (* [self#mutate_guards ctx cases] gives each case that has a [when]
      guard a mutant that makes the guard always hold:
@@ -607,7 +732,7 @@ class mutate_mapper (rs : RS.t) =
      This operator is off by default. A guard that always holds is
      often an equivalent mutant, because a later case does the same
      thing. *)
-  method mutate_guards ctx cases =
+  method mutate_guards cases =
     List.map
       (fun case -> match case.pc_guard with
          | None -> case
@@ -621,10 +746,8 @@ class mutate_mapper (rs : RS.t) =
                { case.pc_lhs.ppat_loc with
                  loc_start = case.pc_lhs.ppat_loc.loc_end;
                  loc_end   = guard.pexp_loc.loc_end } in
-             let mut_no, mut_id_exp = self#make_mut_number_and_id loc ctx in
-             let mutation =
-               Mutaml_common.{ number = mut_no; repl = None; loc = span } in
-             mutations <- mutation::mutations;
+             let mut_id_exp =
+               self#record_mutation ~kind:Mutaml_common.Guard_always_true ~span ~repl:None ~loc in
              { case with
                pc_guard =
                  Some [%expr __is_mutaml_mutant__ [%e mut_id_exp] || [%e guard]] })
@@ -632,22 +755,22 @@ class mutate_mapper (rs : RS.t) =
 
   method! cases ctx cases =
     super#cases ctx cases >>| fun cases -> (* visit individual cases first *)
-    let cases = self#mutate_guards ctx cases in
+    let cases = self#mutate_guards cases in
     let cases_exc, cases_pure =
       List.partition (fun c -> Match.pat_matches_exception c.pc_lhs) cases in
     let cases_contain_catch_all
       = Match.cases_contain_catch_all cases_pure && List.length cases_pure >= 3 in
     if cases_contain_catch_all || Match.cases_contain_matching_patterns cases_pure
     then
-      let instr_cases = self#mutate_pure_cases ctx cases_pure ~cases_contain_catch_all in
+      let instr_cases = self#mutate_pure_cases cases_pure ~cases_contain_catch_all in
       instr_cases @ cases_exc
     else cases
 
-  method mutate_pure_cases ctx cases ~cases_contain_catch_all = match cases with
+  method mutate_pure_cases cases ~cases_contain_catch_all = match cases with
     | []
     | [_] -> cases
     | case1::(case2::_ as cases') ->
-      let cases' = self#mutate_pure_cases ctx cases' ~cases_contain_catch_all in
+      let cases' = self#mutate_pure_cases cases' ~cases_contain_catch_all in
       if Match.pat_is_catch_all case1.pc_lhs
       then case1::cases' (* neither match for omit-pattern or merge-consecutive *)
       else
@@ -671,12 +794,15 @@ class mutate_mapper (rs : RS.t) =
         (* Only allocate mutation if we are going to use it *)
         let loc = { case1.pc_lhs.ppat_loc with (* location of entire case: lhs with guard -> rhs *)
                     loc_end = case1.pc_rhs.pexp_loc.loc_end } in
-        let mut_no,mut_id_exp = self#make_mut_number_and_id loc ctx in
-        let mut_guard = [%expr not (__is_mutaml_mutant__ [%e mut_id_exp]) ] in
-        let guard = (match case1.pc_guard with
-            | None   -> Some mut_guard
-            | Some g -> Some [%expr [%e g] && [%e mut_guard] ]) in
-        let case1' = { case1 with pc_guard = guard } in
+        (* [guarded mut_id_exp] is case1 with the guard that turns the
+           mutation on. The mutation is written down first, because its
+           name is what the guard reads. *)
+        let guarded mut_id_exp =
+          let mut_guard = [%expr not (__is_mutaml_mutant__ [%e mut_id_exp]) ] in
+          let guard = (match case1.pc_guard with
+              | None   -> Some mut_guard
+              | Some g -> Some [%expr [%e g] && [%e mut_guard] ]) in
+          { case1 with pc_guard = guard } in
 
         if takes_omit_case
         then
@@ -689,14 +815,13 @@ class mutate_mapper (rs : RS.t) =
           (* match f x with             match f x with
               | B when c -> h z   ~~>    | B when c && not (__is_mutaml_mutant__ "test:45") -> h z
               | B        -> i q          | B -> i q   *)
-          let mutation = Mutaml_common.{ number = mut_no; repl = None;
-                                         loc = { loc with loc_end = case2.pc_lhs.ppat_loc.loc_start }} in
           (* | pat1 when guard1 -> rhs1  | pat2 when guard2 -> rhs2
                ^---------------------------^
                replaced with (i.e. omitted):
              |                             pat2 when guard2 -> rhs2 *)
-          mutations <- mutation::mutations;
-          case1'::cases'
+          let span = { loc with loc_end = case2.pc_lhs.ppat_loc.loc_start } in
+          let mut_id_exp = self#record_mutation ~kind ~span ~repl:None ~loc in
+          (guarded mut_id_exp)::cases'
         else
           (* merge consecutive cases into an or-pattern  | p1 -> r1 | p2 -> r2  ~~> |p1|p2 -> r2 *)
           (* when no/same variables are bound in each pattern *)
@@ -715,13 +840,13 @@ class mutate_mapper (rs : RS.t) =
                   ^------------------------------^
                           replaced with:
                 | pat1                      | pat2        when guard2 -> rhs2  *)
-             let mutation = Mutaml_common.{ number = mut_no;
-                                            repl = Some repl_str;  (* diff spans to end of pat2 *)
-                                            loc = { loc with loc_end = case2.pc_lhs.ppat_loc.loc_end }} in
-             mutations <- mutation::mutations;
+             let span = (* diff spans to end of pat2 *)
+               { loc with loc_end = case2.pc_lhs.ppat_loc.loc_end } in
+             let mut_id_exp =
+               self#record_mutation ~kind ~span ~repl:(Some repl_str) ~loc in
              let lhs = { case2'.pc_lhs with ppat_desc = Ppat_or (case1.pc_lhs, case2'.pc_lhs) } in
              let case2'_with_or = { case2' with pc_lhs = lhs } in
-             case1'::case2'_with_or::cs')
+             (guarded mut_id_exp)::case2'_with_or::cs')
 
   method! expression ctx e =
     let loc = e.pexp_loc in
@@ -744,11 +869,11 @@ class mutate_mapper (rs : RS.t) =
     | [%expr true],_
       when self#enabled Mutaml_common.Bool_constant && self#choose_to_mutate ->
       let false_exp = { e with pexp_desc = [%expr false].pexp_desc } in
-      return (self#mutaml_mutant ctx loc false_exp e (string_of_exp false_exp))
+      return (self#mutaml_mutant ~kind:Mutaml_common.Bool_constant loc false_exp e (string_of_exp false_exp))
     | [%expr false],_
       when self#enabled Mutaml_common.Bool_constant && self#choose_to_mutate ->
       let true_exp = { e with pexp_desc = [%expr true].pexp_desc } in
-      return (self#mutaml_mutant ctx loc true_exp e (string_of_exp true_exp))
+      return (self#mutaml_mutant ~kind:Mutaml_common.Bool_constant loc true_exp e (string_of_exp true_exp))
 
     | [%expr [%e? _] + [%e? _]],_
     | [%expr [%e? _] - [%e? _]],_
@@ -793,10 +918,12 @@ class mutate_mapper (rs : RS.t) =
       self#mutate_equal_function ctx e
 
     | _, Pexp_constant c when self#choose_to_mutate ->
-      let c' = self#mutate_constant ctx c in
-      if c = c' then return e else
-        let e_new = { e with pexp_desc = Pexp_constant c' } in
-        return (self#mutaml_mutant ctx loc e_new e (string_of_exp e_new))
+      (match self#mutate_constant c with
+       | None -> return e
+       | Some (c',_) when c = c' -> return e
+       | Some (c',kind) ->
+         let e_new = { e with pexp_desc = Pexp_constant c' } in
+         return (self#mutaml_mutant ~kind loc e_new e (string_of_exp e_new)))
 
     (* [Some e] becomes [None]. Both have type ['a option], so the
        mutant compiles, unless the program defines its own constructor
@@ -807,7 +934,7 @@ class mutate_mapper (rs : RS.t) =
       when self#enabled Mutaml_common.Some_to_none && self#choose_to_mutate ->
       super#expression ctx e >>| fun e' ->
       let none_exp = { e with pexp_desc = [%expr None].pexp_desc } in
-      self#mutaml_mutant ctx loc none_exp e' (string_of_exp none_exp)
+      self#mutaml_mutant ~kind:Mutaml_common.Some_to_none loc none_exp e' (string_of_exp none_exp)
 
     (* off by one on an integer argument of a call whose argument
        types the table knows *)
@@ -841,7 +968,7 @@ class mutate_mapper (rs : RS.t) =
       let cont e2_opt' =
       let k, tmp_var = self#let_bind ~loc:e0.pexp_loc e0' in
       let e0'_guarded =
-        k (self#mutaml_mutant ctx e0.pexp_loc (*loc*)
+        k (self#mutaml_mutant ~kind:Mutaml_common.If_condition e0.pexp_loc (*loc*)
              [%expr not [%e tmp_var]]
              [%expr [%e tmp_var]]
              (string_of_exp [%expr not [%e e0]])) in
@@ -861,7 +988,7 @@ class mutate_mapper (rs : RS.t) =
       self#expression ctx e0 >>= fun e0' ->
       self#expression ctx e1 >>| fun e1' ->
       let e0'' =
-        self#mutaml_mutant ctx loc(*e0.pexp_loc*) [%expr ()] e0' (string_of_exp e1) in
+        self#mutaml_mutant ~kind:Mutaml_common.Sequence loc(*e0.pexp_loc*) [%expr ()] e0' (string_of_exp e1) in
       { e0 with pexp_desc = Pexp_sequence (e0'',e1') }
 
     (* From ppxlib 0.36 on, one constructor holds both 'fun p -> e' and
@@ -900,6 +1027,42 @@ class mutate_mapper (rs : RS.t) =
 
   (* don't mutate attribute parameters such as 'false' in [@@deriving show {with_path=false}] *)
   method! attributes _ctx attrs = return attrs
+
+  (* The name of a mutation holds the top-level binding that the
+     mutation sits in, so the walk keeps track of that binding. A [let]
+     of a structure sets the binding for everything below it. A [let]
+     inside an expression does not: a name must not move when a local
+     definition is renamed. *)
+  method! structure_item ctx item =
+    let saved = enclosing in
+    match item.pstr_desc with
+    | Pstr_value (rec_flag,bindings) ->
+      let rec walk done_ bindings = match bindings with
+        | []                -> return (List.rev done_)
+        | binding_::rest ->
+          enclosing <- binding_name binding_.pvb_pat;
+          self#value_binding ctx binding_ >>= fun binding' ->
+          walk (binding'::done_) rest in
+      walk [] bindings >>| fun bindings' ->
+      enclosing <- saved;
+      { item with pstr_desc = Pstr_value (rec_flag,bindings') }
+    | _ ->
+      enclosing <- None;
+      super#structure_item ctx item >>| fun item' ->
+      enclosing <- saved;
+      item'
+
+  (* A module puts its name in front of the binding, so that the two
+     bindings [Inner.f] and [f] of one file take different names. *)
+  method! module_binding ctx module_ =
+    let saved = module_path in
+    let name = match module_.pmb_name.txt with
+      | Some name -> name
+      | None      -> "_" in
+    module_path <- name::module_path;
+    super#module_binding ctx module_ >>| fun module' ->
+    module_path <- saved;
+    module'
 
   method transform_impl_file ctx impl_ast =
     let input_name = Base_exp_context.input_name ctx in
