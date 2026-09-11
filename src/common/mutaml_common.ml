@@ -181,6 +181,27 @@ struct
 end
 
 
+(** [range_fits ~start ~stop ~length] says whether the bytes from
+    [start] up to but not including [stop] are a run of bytes inside a
+    text of [length] bytes. An empty run, where [stop] is [start], fits
+    at any point of the text and at its end.
+
+    A location comes from the preprocessor and the text comes from the
+    file as it is now, so the two can disagree: a source file that
+    changed after a run makes this false. Ask it before you read a run
+    of bytes that a location names. *)
+let range_fits ~start ~stop ~length =
+  0 <= start && start <= stop && stop <= length
+
+(** [span_fits text loc] says whether the run of bytes that [loc] covers
+    lies inside [text]. It is [range_fits] over the two byte offsets of
+    [loc] and the length of [text]. *)
+let span_fits text (loc : Loc.location) =
+  range_fits
+    ~start:loc.loc_start.pos_cnum
+    ~stop:loc.loc_end.pos_cnum
+    ~length:(String.length text)
+
 (** One mutation of one source file.
 
     [number] counts the mutations of a file in the order the

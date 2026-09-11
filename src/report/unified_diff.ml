@@ -35,7 +35,7 @@ let range ~start ~count =
 
 let unified ~old_label ~new_label ~contents ~start ~stop ~repl =
   let length = String.length contents in
-  if not (0 <= start && start <= stop && stop <= length)
+  if not (Mutaml_common.range_fits ~start ~stop ~length)
   then
     invalid_arg
       (Printf.sprintf

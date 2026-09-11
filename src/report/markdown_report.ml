@@ -63,7 +63,7 @@ let diff_of sources (res:test_result) =
   | None ->
     Error (Printf.sprintf "The source file `%s` could not be read, so there is no diff here." file)
   | Some contents ->
-    if not (0 <= start && start <= stop && stop <= String.length contents)
+    if not (span_fits contents mutant.loc)
     then
       Error
         (Printf.sprintf

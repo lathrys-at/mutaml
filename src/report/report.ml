@@ -86,13 +86,6 @@ let file_contents_opt file_name =
       (fun () -> Some (really_input_string ch (in_channel_length ch)))
   with Sys_error _ | End_of_file -> None
 
-(* [span_fits contents loc] says whether the run of bytes that [loc]
-   covers lies inside [contents]. It does not when the source file
-   changed after the runner recorded the mutation. *)
-let span_fits contents (loc : location) =
-  let start = loc.loc_start.pos_cnum and stop = loc.loc_end.pos_cnum in
-  0 <= start && start <= stop && stop <= String.length contents
-
 (* The bytes of every source file that [results] names. A file that
    cannot be read is left out, and named, because the report of its
    mutants then holds no source. *)

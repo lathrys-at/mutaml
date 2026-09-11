@@ -48,19 +48,13 @@ let json_mutant (res:test_result) =
     | Some reason -> fields @ ["statusReason", `String reason] in
   `Assoc fields
 
-(* [fits source loc] says whether the run of bytes that [loc] covers
-   lies inside [source]. *)
-let fits source (loc:Loc.location) =
-  let start = loc.loc_start.pos_cnum and stop = loc.loc_end.pos_cnum in
-  0 <= start && start <= stop && stop <= String.length source
-
 (* A file whose text no longer holds every mutation where the run
    recorded it goes into the report without its text. A viewer draws
    each mutation over the text of its file, and a file that changed
    after the run would put every mutation of it over other code. *)
 let json_file sources (file,results) =
   let source = match List.assoc_opt file sources with
-    | Some text when List.for_all (fun res -> fits text res.mutant.loc) results -> text
+    | Some text when List.for_all (fun res -> span_fits text res.mutant.loc) results -> text
     | Some _ | None -> "" in
   (file,
    `Assoc [

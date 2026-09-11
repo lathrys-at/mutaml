@@ -436,10 +436,11 @@ class mutate_mapper (rs : RS.t) =
         let text = file_text name in
         file_texts <- (name,text)::file_texts;
         text in
-    let start = span.loc_start.pos_cnum
-    and stop  = span.loc_end.pos_cnum in
-    if 0 <= start && start <= stop && stop <= String.length text
-    then String.sub text start (stop - start)
+    if Mutaml_common.span_fits text span
+    then
+      let start = span.loc_start.pos_cnum
+      and stop  = span.loc_end.pos_cnum in
+      String.sub text start (stop - start)
     else ""
 
   (* [self#next_ordinal key] is the number of mutations of this file
