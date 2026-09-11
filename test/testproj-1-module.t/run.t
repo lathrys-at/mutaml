@@ -63,7 +63,6 @@ Set seed and (full) mutation rate as environment variables, for repeatability
   $ mutaml-runner _build/default/ounittest.exe
   read mut file lib.muts
   Testing without a mutant ... passed
-  Testing without a mutant a second time ... passed
   Testing mutant lib:0 ... failed
   Testing mutant lib:1 ... failed
   Testing mutant lib:2 ... failed
@@ -124,7 +123,7 @@ Set seed and (full) mutation rate as environment variables, for repeatability
   
   Mutation score: 84.6% (13 mutations: 11 failed, 0 timed out, 2 passed)
   The score is below 100%. Use --fail-under to accept a lower score.
-  [1]
+  [2]
 
 
 Restarting runner should give the same output:
@@ -132,7 +131,6 @@ Restarting runner should give the same output:
   $ mutaml-runner _build/default/ounittest.exe
   read mut file lib.muts
   Testing without a mutant ... passed
-  Testing without a mutant a second time ... passed
   Testing mutant lib:0 ... failed
   Testing mutant lib:1 ... failed
   Testing mutant lib:2 ... failed
@@ -152,7 +150,6 @@ Restarting runner should give the same output:
   $ mutaml-runner _build/default/ounittest.exe
   read mut file lib.muts
   Testing without a mutant ... passed
-  Testing without a mutant a second time ... passed
   Testing mutant lib:0 ... failed
   Testing mutant lib:1 ... failed
   Testing mutant lib:2 ... failed
@@ -216,7 +213,7 @@ Similarly for the reporter:
   
   Mutation score: 84.6% (13 mutations: 11 failed, 0 timed out, 2 passed)
   The score is below 100%. Use --fail-under to accept a lower score.
-  [1]
+  [2]
 
 Try a second run to check that we get the same:
 
@@ -265,7 +262,7 @@ Try a second run to check that we get the same:
   
   Mutation score: 84.6% (13 mutations: 11 failed, 0 timed out, 2 passed)
   The score is below 100%. Use --fail-under to accept a lower score.
-  [1]
+  [2]
 
 
 Try without providing an explicit file name:
@@ -315,7 +312,7 @@ Try without providing an explicit file name:
   
   Mutation score: 84.6% (13 mutations: 11 failed, 0 timed out, 2 passed)
   The score is below 100%. Use --fail-under to accept a lower score.
-  [1]
+  [2]
 
 
 Now try the --no-diff option while providing an explicit file name:
@@ -338,7 +335,7 @@ Now try the --no-diff option while providing an explicit file name:
   Mutation "lib.ml-mutant12" passed (see "_mutations/lib.ml-mutant12.output")
   Mutation score: 84.6% (13 mutations: 11 failed, 0 timed out, 2 passed)
   The score is below 100%. Use --fail-under to accept a lower score.
-  [1]
+  [2]
 
 
 --------------------------------------------------------------------------------
@@ -364,7 +361,7 @@ And try the --no-diff option without providing an explicit file name:
   Mutation "lib.ml-mutant12" passed (see "_mutations/lib.ml-mutant12.output")
   Mutation score: 84.6% (13 mutations: 11 failed, 0 timed out, 2 passed)
   The score is below 100%. Use --fail-under to accept a lower score.
-  [1]
+  [2]
 
 
 --------------------------------------------------------------------------------
@@ -415,7 +412,7 @@ And try with a different MUTAML_DIFF_COMMAND environment variable:
   
   Mutation score: 84.6% (13 mutations: 11 failed, 0 timed out, 2 passed)
   The score is below 100%. Use --fail-under to accept a lower score.
-  [1]
+  [2]
 
 
 Also check that MUTAML_DIFF_COMMAND doesn't affect --no-diff:
@@ -438,7 +435,7 @@ Also check that MUTAML_DIFF_COMMAND doesn't affect --no-diff:
   Mutation "lib.ml-mutant12" passed (see "_mutations/lib.ml-mutant12.output")
   Mutation score: 84.6% (13 mutations: 11 failed, 0 timed out, 2 passed)
   The score is below 100%. Use --fail-under to accept a lower score.
-  [1]
+  [2]
 
 
 Now clean-up MUTAML_DIFF_COMMAND again to default again
@@ -469,7 +466,7 @@ Now move file to a different name and retry the --no-diff option with the new na
   Mutation "lib.ml-mutant12" passed (see "_mutations/lib.ml-mutant12.output")
   Mutation score: 84.6% (13 mutations: 11 failed, 0 timed out, 2 passed)
   The score is below 100%. Use --fail-under to accept a lower score.
-  [1]
+  [2]
 
 
 --------------------------------------------------------------------------------
@@ -510,7 +507,6 @@ Create a dune-workspace file with another build context:
   
   _mutations:
   baseline-1.output
-  baseline-2.output
   lib.ml-mutant0.output
   lib.ml-mutant1.output
   lib.ml-mutant10.output
@@ -545,7 +541,6 @@ Create a dune-workspace file with another build context:
   $ mutaml-runner _build/mutation/ounittest.exe
   read mut file lib.muts
   Testing without a mutant ... passed
-  Testing without a mutant a second time ... passed
   Testing mutant lib:0 ... failed
   Testing mutant lib:1 ... failed
   Testing mutant lib:2 ... failed
@@ -602,7 +597,7 @@ Create a dune-workspace file with another build context:
   
   Mutation score: 77.8% (9 mutations: 7 failed, 0 timed out, 2 passed)
   The score is below 100%. Use --fail-under to accept a lower score.
-  [1]
+  [2]
 Similar, but by passing a command line option:
 
   $ dune clean
@@ -625,7 +620,6 @@ Similar, but by passing a command line option:
   $ mutaml-runner --build-context "_build/mutation" _build/mutation/ounittest.exe
   read mut file lib.muts
   Testing without a mutant ... passed
-  Testing without a mutant a second time ... passed
   Testing mutant lib:0 ... failed
   Testing mutant lib:1 ... failed
   Testing mutant lib:2 ... failed
@@ -682,7 +676,7 @@ Similar, but by passing a command line option:
   
   Mutation score: 77.8% (9 mutations: 7 failed, 0 timed out, 2 passed)
   The score is below 100%. Use --fail-under to accept a lower score.
-  [1]
+  [2]
 Finally, test overriding:
 
 Similar, but by passing a command line option:
@@ -707,7 +701,6 @@ Similar, but by passing a command line option:
   $ mutaml-runner --build-context "_build/mutation" _build/mutation/ounittest.exe
   read mut file lib.muts
   Testing without a mutant ... passed
-  Testing without a mutant a second time ... passed
   Testing mutant lib:0 ... failed
   Testing mutant lib:1 ... failed
   Testing mutant lib:2 ... failed
@@ -764,7 +757,7 @@ Similar, but by passing a command line option:
   
   Mutation score: 77.8% (9 mutations: 7 failed, 0 timed out, 2 passed)
   The score is below 100%. Use --fail-under to accept a lower score.
-  [1]
+  [2]
 
 
 

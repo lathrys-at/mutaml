@@ -59,6 +59,11 @@ Create a corresponding mutation file with a dummy mutation:
   >   }
   > }]
   > EOF
+
+The runner skips a mutation file whose source file is not there, so make
+the source file as well:
+  $ touch somefile.ml
+
 Now try running again with a broken command:
   $ mutaml-runner scooby-doo.sh
   read mut file somefile.muts
@@ -102,5 +107,15 @@ Check that --test-env rejects a value that is not an assignment:
 
 Check that --test-env rejects a name that no variable may have:
   $ mutaml-runner --test-env 2SEED=1 true
+  2SEED is not a name that a variable may have. A variable name holds letters, digits and the character _, and it does not start with a digit.
+  [1]
+
+Check that --baseline-env rejects a value that is not an assignment:
+  $ mutaml-runner --baseline-env QCHECK_SEED true
+  The value of --baseline-env must have the form NAME=VALUE.
+  [1]
+
+Check that --baseline-env rejects a name that no variable may have:
+  $ mutaml-runner --baseline-env 2SEED=1 true
   2SEED is not a name that a variable may have. A variable name holds letters, digits and the character _, and it does not start with a digit.
   [1]

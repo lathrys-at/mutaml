@@ -219,13 +219,25 @@ The other options of `mutaml-runner` are:
   `mutaml-report.json`, so the result of a killed mutation names the
   environment that killed it.
 
-`mutaml-runner` runs the test command twice with no mutation before it
-tests any mutation. The second run adds 1 to the value of every
-`--test-env` variable that holds a seed; a variable holds a seed when
-its name holds the word `SEED` and its value is a whole number. The
-runner stops with an error when either run fails, and when the two runs
-do not agree. It writes the output of the two runs to
-`_mutations/baseline-1.output` and `_mutations/baseline-2.output`.
+- `--baseline-env NAME=VALUE` - run the test suite a second time with no
+  mutation, with `NAME` set to `VALUE` on top of what `--test-env` sets.
+  Repeat the option for each variable you want to change. Use it to run
+  the second time with another seed, for example `--test-env
+  QCHECK_SEED=1 --baseline-env QCHECK_SEED=2`. A test suite that passes
+  under one seed and fails under another does not give a mutation score
+  any meaning, and this is how to find that out before the run.
+
+`mutaml-runner` runs the test command with no mutation before it tests
+any mutation, and again a second time when `--baseline-env` is given. It
+stops with an error when a run fails, because every mutation would then
+look killed, and when the two runs do not agree. It writes the output of
+the runs to `_mutations/baseline-1.output` and, when there is a second
+run, `_mutations/baseline-2.output`.
+
+`mutaml-runner` skips a `lib.muts` file whose source file `lib.ml` is
+not in the project, and says on one line that it did. `dune` runs the
+preprocessor again only for a source file that changed, so the list of
+`.muts` files can name a file you have since deleted or renamed.
 
 `mutaml-runner` runs every test through the `timeout` command, which
 must be on `PATH`. It reads the exit status of that command to tell
@@ -252,16 +264,26 @@ configured with an environment variable:
 Passing the option `--no-diff` to `mutaml-report` prevents any
 mutation `diff`s from being printed.
 
-`mutaml-report` prints the mutation score, and exits with 1 when the
+`mutaml-report` prints the mutation score, and exits with 2 when the
 score is below 100 percent. The mutation score is the share of the
 mutations that failed or timed out, of all the mutations that ran. A
 mutation that timed out counts with the mutations that failed, because
 a test run that never ends is a fault that the test suite found.
 
 - `--fail-under percent` - accept a score of `percent` or above.
-  `mutaml-report` then exits with 1 only when the score is below the
+  `mutaml-report` then exits with 2 only when the score is below the
   number, and a score equal to the number passes. `--fail-under 0`
   accepts every score.
+
+The three exit codes of `mutaml-report` are:
+
+| code | meaning |
+|---|---|
+| 0 | the score is at or above the limit |
+| 2 | the score is below the limit |
+| 1 | the tool could not do its work, for example because it could not read its input |
+
+A job that must tell a low score from a broken run reads the code.
 
 
 

@@ -61,9 +61,10 @@ let mutation_score results =
 module CLI =
 struct
   let usage_msg =
-    Printf.sprintf "Usage: %s [-no-diff] [--fail-under <percent>] [file.json]\n%s\n%s\n" (Sys.argv.(0))
+    Printf.sprintf "Usage: %s [-no-diff] [--fail-under <percent>] [file.json]\n%s\n%s\n%s\n" (Sys.argv.(0))
       "Generates a report summarizing the findings of a mutaml-driver run."
       "The mutation score is the share of mutations that failed or timed out."
+      "Exits with 0 when the score is high enough, with 2 when it is not, and with 1 on an error."
 
   let print_diff = ref true
 
@@ -201,8 +202,15 @@ let print_crashed results =
       Printf.printf "\n"
     end
 
+(* Prints [message] and ends the program with status 2, which says that
+   the score is too low. Status 1 says that the tool itself could not do
+   its work. *)
+let fail_gate_and_exit message =
+  print_endline message;
+  exit 2
+
 (** Prints the mutation score and stops the program when the score is too
-    low. Exits with status 1 when the score is below the limit that
+    low. Exits with status 2 when the score is below the limit that
     [CLI.fail_under] gives, or below 100 percent when it gives none. *)
 let print_score_and_gate results =
   let parted = part_results results in
@@ -213,11 +221,11 @@ let print_score_and_gate results =
   match !CLI.fail_under with
   | Some limit ->
     if score < limit
-    then fail_and_exit (Printf.sprintf "The score is below %.1f%%." limit)
+    then fail_gate_and_exit (Printf.sprintf "The score is below %.1f%%." limit)
   | None ->
     if parted.passed <> []
     then
-      fail_and_exit
+      fail_gate_and_exit
         "The score is below 100%. Use --fail-under to accept a lower score."
 
 

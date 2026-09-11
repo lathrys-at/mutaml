@@ -62,7 +62,6 @@ Set seed and (full) mutation rate as environment variables, for repeatability
   $ mutaml-runner _build/default/test.exe
   read mut file test.muts
   Testing without a mutant ... passed
-  Testing without a mutant a second time ... passed
   Testing mutant test:0 ... passed
   Writing report data to mutaml-report.json
 
@@ -96,4 +95,4 @@ Set seed and (full) mutation rate as environment variables, for repeatability
   
   Mutation score: 0.0% (1 mutations: 0 failed, 0 timed out, 1 passed)
   The score is below 100%. Use --fail-under to accept a lower score.
-  [1]
+  [2]

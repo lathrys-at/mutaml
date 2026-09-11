@@ -41,7 +41,7 @@ percent and the report tool exits with 0:
 
 Write a report in which one mutation failed and one passed. The score is
 50 percent. Without --fail-under the report tool demands 100 percent, so
-it exits with 1:
+it exits with 2:
 
   $ cat > survivor.json <<'EOF'
   > [ { "status" : 1,
@@ -73,7 +73,7 @@ it exits with 1:
   Mutation "lib.ml-mutant1" passed (see "_mutations/lib.ml-mutant1.output")
   Mutation score: 50.0% (2 mutations: 1 failed, 0 timed out, 1 passed)
   The score is below 100%. Use --fail-under to accept a lower score.
-  [1]
+  [2]
 
 A score equal to the value of --fail-under is not below it, so the report
 tool exits with 0:
@@ -95,7 +95,7 @@ tool exits with 0:
   Mutation "lib.ml-mutant1" passed (see "_mutations/lib.ml-mutant1.output")
   Mutation score: 50.0% (2 mutations: 1 failed, 0 timed out, 1 passed)
 
-A score below the value of --fail-under makes the report tool exit with 1:
+A score below the value of --fail-under makes the report tool exit with 2:
 
   $ mutaml-report --no-diff --fail-under 50.1 survivor.json
   Attempting to read from survivor.json...
@@ -114,7 +114,7 @@ A score below the value of --fail-under makes the report tool exit with 1:
   Mutation "lib.ml-mutant1" passed (see "_mutations/lib.ml-mutant1.output")
   Mutation score: 50.0% (2 mutations: 1 failed, 0 timed out, 1 passed)
   The score is below 50.1%.
-  [1]
+  [2]
 
 The value 0 accepts every score:
 

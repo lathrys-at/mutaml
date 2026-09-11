@@ -36,7 +36,7 @@ and it fails for the mutant lib:0 only:
   > EOF
   $ chmod +x tests.sh
 
-The runner tests the suite twice without a mutant, and then once for each
+The runner tests the suite once without a mutant, and then once for each
 mutant. The suite fails for the mutant lib:0, which means that the suite
 killed it. The suite passes for the mutant lib:1, which means that lib:1
 survived:
@@ -44,14 +44,33 @@ survived:
   $ mutaml-runner --test-env QCHECK_SEED=7 ./tests.sh
   read mut file lib.muts
   Testing without a mutant ... passed
-  Testing without a mutant a second time ... passed
   Testing mutant lib:0 ... failed
   Testing mutant lib:1 ... passed
   Writing report data to mutaml-report.json
 
-Both runs without a mutant had the variable set, and the second run added
-1 to the seed:
+The run without a mutant had the variable set:
 
+  $ cat _mutations/baseline-1.output
+  MUTAML_MUTANT=[] QCHECK_SEED=[7]
+
+There was no second run without a mutant, because --baseline-env was not
+given:
+
+  $ test -e _mutations/baseline-2.output
+  [1]
+
+--baseline-env asks for a second run without a mutant, with the
+variables it names set on top of the ones --test-env names. A test suite
+that passes under one seed and fails under another gives a mutation
+score no meaning, and this finds that out before the mutants run:
+
+  $ mutaml-runner --test-env QCHECK_SEED=7 --baseline-env QCHECK_SEED=8 ./tests.sh
+  read mut file lib.muts
+  Testing without a mutant ... passed
+  Testing without a mutant a second time ... passed
+  Testing mutant lib:0 ... failed
+  Testing mutant lib:1 ... passed
+  Writing report data to mutaml-report.json
   $ cat _mutations/baseline-1.output
   MUTAML_MUTANT=[] QCHECK_SEED=[7]
   $ cat _mutations/baseline-2.output
@@ -78,7 +97,6 @@ gives the same mutant names, and the same results:
   $ rm -rf _mutations mutaml-report.json
   $ mutaml-runner --muts "$(pwd)/_build/.mutaml/default/lib.muts" --test-env QCHECK_SEED=7 ./tests.sh
   Testing without a mutant ... passed
-  Testing without a mutant a second time ... passed
   Testing mutant lib:0 ... failed
   Testing mutant lib:1 ... passed
   Writing report data to mutaml-report.json
@@ -102,7 +120,6 @@ the machine is, and the limit below is high for the same reason:
   $ mutaml-runner --timeout 60 ./mixed.sh
   read mut file lib.muts
   Testing without a mutant ... passed
-  Testing without a mutant a second time ... passed
   Testing mutant lib:0 ... crashed
   Testing mutant lib:1 ... timeout
   Writing report data to mutaml-report.json
@@ -130,9 +147,8 @@ The runner wrote no report, so no tool can report a score for this run:
   $ test -e mutaml-report.json
   [1]
 
-A test suite that passes in one run and fails in the next also stops the
-run. The suite below fails for the seed 8, which is the seed that the
-second run without a mutant uses:
+A test suite that passes in one run without a mutant and fails in the
+other also stops the run. The suite below fails for the seed 8:
 
   $ cat > flaky.sh <<'EOF'
   > #!/bin/sh
@@ -140,11 +156,41 @@ second run without a mutant uses:
   > exit 0
   > EOF
   $ chmod +x flaky.sh
-  $ mutaml-runner --test-env QCHECK_SEED=7 ./flaky.sh
+  $ mutaml-runner --test-env QCHECK_SEED=7 --baseline-env QCHECK_SEED=8 ./flaky.sh
   read mut file lib.muts
   Testing without a mutant ... passed
   Testing without a mutant a second time ... failed
   The test suite ran twice without a mutant. It passed in one run and not in the other.
   The output of the two runs is in _mutations/baseline-1.output and _mutations/baseline-2.output.
   The test suite does not give the same result every time, so a mutation score would have no meaning.
+  [1]
+
+The list of mutation files can name a file whose source file is gone,
+because dune runs the preprocessor again only for a source file that
+changed. The runner says so and tests the rest:
+
+  $ sed -e 's/lib[.]ml/gone.ml/' _build/.mutaml/default/lib.muts > _build/.mutaml/default/gone.muts
+  $ cat > _build/.mutaml/default/mutaml-mut-files.txt <<'EOF'
+  > gone.muts
+  > lib.muts
+  > EOF
+  $ mutaml-runner --test-env QCHECK_SEED=7 ./tests.sh
+  read mut file gone.muts
+  read mut file lib.muts
+  Skipping gone.muts: the source file gone.ml does not exist
+  Testing without a mutant ... passed
+  Testing mutant lib:0 ... failed
+  Testing mutant lib:1 ... passed
+  Writing report data to mutaml-report.json
+
+When no mutation file is left, the runner stops, because a score over no
+mutation at all would say nothing:
+
+  $ cat > _build/.mutaml/default/mutaml-mut-files.txt <<'EOF'
+  > gone.muts
+  > EOF
+  $ mutaml-runner --test-env QCHECK_SEED=7 ./tests.sh
+  read mut file gone.muts
+  Skipping gone.muts: the source file gone.ml does not exist
+  No mutation file is left to test: every source file is gone
   [1]

@@ -37,6 +37,10 @@ struct
   (* Variables to set in every test process, in the order given. *)
   let test_env = ref []
 
+  (* Variables to set in the second run without a mutation, on top of
+     [test_env]. Empty means that there is no second run. *)
+  let baseline_env = ref []
+
   let set_timeout_from source str = match int_of_string_opt str with
     | Some secs when secs > 0 -> timeout := Some secs
     | _ ->
@@ -55,19 +59,23 @@ struct
     && all_chars_from
          (function 'A'..'Z' | 'a'..'z' | '0'..'9' | '_' -> true | _ -> false) name 0
 
-  let add_test_env str = match String.index_opt str '=' with
+  let add_env option_name where str = match String.index_opt str '=' with
     | None ->
-      fail_and_exit "The value of --test-env must have the form NAME=VALUE."
+      fail_and_exit
+        (Printf.sprintf "The value of %s must have the form NAME=VALUE." option_name)
     | Some i ->
       let name = String.sub str 0 i in
       let value = String.sub str (i+1) (String.length str - i - 1) in
       if is_variable_name name
-      then test_env := !test_env @ [(name,value)]
+      then where := !where @ [(name,value)]
       else
         fail_and_exit
           (Printf.sprintf
              "%s is not a name that a variable may have. A variable name holds letters, digits and the character _, and it does not start with a digit."
              name)
+
+  let add_test_env str = add_env "--test-env" test_env str
+  let add_baseline_env str = add_env "--baseline-env" baseline_env str
 
   let arg_spec =
     Arg.align
@@ -76,7 +84,9 @@ struct
        ("--timeout",       Arg.String set_timeout,
         "<seconds> Stop a test run that takes longer than <seconds>");
        ("--test-env",      Arg.String add_test_env,
-        "<NAME=VALUE> Set NAME to VALUE in every test process. Repeatable")]
+        "<NAME=VALUE> Set NAME to VALUE in every test process. Repeatable");
+       ("--baseline-env",  Arg.String add_baseline_env,
+        "<NAME=VALUE> Run the test suite a second time without a mutation, with NAME set to VALUE. Repeatable")]
 end
 
 let ensure_output_dir dir_name =
@@ -153,6 +163,23 @@ let validate_mutants file_name muts =
         (Printf.sprintf "Did not find any mutations across the files listed in %s" file_name)
     else ()
 
+(* Drops a .muts file whose source file is not in the project. Dune runs
+   the preprocessor again only for a source file that changed, so the list
+   of .muts files can name a file whose source is gone. The mutations of
+   such a file cannot be reported, because the report tool reads the
+   source to make its diff. *)
+let drop_absent_sources muts =
+  List.filter
+    (fun (file_name,mutants) -> match mutants with
+       | [] -> true
+       | mut::_ ->
+         let source = mut.loc.loc_start.pos_fname in
+         Sys.file_exists source
+         || (Printf.printf "Skipping %s: the source file %s does not exist\n%!"
+               file_name source;
+             false))
+    muts
+
 let save_test_outcome ret test_env mut =
   test_results := { status = ret; mutant = mut; test_env }::(!test_results)
 
@@ -215,32 +242,26 @@ let rec run_all_mutation_tests test_cmd ~test_env ~timeout muts = match muts wit
 
 (** The baseline run: the test suite without a mutant *)
 
-(* A variable holds a seed when its name holds the word SEED and its value
-   is a whole number. *)
-let holds_seed name =
-  let name = String.uppercase_ascii name in
-  let seed = "SEED" in
-  let n = String.length name and m = String.length seed in
-  let rec at i = i + m <= n && (String.sub name i m = seed || at (i+1)) in
-  at 0
-
-(* Adds 1 to the value of every variable that holds a seed, so that a
-   second run of the test suite draws other random values. *)
-let next_seeds test_env =
-  List.map
-    (fun (name,value) -> match int_of_string_opt value with
-       | Some n when holds_seed name ->
-         (name, string_of_int (if n = max_int then 0 else n+1))
-       | _ -> (name,value))
-    test_env
+(* [override base extra] is [base] with the value of [extra] for every
+   name that [extra] holds, and with the names of [extra] that [base] does
+   not hold added at the end. *)
+let override base extra =
+  let replaced =
+    List.map
+      (fun (name,value) -> match List.assoc_opt name extra with
+         | Some other -> (name,other)
+         | None -> (name,value))
+      base in
+  replaced @ List.filter (fun (name,_) -> not (List.mem_assoc name base)) extra
 
 let baseline_output_file number =
   full_path (Printf.sprintf "baseline-%i.output" number)
 
-(* Runs the test suite without a mutant, twice. The second run adds 1 to
-   every seed. Stops the program when a run fails, and when the two runs
+(* Runs the test suite without a mutant. It runs a second time when
+   [baseline_env] holds an assignment, with those assignments on top of
+   [test_env]. Stops the program when a run fails, and when the two runs
    disagree: a score has no meaning in either case. *)
-let run_baseline test_cmd ~test_env ~timeout =
+let run_baseline test_cmd ~test_env ~baseline_env ~timeout =
   let run number env =
     let output_file = baseline_output_file number in
     let () =
@@ -257,14 +278,15 @@ let run_baseline test_cmd ~test_env ~timeout =
       (Printf.sprintf
          "The test suite did not pass without a mutant. Its exit status was %i.\nThe output of the run is in %s.\nEvery mutant would look killed, so mutaml-runner stops here."
          first (baseline_output_file 1));
-  let second_env = next_seeds test_env in
-  let second = run 2 second_env in
-  if second <> 0
+  if baseline_env <> []
   then
-    fail_and_exit
-      (Printf.sprintf
-         "The test suite ran twice without a mutant. It passed in one run and not in the other.\nThe output of the two runs is in %s and %s.\nThe test suite does not give the same result every time, so a mutation score would have no meaning."
-         (baseline_output_file 1) (baseline_output_file 2))
+    let second = run 2 (override test_env baseline_env) in
+    if second <> 0
+    then
+      fail_and_exit
+        (Printf.sprintf
+           "The test suite ran twice without a mutant. It passed in one run and not in the other.\nThe output of the two runs is in %s and %s.\nThe test suite does not give the same result every time, so a mutation score would have no meaning."
+           (baseline_output_file 1) (baseline_output_file 2))
 
 
 (** Executable entry point *)
@@ -294,10 +316,14 @@ let () =
         validate_muts_file mpair;
         [mpair]
     in
+    let mutants = drop_absent_sources mutants in
+    if mutants = []
+    then fail_and_exit "No mutation file is left to test: every source file is gone";
     ensure_output_dir defaults.output_file_prefix;
     let test_env = !CLI.test_env in
+    let baseline_env = !CLI.baseline_env in
     let timeout = Option.value !CLI.timeout ~default:default_timeout in
-    run_baseline !test_cmd ~test_env ~timeout;
+    run_baseline !test_cmd ~test_env ~baseline_env ~timeout;
     run_all_mutation_tests !test_cmd ~test_env ~timeout mutants;
     write_report_file defaults.mutaml_report_file;
     ()

@@ -37,7 +37,6 @@ list of mutation files is sorted.
   read mut file src/lib1.muts
   read mut file src/lib2.muts
   Testing without a mutant ... passed
-  Testing without a mutant a second time ... passed
   Testing mutant src/lib1:0 ... failed
   Testing mutant src/lib1:1 ... failed
   Testing mutant src/lib1:2 ... failed
@@ -112,12 +111,11 @@ list of mutation files is sorted.
   
   Mutation score: 66.7% (9 mutations: 6 failed, 0 timed out, 3 passed)
   The score is below 100%. Use --fail-under to accept a lower score.
-  [1]
+  [2]
 Now try testing only the mutations in src/lib1.muts:
 
   $ mutaml-runner --muts src/lib1.muts _build/default/test/ounittest.exe
   Testing without a mutant ... passed
-  Testing without a mutant a second time ... passed
   Testing mutant src/lib1:0 ... failed
   Testing mutant src/lib1:1 ... failed
   Testing mutant src/lib1:2 ... failed
@@ -142,7 +140,6 @@ Now try the same for src/lib2.muts:
 
   $ mutaml-runner --muts src/lib2.muts _build/default/test/ounittest.exe
   Testing without a mutant ... passed
-  Testing without a mutant a second time ... passed
   Testing mutant src/lib2:0 ... passed
   Testing mutant src/lib2:1 ... passed
   Testing mutant src/lib2:2 ... passed
@@ -172,4 +169,4 @@ And report a diff-free summary:
   Mutation "src/lib2.ml-mutant2" passed (see "_mutations/src/lib2.ml-mutant2.output")
   Mutation score: 50.0% (6 mutations: 3 failed, 0 timed out, 3 passed)
   The score is below 100%. Use --fail-under to accept a lower score.
-  [1]
+  [2]
