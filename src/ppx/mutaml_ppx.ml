@@ -341,6 +341,22 @@ class mutate_mapper (rs : RS.t) =
        | _   -> Const.int (1 + int_of_string i))
     (* replace " " strings with "" *)
     | Pconst_string (" ",loc,None) -> Const.string ~loc ""
+    (* Any other string literal becomes "", and "" becomes " ". This
+       operator is off by default: most string literals of a program
+       are messages that no test reads, so most of its mutants are
+       equivalent and only add noise to a report.
+
+       A literal that holds a '%' is left alone. Such a literal may
+       stand where a format is wanted, and there its type is not
+       [string] but [format], and [""] does not typecheck. A format
+       with no conversion in it, such as [Format.asprintf "hello"],
+       does typecheck as [""], so the rule loses nothing that matters
+       and it needs no types. *)
+    | Pconst_string ("",loc,_)
+      when self#enabled Mutaml_common.String_literal -> Const.string ~loc " "
+    | Pconst_string (str,loc,_)
+      when self#enabled Mutaml_common.String_literal
+        && not (String.contains str '%') -> Const.string ~loc ""
     (* FIXME: add more constant mutations over char,float,int32,int64 *)
     | _ -> c
 
@@ -440,8 +456,52 @@ class mutate_mapper (rs : RS.t) =
     super#expression ctx e >>| fun e' ->
     self#off_by_one ctx ~loc:e.pexp_loc ~original:e e'
 
+  (* [self#mutate_guards ctx cases] gives each case that has a [when]
+     guard a mutant that makes the guard always hold:
+
+       | pat when guard        ~~>  | pat when __is_mutaml_mutant__ id || guard
+
+     so that the case fires where the program says it must not. This
+     is the opposite of the mutation that mutaml already had, which
+     makes a guarded case fire never; the two find different defects.
+
+     The guard stays a Boolean expression, so the mutant typechecks,
+     and the case still has a guard, so the compiler still treats the
+     case as one that can fail and reports no new warning.
+
+     The record of the mutation covers the text from the end of the
+     pattern to the end of the guard, which is the text "when guard",
+     and deletes it, so that a report shows the guard taken away.
+
+     This operator is off by default. A guard that always holds is
+     often an equivalent mutant, because a later case does the same
+     thing. *)
+  method mutate_guards ctx cases =
+    List.map
+      (fun case -> match case.pc_guard with
+         | None -> case
+         | Some guard ->
+           if not (self#enabled Mutaml_common.Guard_always_true
+                   && self#choose_to_mutate)
+           then case
+           else
+             let loc = guard.pexp_loc in
+             let span =
+               { case.pc_lhs.ppat_loc with
+                 loc_start = case.pc_lhs.ppat_loc.loc_end;
+                 loc_end   = guard.pexp_loc.loc_end } in
+             let mut_no, mut_id_exp = self#make_mut_number_and_id loc ctx in
+             let mutation =
+               Mutaml_common.{ number = mut_no; repl = None; loc = span } in
+             mutations <- mutation::mutations;
+             { case with
+               pc_guard =
+                 Some [%expr __is_mutaml_mutant__ [%e mut_id_exp] || [%e guard]] })
+      cases
+
   method! cases ctx cases =
     super#cases ctx cases >>| fun cases -> (* visit individual cases first *)
+    let cases = self#mutate_guards ctx cases in
     let cases_exc, cases_pure =
       List.partition (fun c -> Match.pat_matches_exception c.pc_lhs) cases in
     let cases_contain_catch_all
