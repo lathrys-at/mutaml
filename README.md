@@ -100,8 +100,9 @@ process.
    runs the preprocessor again only for a source file that changed, and
    the `lib.muts` file of a file that did not change still describes the
    program that was built, so a build that changes one file of several
-   leaves all of them listed. A name leaves the list when its `lib.muts`
-   file is gone, which is what `dune clean` leaves behind.
+   leaves all of them listed. A name leaves the overview file when its
+   `lib.muts` file is no longer there. After `dune clean` the overview
+   file is gone too, so the next build starts the list from nothing.
 
 
 3. Start `mutaml-runner`, passing the name of the test executable to run:

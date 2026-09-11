@@ -53,14 +53,19 @@ val record_muts_file : t -> string -> unit
     that the runner reads. [name] is what {!write_muts} returned.
 
     The list names every [.muts] file that is in the directory. A name
-    goes in once, however many times it is recorded. The first name of a
-    new build drops from the list the names whose [.muts] file is gone,
-    which is what a build after [dune clean] leaves. It keeps the rest,
+    goes in once, however many times it is recorded.
+
+    The first name of a new build drops the names whose [.muts] file is
+    no longer in the directory, and keeps the rest. It keeps the rest
     because the build system runs the instrumentation again only for a
-    source file that changed, and the [.muts] files of the other source
-    files still describe the program that was built. Two source files
-    are instrumented by two separate runs of the instrumentation,
-    possibly at the same time, so the runs take a lock on the directory.
+    source file that changed, and the [.muts] file of a source file that
+    did not change still describes the program that was built. [dune
+    clean] removes the whole directory, so the build after it starts the
+    list from nothing.
+
+    Two source files are instrumented by two separate runs of the
+    instrumentation, possibly at the same time, so the runs take a lock
+    on the directory.
 
     The list is sorted, so that it does not depend on the order in which
     dune happened to run the instrumentations. The runner reads the list

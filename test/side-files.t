@@ -103,9 +103,21 @@ The same holds when the other file is the one that changes:
   lib1/lib1.muts
   lib2/lib2.muts
 
-A name leaves the list when its `.muts` file is gone. `dune clean` takes
-every `.muts` file away, so the build after it lists the source files it
-instruments and nothing else:
+A name leaves the list when its `.muts` file is no longer there. Take
+one away by hand and build again: the next build drops the name, and
+keeps the name whose file is still there.
+
+  $ rm _build/.mutaml/default/lib2/lib2.muts
+  $ cat > lib1/lib1.ml <<EOF
+  > let add x = x + 3
+  > EOF
+  $ dune build @all --instrument-with mutaml 2>&1 | grep Created | sort
+  Created 2 mutations of lib1/lib1.ml
+  $ sort _build/.mutaml/default/mutaml-mut-files.txt
+  lib1/lib1.muts
+
+`dune clean` removes the whole `_build` directory, so the build after it
+starts the list from nothing and lists the source files it instruments:
 
   $ rm -rf lib2
   $ dune clean
