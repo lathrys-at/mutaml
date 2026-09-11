@@ -27,12 +27,6 @@ val count : t -> outcome -> int
 (** [count t outcome] is the number of results in [t] whose outcome is
     [outcome]. It is the length of [with_outcome t outcome]. *)
 
-val detected : t -> int
-(** [detected t] is the number of mutants in [t] that the test suite
-    caught. A mutant counts as caught when a test failed, when a signal
-    ended the test process, and when the run timed out. Only a mutant
-    that let the test suite pass is not caught. *)
-
 val score : t -> float
 (** [score t] is the share of the mutants of [t] that the test suite
     caught, as a percentage from 0 to 100. It is [detected t] divided

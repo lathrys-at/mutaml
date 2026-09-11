@@ -86,6 +86,13 @@ let file_contents_opt file_name =
       (fun () -> Some (really_input_string ch (in_channel_length ch)))
   with Sys_error _ | End_of_file -> None
 
+(* [span_fits contents loc] says whether the run of bytes that [loc]
+   covers lies inside [contents]. It does not when the source file
+   changed after the runner recorded the mutation. *)
+let span_fits contents (loc : location) =
+  let start = loc.loc_start.pos_cnum and stop = loc.loc_end.pos_cnum in
+  0 <= start && start <= stop && stop <= String.length contents
+
 (* The bytes of every source file that [results] names. A file that
    cannot be read is left out, and named, because the report of its
    mutants then holds no source. *)
@@ -162,6 +169,9 @@ let print_passed print_diff (res:test_result) =
   match file_contents_opt file_name with
   | None ->
     Printf.printf "Mutation \"%s\" passed (see \"%s\"), and the source file %s could not be read\n%!"
+      mut_name test_output_file file_name
+  | Some contents when not (span_fits contents loc) ->
+    Printf.printf "Mutation \"%s\" passed (see \"%s\"), and the source file %s is not as it was when the tests ran\n%!"
       mut_name test_output_file file_name
   | Some contents ->
     write_mutated_version full_mut_name

@@ -96,3 +96,45 @@ Check that it says so as well when it cannot write the JSON report:
   Writing the JSON report to no-such-directory/report.json
   Could not write file no-such-directory/report.json: No such file or directory
   [1]
+
+Check that the report tool names the source file, and still gives a
+score, when the source of a mutation that passed is not in the project:
+  $ mkdir -p _mutations
+  $ mutaml-report --fail-under 0 one-result.json
+  Attempting to read from one-result.json...
+  
+  Mutaml report summary:
+  ----------------------
+  
+   target                          #mutations      #failed      #timeouts      #passed 
+   -------------------------------------------------------------------------------------
+   lib.ml                                 1       0.0%    0     0.0%    0   100.0%    1
+   =====================================================================================
+  
+  Mutation programs passing the test suite:
+  -----------------------------------------
+  
+  Mutation "lib.ml-mutant0" passed (see "_mutations/lib.ml-mutant0.output"), and the source file lib.ml could not be read
+  Mutation score: 0.0% (1 mutations: 0 failed, 0 timed out, 1 passed)
+
+Check that it does the same when the source file changed, so that the
+place the mutation sits in is outside the file:
+  $ cat > lib.ml <<'EOF'
+  > let f = 1
+  > EOF
+  $ mutaml-report --fail-under 0 one-result.json
+  Attempting to read from one-result.json...
+  
+  Mutaml report summary:
+  ----------------------
+  
+   target                          #mutations      #failed      #timeouts      #passed 
+   -------------------------------------------------------------------------------------
+   lib.ml                                 1       0.0%    0     0.0%    0   100.0%    1
+   =====================================================================================
+  
+  Mutation programs passing the test suite:
+  -----------------------------------------
+  
+  Mutation "lib.ml-mutant0" passed (see "_mutations/lib.ml-mutant0.output"), and the source file lib.ml is not as it was when the tests ran
+  Mutation score: 0.0% (1 mutations: 0 failed, 0 timed out, 1 passed)
