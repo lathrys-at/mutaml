@@ -38,7 +38,7 @@ let num_failed summary = Summary.count summary Failed + Summary.count summary Cr
 module CLI =
 struct
   let usage_msg =
-    Printf.sprintf "Usage: %s [--no-diff] [--fail-under <percent>] [--markdown <path>] [file.json]\n%s\n%s\n%s\n" (Sys.argv.(0))
+    Printf.sprintf "Usage: %s [--no-diff] [--fail-under <percent>] [--json-report <path>] [--markdown <path>] [file.json]\n%s\n%s\n%s\n" (Sys.argv.(0))
       "Generates a report summarizing the findings of a mutaml-driver run."
       "The mutation score is the share of mutations that failed or timed out."
       "Exits with 0 when the score is high enough, with 2 when it is not, and with 1 on an error."
@@ -48,7 +48,10 @@ struct
   (* The lowest score that the run may have. [None] means 100 percent. *)
   let fail_under = ref None
 
-  (* Where to write the Markdown summary. [None] means not to write it. *)
+  (* Where to write the report in the mutation-testing-elements format,
+     and where to write the Markdown summary. [None] means not to write
+     that file. *)
+  let json_report = ref None
   let markdown = ref None
 
   let set_fail_under str = match float_of_string_opt str with
@@ -61,6 +64,8 @@ struct
       ["--no-diff", Arg.Clear print_diff, " Don't output diffs to the console";
        "--fail-under", Arg.String set_fail_under,
        "<percent> Exit with an error when the score is below <percent>";
+       "--json-report", Arg.String (fun path -> json_report := Some path),
+       "<path> Write the report in the mutation-testing-elements format to <path>";
        "--markdown", Arg.String (fun path -> markdown := Some path),
        "<path> Write a Markdown summary to <path>, for the summary page of a CI job"]
 
@@ -104,12 +109,21 @@ let write_text_file file_name text =
 
 (* Writes the report files that the command line asked for. *)
 let write_report_files results =
-  Option.iter
-    (fun path ->
-       let sources = read_sources results in
-       Printf.printf "Writing the Markdown summary to %s\n%!" path;
-       write_text_file path (Markdown_report.render ~sources ~results))
-    !CLI.markdown
+  match !CLI.json_report, !CLI.markdown with
+  | None, None -> ()
+  | json_path, markdown_path ->
+    let sources = read_sources results in
+    Option.iter
+      (fun path ->
+         Printf.printf "Writing the Markdown summary to %s\n%!" path;
+         write_text_file path (Markdown_report.render ~sources ~results))
+      markdown_path;
+    Option.iter
+      (fun path ->
+         Printf.printf "Writing the JSON report to %s\n%!" path;
+         write_text_file path
+           (Mte_report.render ~fail_under:!CLI.fail_under ~sources ~results))
+      json_path
 
 let write_mutated_version output_file ~start ~stop contents repl =
     let ch =

@@ -88,3 +88,11 @@ summary:
   Writing the Markdown summary to no-such-directory/summary.md
   Could not write file no-such-directory/summary.md: No such file or directory
   [1]
+
+Check that it says so as well when it cannot write the JSON report:
+  $ mutaml-report --json-report no-such-directory/report.json one-result.json
+  Attempting to read from one-result.json...
+  Could not read the source file lib.ml
+  Writing the JSON report to no-such-directory/report.json
+  Could not write file no-such-directory/report.json: No such file or directory
+  [1]
