@@ -17,9 +17,18 @@ let defaults =
     mutaml_report_file  = "mutaml-report.json"
   }
 
+(* The preprocessor writes its side files beside the build context
+   directory, not inside it, because dune deletes unknown files from a
+   context directory. [side_file_dir "_build/default"] is therefore
+   "_build/.mutaml/default". *)
+let side_file_dir build_ctx =
+  Filename.concat
+    (Filename.concat (Filename.dirname build_ctx) ".mutaml")
+    (Filename.basename build_ctx)
+
 let full_ppx_path ppx_output_prefix fname =
   if Filename.is_implicit fname
-  then Filename.concat ppx_output_prefix fname
+  then Filename.concat (side_file_dir ppx_output_prefix) fname
   else fname
 
 let full_path fname =
