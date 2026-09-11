@@ -64,7 +64,11 @@ type kind =
   | Guard_always_true   (** a [when] guard of a case always holds *)
   | String_literal      (** a string literal becomes [""] *)
 
-(** Every operator, in the order this file declares them. *)
+(** Every operator, in the order this file declares them. Nothing in
+    the preprocessor reads this list: an operator that has a switch is
+    named in [Mutaml_ppx.Options.switches] instead. The list is here
+    for a reader of the report, which walks it to name every operator
+    the tool has, whether or not the run made a mutant of that kind. *)
 let all_kinds = [
   Bool_constant; Int_constant; Space_string; Arith_operator;
   Arith_identity; If_condition; Sequence; Omit_case; Merge_cases;
