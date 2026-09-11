@@ -199,8 +199,9 @@ end
     replaces, as the file writes it. [repl] is the text that replaces
     it, and [None] means that the mutation takes the text away.
 
-    [ordinal] counts, from 0, the mutations of the file that agree with
-    this one in [binding], [kind], [original] and [repl].
+    [ordinal] counts, from 0, the mutations of the file whose
+    [mutant_key] is this one's. Two mutations of a file therefore never
+    take one [mutant_name].
 
     [loc] is the span of the source file that [original] comes from. *)
 type mutant =
@@ -267,6 +268,21 @@ let mutant_digest m =
     | Some text -> field (squeeze text) in
   String.sub (Digest.to_hex (Digest.string (original ^ replacement))) 0 8
 
+(** [mutant_key m] is the name of the mutation [m] without its ordinal:
+    the source file, the top-level binding, the operator, and the
+    digest, each made safe and joined with ":". It does not read
+    [m.ordinal], so the preprocessor can build it before it knows the
+    ordinal.
+
+    Two mutations of one file that share a key are exactly the
+    mutations that the ordinal must tell apart. *)
+let mutant_key m =
+  Printf.sprintf "%s:%s:%s:%s"
+    (safe m.loc.loc_start.pos_fname)
+    (safe m.binding)
+    (kind_name m.kind)
+    (mutant_digest m)
+
 (** [mutant_name m] is the name of the mutation [m]. The preprocessor
     writes the name into the program it instruments, and the runner puts
     it in MUTAML_MUTANT to turn that one mutation on, so the two must
@@ -294,13 +310,7 @@ let mutant_digest m =
     Every character of the name is a letter, a digit, or one of "_", ".",
     "-", "/" and ":". A character of the source file that is not one of
     those becomes "_". *)
-let mutant_name m =
-  Printf.sprintf "%s:%s:%s:%s:%i"
-    (safe m.loc.loc_start.pos_fname)
-    (safe m.binding)
-    (kind_name m.kind)
-    (mutant_digest m)
-    m.ordinal
+let mutant_name m = Printf.sprintf "%s:%i" (mutant_key m) m.ordinal
 
 
 (** A common type to represent test results.

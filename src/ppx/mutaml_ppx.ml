@@ -443,8 +443,8 @@ class mutate_mapper (rs : RS.t) =
     else ""
 
   (* [self#next_ordinal key] is the number of mutations of this file
-     that already agree with [key] in binding, kind, original text and
-     replacement text. It counts [key] in. *)
+     that already have the key [key], which is the name without the
+     ordinal. It counts [key] in. *)
   method next_ordinal key =
     let used = match Hashtbl.find_opt ordinals key with
       | Some used -> used
@@ -466,9 +466,21 @@ class mutate_mapper (rs : RS.t) =
     let number = self#incr_count in
     let binding = self#current_binding in
     let original = self#span_text span in
-    let ordinal = self#next_ordinal (binding,kind,original,repl) in
-    let mutation =
-      Mutaml_common.{ number; binding; kind; original; ordinal; repl; loc = span } in
+    (* The ordinal counts the mutations that share a key, and the key is
+       the name without the ordinal. Counting on the key, and not on the
+       parts the key is made from, is what makes two names of one file
+       always different: two bindings whose names differ only in a
+       character that a name may not hold, such as [f_] and [f'], have
+       one key, and the ordinal then tells their mutations apart.
+
+       The draft record below carries the ordinal 0 only to have a
+       record to take the key from. [Mutaml_common.mutant_key] does not
+       read the ordinal. *)
+    let draft =
+      Mutaml_common.{ number; binding; kind; original; ordinal = 0; repl;
+                      loc = span } in
+    let ordinal = self#next_ordinal (Mutaml_common.mutant_key draft) in
+    let mutation = Mutaml_common.{ draft with ordinal } in
     let name = Mutaml_common.mutant_name mutation in
     let () = match Hashtbl.find_opt names name with
       | None -> Hashtbl.add names name mutation

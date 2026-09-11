@@ -300,6 +300,12 @@ top-level binding, such as one in a `let () = ...`, is in the binding
 `toplevel`. A `let` inside an expression does not count: renaming a
 local definition does not rename a mutation.
 
+A name holds only letters, digits and the characters `_`, `.`, `-`,
+`/` and `:`, so that it needs no quoting in a shell and can stand in a
+file name. Every other character of a file name or a binding becomes
+`_`. So the bindings `f'` and `f_` both read `f_` in a name, and the
+mutations of the two are told apart by the ordinal below.
+
 The **digest** stands for the text that the mutation replaces and the
 text that replaces it. It reads both with each run of white space
 turned into one space, so a source file laid out again over more lines
@@ -309,7 +315,9 @@ The **ordinal** tells apart two mutations that agree in all of the
 first four fields, such as the two mutations of `1` in
 `(if b then 1 else 0, if b then 1 else 0)`. It counts them in the
 order the preprocessor walks the file, so adding a third one below
-them leaves the first two as they were.
+them leaves the first two as they were. Because it counts on the four
+fields as a name writes them, two mutations of one file can never take
+one name.
 
 The name holds no line number and no counter over the file. So a
 function added above another does not rename the mutations below it,
@@ -319,10 +327,10 @@ binding, change the text that the mutation replaces, or change the
 text that replaces it. It also changes when you rename a mutation
 operator, which mutaml does not do.
 
-Two mutations of one file never take one name. Where two would, the
-preprocessor stops with an error that names both. That can happen only
-if two different pieces of text gave one digest, which has not been
-seen; report it if you meet it.
+Where two mutations would still take one name, the preprocessor stops
+with an error that names both. Only a clash of two different pieces of
+text in one digest can bring that about, which has not been seen;
+report it if you meet it.
 
 The `lib.muts` file also holds a `number` for each mutation, which
 counts the mutations of the file from 0. It is not a name. It names

@@ -81,3 +81,27 @@ which counts them from 0:
   "test.ml:pair:int-constant:50c5a5ff:1"
   "test.ml:pair:int-constant:92be9951:0"
   "test.ml:pair:int-constant:92be9951:1"
+
+A name holds only letters, digits and the characters `_`, `.`, `-`, `/`
+and `:`. Every other character of a binding becomes `_`, so two
+bindings can take one label: `f'` and `f_` are both `f_`, and the two
+operators below are both `__`. Their mutants still take different
+names, because the ordinal counts the mutants that agree in every
+earlier field of the name:
+
+  $ cat > test.ml <<'EOF'
+  > let f_ x = x + 1
+  > let f' x = x + 1
+  > let ( +| ) a b = a * b
+  > let ( *| ) a b = a * b
+  > let () = ignore (f_ 1 + f' 1 + (2 +| 3) + (2 *| 3))
+  > EOF
+
+  $ bash ../filter_dune_build.sh ./test.bc --instrument-with mutaml > labels.txt
+
+  $ grep -o '"test.ml:f_:[^"]*"' labels.txt | sort
+  "test.ml:f_:arith-identity:2546bcf4:0"
+  "test.ml:f_:arith-identity:2546bcf4:1"
+  $ grep -o '"test.ml:__:[^"]*"' labels.txt | sort
+  "test.ml:__:arith-operator:8e44960b:0"
+  "test.ml:__:arith-operator:8e44960b:1"
