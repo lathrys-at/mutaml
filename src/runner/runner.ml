@@ -131,6 +131,8 @@ let read_module_mutations_json ppx_output_prefix file_name =
          | _        -> fail_and_exit ("Could not parse " ^ file_name))
   with Sys_error msg ->
     fail_and_exit (Printf.sprintf "Could not read file %s - %s" file_name msg)
+     | Yojson.Json_error msg ->
+       fail_and_exit (Printf.sprintf "Could not parse %s - %s" file_name msg)
      | Failure _ ->
        fail_and_exit
          (Printf.sprintf

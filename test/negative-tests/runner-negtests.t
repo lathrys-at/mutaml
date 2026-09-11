@@ -31,6 +31,17 @@ and try again:
   Could not read file somefile.muts - _build/.mutaml/default/somefile.muts: No such file or directory
   [1]
 
+Create a mutation file that is not JSON, and confirm that the runner
+says so instead of ending with an exception:
+  $ cat > _build/.mutaml/default/somefile.muts <<'EOF'
+  > [{ "number" : 0,
+  > EOF
+  $ mutaml-runner scooby-doo.sh
+  read mut file somefile.muts
+  Could not parse somefile.muts - Line 2, bytes -1-0:
+  Unexpected end of input
+  [1]
+
 Create a corresponding mutation file with an empty list of mutations:
   $ cat > _build/.mutaml/default/somefile.muts <<'EOF'
   > []
