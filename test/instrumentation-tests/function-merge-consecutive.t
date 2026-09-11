@@ -834,21 +834,19 @@ Same example that triggers merge-of-consecutive-patterns w/GADTs false
   
   --- test.ml
   +++ test.ml-mutant2
-  @@ -7,13 +7,9 @@
+  @@ -7,11 +7,7 @@
    let rec interpret xval = function
      | X -> xval
      | Lit i -> i
   -  | Binop (ae0, Add, ae1) ->
+  -    let v0 = interpret xval ae0 in
+  -    let v1 = interpret xval ae1 in
+  -    v0 + v1
+  -  | Binop (ae0, Mul, ae1) ->
   +  | Binop (ae0, Add, ae1) | Binop (ae0, Mul, ae1) ->
        let v0 = interpret xval ae0 in
        let v1 = interpret xval ae1 in
-  -    v0 + v1
-  -  | Binop (ae0, Mul, ae1) ->
-  -    let v0 = interpret xval ae0 in
-  -    let v1 = interpret xval ae1 in
        v0 * v1
-   
-   let () = interpret 2 (Binop (Lit 1, Add, Binop (X, Mul, Lit 3))) |> Printf.printf "1 + x*3 = %i\n"
   
   ---------------------------------------------------------------------------
   
