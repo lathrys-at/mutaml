@@ -22,22 +22,31 @@ Example with a simple if-then-else:
     | None -> false
     | Some mutant -> String.equal m mutant
   let test x =
-    if (if __is_mutaml_mutant__ "test:0" then not x else x)
+    if
+      (if __is_mutaml_mutant__ "test.ml:test:if-condition:e8e7a668:0"
+       then not x
+       else x)
     then "true"
     else "false"
   let () =
-    (test (if __is_mutaml_mutant__ "test:1" then false else true)) |>
-      print_endline
+    (test
+       (if __is_mutaml_mutant__ "test.ml:toplevel:bool-constant:5bf88c8b:0"
+        then false
+        else true))
+      |> print_endline
   let () =
-    (test (if __is_mutaml_mutant__ "test:2" then true else false)) |>
-      print_endline
+    (test
+       (if __is_mutaml_mutant__ "test.ml:toplevel:bool-constant:c7a6885d:0"
+        then true
+        else false))
+      |> print_endline
 
 
   $ _build/default/test.bc
   true
   false
 
-  $ MUTAML_MUTANT="test:0" _build/default/test.bc
+  $ MUTAML_MUTANT="test.ml:test:if-condition:e8e7a668:0" _build/default/test.bc
   false
   true
 
@@ -45,9 +54,9 @@ Example with a simple if-then-else:
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
   Testing without a mutant ... passed
-  Testing mutant test:0 ... passed
-  Testing mutant test:1 ... passed
-  Testing mutant test:2 ... passed
+  Testing mutant test.ml:test:if-condition:e8e7a668:0 ... passed
+  Testing mutant test.ml:toplevel:bool-constant:5bf88c8b:0 ... passed
+  Testing mutant test.ml:toplevel:bool-constant:c7a6885d:0 ... passed
   Writing report data to mutaml-report.json
 
 
@@ -136,33 +145,51 @@ An example with nested ifs:
   let test i =
     if
       let __MUTAML_TMP3__ =
-        let __MUTAML_TMP0__ = if __is_mutaml_mutant__ "test:0" then 1 else 0 in
-        if __is_mutaml_mutant__ "test:1"
+        let __MUTAML_TMP0__ =
+          if __is_mutaml_mutant__ "test.ml:test:int-constant:92be9951:0"
+          then 1
+          else 0 in
+        if __is_mutaml_mutant__ "test.ml:test:compare-boundary:8dce48d9:0"
         then i <= __MUTAML_TMP0__
         else i < __MUTAML_TMP0__ in
-      (if __is_mutaml_mutant__ "test:5"
+      (if __is_mutaml_mutant__ "test.ml:test:if-condition:aa71fbe1:0"
        then not __MUTAML_TMP3__
        else __MUTAML_TMP3__)
     then "negative"
     else
       if
         (let __MUTAML_TMP2__ =
-           let __MUTAML_TMP1__ = if __is_mutaml_mutant__ "test:2" then 1 else 0 in
-           if __is_mutaml_mutant__ "test:3"
+           let __MUTAML_TMP1__ =
+             if __is_mutaml_mutant__ "test.ml:test:int-constant:92be9951:1"
+             then 1
+             else 0 in
+           if __is_mutaml_mutant__ "test.ml:test:compare-boundary:fb82b93a:0"
            then i >= __MUTAML_TMP1__
            else i > __MUTAML_TMP1__ in
-         if __is_mutaml_mutant__ "test:4"
+         if __is_mutaml_mutant__ "test.ml:test:if-condition:a49cdcf7:0"
          then not __MUTAML_TMP2__
          else __MUTAML_TMP2__)
       then "positive"
       else "zero"
   let () =
-    (test (- (if __is_mutaml_mutant__ "test:6" then 6 else 5))) |>
-      print_endline
+    (test
+       (-
+          (if __is_mutaml_mutant__ "test.ml:toplevel:int-constant:6311d79c:0"
+           then 6
+           else 5)))
+      |> print_endline
   let () =
-    (test (if __is_mutaml_mutant__ "test:7" then 1 else 0)) |> print_endline
+    (test
+       (if __is_mutaml_mutant__ "test.ml:toplevel:int-constant:92be9951:0"
+        then 1
+        else 0))
+      |> print_endline
   let () =
-    (test (if __is_mutaml_mutant__ "test:8" then 6 else 5)) |> print_endline
+    (test
+       (if __is_mutaml_mutant__ "test.ml:toplevel:int-constant:6311d79c:1"
+        then 6
+        else 5))
+      |> print_endline
 
 
   $ _build/default/test.bc
@@ -170,12 +197,12 @@ An example with nested ifs:
   zero
   positive
 
-  $ MUTAML_MUTANT="test:3" _build/default/test.bc
+  $ MUTAML_MUTANT="test.ml:test:compare-boundary:fb82b93a:0" _build/default/test.bc
   negative
   positive
   positive
 
-  $ MUTAML_MUTANT="test:2" _build/default/test.bc
+  $ MUTAML_MUTANT="test.ml:test:int-constant:92be9951:1" _build/default/test.bc
   negative
   zero
   positive
@@ -185,15 +212,15 @@ An example with nested ifs:
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
   Testing without a mutant ... passed
-  Testing mutant test:0 ... passed
-  Testing mutant test:1 ... passed
-  Testing mutant test:2 ... passed
-  Testing mutant test:3 ... passed
-  Testing mutant test:4 ... passed
-  Testing mutant test:5 ... passed
-  Testing mutant test:6 ... passed
-  Testing mutant test:7 ... passed
-  Testing mutant test:8 ... passed
+  Testing mutant test.ml:test:int-constant:92be9951:0 ... passed
+  Testing mutant test.ml:test:compare-boundary:8dce48d9:0 ... passed
+  Testing mutant test.ml:test:int-constant:92be9951:1 ... passed
+  Testing mutant test.ml:test:compare-boundary:fb82b93a:0 ... passed
+  Testing mutant test.ml:test:if-condition:a49cdcf7:0 ... passed
+  Testing mutant test.ml:test:if-condition:aa71fbe1:0 ... passed
+  Testing mutant test.ml:toplevel:int-constant:6311d79c:0 ... passed
+  Testing mutant test.ml:toplevel:int-constant:92be9951:0 ... passed
+  Testing mutant test.ml:toplevel:int-constant:6311d79c:1 ... passed
   Writing report data to mutaml-report.json
 
 

@@ -1,6 +1,33 @@
 Next release
 ------------
 
+- Name a mutation by its file, the top-level binding that holds it, the
+  mutation operator, a digest of the text it changes, and an ordinal,
+  instead of by its file and a counter. The name holds no line number,
+  so a function added above a mutation no longer renames it, and a list
+  of names that a project keeps goes on naming the same code. The name
+  is what `MUTAML_MUTANT` takes and what the JSON report gives as `id`
+- Record in each `lib.muts` file the mutation operator that made each
+  mutation, the top-level binding it sits in, and the text it replaces
+- Add `--json-report <path>` to `mutaml-report`, which writes the run in
+  the mutation-testing-elements format that Stryker, Infection and Mull
+  share, so that the HTML viewer of that format can show it
+- Add `--markdown <path>` to `mutaml-report`, which writes a summary for
+  the page of a CI job: the mutation score, a table with a row for each
+  source file, and every mutation that the test suite did not catch,
+  with its name and its diff
+- Say in `mutaml-report`, when a report file holds a test result of the
+  shape that an older mutaml wrote, that the result has not the fields
+  this release reads, instead of saying that the file is not JSON
+- Say in `mutaml-runner`, when a `lib.muts` file holds a mutation of the
+  shape that an older mutaml wrote, that the mutation has not the fields
+  this release reads and that a new build with `--instrument-with
+  mutaml` writes them
+- Give one line that names the source file, in `mutaml-report`, when the
+  source of a mutation that the test suite did not catch is no longer in
+  the project, and when that file changed so that the place the mutation
+  sits in is outside it. Each of the two ended the tool with an uncaught
+  exception and no score before
 - Support ppxlib.0.36 and above, where one parse tree constructor holds
   both `fun` and `function`
 - Write the preprocessor's `lib.muts` files and `mutaml-mut-files.txt`

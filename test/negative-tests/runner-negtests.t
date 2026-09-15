@@ -31,6 +31,17 @@ and try again:
   Could not read file somefile.muts - _build/.mutaml/default/somefile.muts: No such file or directory
   [1]
 
+Create a mutation file that is not JSON, and confirm that the runner
+says so instead of ending with an exception:
+  $ cat > _build/.mutaml/default/somefile.muts <<'EOF'
+  > [{ "number" : 0,
+  > EOF
+  $ mutaml-runner scooby-doo.sh
+  read mut file somefile.muts
+  Could not parse somefile.muts - Line 2, bytes -1-0:
+  Unexpected end of input
+  [1]
+
 Create a corresponding mutation file with an empty list of mutations:
   $ cat > _build/.mutaml/default/somefile.muts <<'EOF'
   > []
@@ -50,8 +61,12 @@ Now confirm that it is rejected by the report tool:
 
 Create a corresponding mutation file with a dummy mutation:
   $ cat > _build/.mutaml/default/somefile.muts <<'EOF'
-  > [{ "number" : 0,
-  >    "repl"   : "false",
+  > [{ "number"   : 0,
+  >    "binding"  : "f",
+  >    "kind"     : "bool-constant",
+  >    "original" : "",
+  >    "ordinal"  : 0,
+  >    "repl"     : "false",
   >    "loc"    : {
   >      "loc_start" : { "pos_fname" : "somefile.ml", "pos_lnum" : 1, "pos_bol" : 1, "pos_cnum" : 1 },
   >      "loc_end"   : { "pos_fname" : "somefile.ml", "pos_lnum" : 2, "pos_bol" : 2, "pos_cnum" : 2 },
@@ -63,6 +78,28 @@ Create a corresponding mutation file with a dummy mutation:
 The runner skips a mutation file whose source file is not there, so make
 the source file as well:
   $ touch somefile.ml
+
+A mutation file of the shape that an older mutaml wrote, in which a
+mutation holds no operator, no binding, no original text and no
+ordinal, names the file and says what to do:
+  $ cp _build/.mutaml/default/somefile.muts new-shape.muts
+  $ cat > _build/.mutaml/default/somefile.muts <<'EOF'
+  > [{ "number" : 0,
+  >    "repl"   : "false",
+  >    "loc"    : {
+  >      "loc_start" : { "pos_fname" : "somefile.ml", "pos_lnum" : 1, "pos_bol" : 1, "pos_cnum" : 1 },
+  >      "loc_end"   : { "pos_fname" : "somefile.ml", "pos_lnum" : 2, "pos_bol" : 2, "pos_cnum" : 2 },
+  >      "loc_ghost" : false
+  >   }
+  > }]
+  > EOF
+  $ mutaml-runner true
+  read mut file somefile.muts
+  A mutation in somefile.muts does not hold the fields that this release of mutaml reads. A mutation file that an older mutaml wrote needs a new build with --instrument-with mutaml.
+  [1]
+
+Put the mutation file of this release back:
+  $ cp new-shape.muts _build/.mutaml/default/somefile.muts
 
 Now try running again with a broken command:
   $ mutaml-runner scooby-doo.sh

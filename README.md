@@ -130,8 +130,12 @@ process.
    By default this prints `diff`s for each mutation that flew under
    the radar of your test suite. The `diff` output can be suppressed by
    passing `--no-diff`.
-   `mutaml-report` prints the mutation score and exits with 1 when the
+   `mutaml-report` prints the mutation score and exits with 2 when the
    score is too low, so it can decide a build.
+   It can also write the report to a file, as a Markdown summary for
+   the page of a CI job or in the mutation-testing-elements format that
+   a viewer of that format reads. See "Report Options and Environment
+   Variables" below.
 
 
 Steps 3 and 4 output a number of additional files.
@@ -265,6 +269,73 @@ rule can turn the operator off.
   the mutants that are worth having. Set `MUTAML_STRING_LITERAL=false`
   if a format of yours holds no `%` and still cannot be empty.
 
+
+The Name of a Mutation
+----------------------
+
+Every mutation has a name. The preprocessor writes the name into the
+program it instruments, `mutaml-runner` puts it in the environment
+variable `MUTAML_MUTANT` to turn that one mutation on, and the JSON
+report gives it as the `id` of the mutation. You can run one mutation
+yourself with it:
+
+```
+$ MUTAML_MUTANT="src/lib.ml:classify:compare-boundary:5a1dd3dc:0" dune exec ./test.exe
+```
+
+The name holds five fields, with a `:` between them:
+
+| field | example | what it is |
+|---|---|---|
+| file | `src/lib.ml` | the source file, as the build system named it |
+| binding | `classify` | the top-level binding that holds the mutation |
+| operator | `compare-boundary` | the mutation operator that made it |
+| digest | `5a1dd3dc` | eight hexadecimal characters, from the text |
+| ordinal | `0` | counts from 0 among mutations that agree in all four fields above |
+
+The **binding** is the name that the `let` binds, with the path of the
+modules around it in front: a mutation in `let f` inside
+`module Inner` is in the binding `Inner.f`. A mutation outside every
+top-level binding, such as one in a `let () = ...`, is in the binding
+`toplevel`. A `let` inside an expression does not count: renaming a
+local definition does not rename a mutation.
+
+A name holds only letters, digits and the characters `_`, `.`, `-`,
+`/` and `:`, so that it needs no quoting in a shell and can stand in a
+file name. Every other character of a file name or a binding becomes
+`_`. So the bindings `f'` and `f_` both read `f_` in a name, and the
+mutations of the two are told apart by the ordinal below.
+
+The **digest** stands for the text that the mutation replaces and the
+text that replaces it. It reads both with each run of white space
+turned into one space, so a source file laid out again over more lines
+keeps the names it had.
+
+The **ordinal** tells apart two mutations that agree in all of the
+first four fields, such as the two mutations of `1` in
+`(if b then 1 else 0, if b then 1 else 0)`. It counts them in the
+order the preprocessor walks the file, so adding a third one below
+them leaves the first two as they were. Because it counts on the four
+fields as a name writes them, two mutations of one file can never take
+one name.
+
+The name holds no line number and no counter over the file. So a
+function added above another does not rename the mutations below it,
+and a list of names that your project keeps goes on naming the same
+code. The name does change when you rename the file, rename the
+binding, change the text that the mutation replaces, or change the
+text that replaces it. It also changes when you rename a mutation
+operator, which mutaml does not do.
+
+Where two mutations would still take one name, the preprocessor stops
+with an error that names both. Only a clash of two different pieces of
+text in one digest can bring that about, which has not been seen;
+report it if you meet it.
+
+The `lib.muts` file also holds a `number` for each mutation, which
+counts the mutations of the file from 0. It is not a name. It names
+the file under `_mutations` that holds the output of the test run, and
+it moves whenever the file above the mutation changes.
 
 Instrumentation Options and Environment Variables
 -------------------------------------------------
@@ -409,6 +480,50 @@ a test run that never ends is a fault that the test suite found.
   `mutaml-report` then exits with 2 only when the score is below the
   number, and a score equal to the number passes. `--fail-under 0`
   accepts every score.
+
+### Report files
+
+`mutaml-report` prints its report to the terminal. Two options write
+the report to a file as well. You may give both in one run.
+
+- `--markdown path` - write a Markdown summary to `path`. The summary
+  holds the mutation score, a table with one row for each source file
+  and one row for the total, and every mutation that the test suite did
+  not catch, with its name, its place in the file, and its diff.
+  GitHub Actions shows the Markdown of the file that its variable
+  `GITHUB_STEP_SUMMARY` names on the page of the job, so this step puts
+  the summary there:
+  ```
+  - run: mutaml-report --markdown "$GITHUB_STEP_SUMMARY"
+  ```
+- `--json-report path` - write the report to `path` in the
+  mutation-testing-elements format. [Stryker](https://stryker-mutator.io/),
+  [Infection](https://infection.github.io/) and
+  [Mull](https://mull.readthedocs.io/) write the same format, and the
+  HTML viewer
+  [mutation-test-report-app](https://github.com/stryker-mutator/mutation-testing-elements)
+  reads it.
+
+The table of the Markdown summary counts the four outcomes apart, so
+its columns add up to the number of mutations of the file. The score
+counts a mutation that timed out and a mutation that a signal ended
+with the mutations that failed.
+
+The JSON report gives every mutation one of the statuses of the format:
+
+| outcome of the test run | status | note |
+|---|---|---|
+| a test failed | `Killed` | |
+| the run took too long | `Timeout` | the viewer counts it as caught |
+| a signal ended the run | `Killed` | `statusReason` names the signal |
+| the test suite passed | `Survived` | |
+
+In the JSON report, the `id` of a mutation is its name, the same string
+that `MUTAML_MUTANT` takes, and `mutatorName` is the name of the
+mutation operator that made it. `thresholds.low` is the value of
+`--fail-under` as a whole number, or 0 when you do not give that
+option, and `thresholds.high` is 100. The format asks for a whole
+number there, so `--fail-under 99.9` writes 99.
 
 The three exit codes of `mutaml-report` are:
 

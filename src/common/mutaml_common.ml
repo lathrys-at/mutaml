@@ -34,9 +34,6 @@ let full_path fname =
   then Filename.concat defaults.output_file_prefix fname
   else fname
 
-let make_mut_id file_name number =
-  Printf.sprintf "%s:%i" Filename.(remove_extension file_name) number
-
 let output_file_name file_name number =
   let file_name = Printf.sprintf "%s-mutant%i.output" file_name number in
   full_path file_name
@@ -122,6 +119,26 @@ let kind_env_var k =
   "MUTAML_" ^ String.uppercase_ascii
     (String.map (function '-' -> '_' | c -> c) (kind_name k))
 
+(** [kind_of_name name] is the operator whose [kind_name] is [name], and
+    [None] when no operator has that name. *)
+let kind_of_name name = List.find_opt (fun k -> kind_name k = name) all_kinds
+
+(** The JSON of an operator is its [kind_name], so that a file this tool
+    writes holds "compare-boundary" and not the name of a constructor.
+    A reader of the file then needs no table of our constructors, and
+    renaming a constructor does not change a file. *)
+let kind_to_yojson k = `String (kind_name k)
+
+(** [kind_of_yojson json] is the operator that [json] names. It is an
+    error when [json] is not a string, and when the string names no
+    operator that this release has. *)
+let kind_of_yojson = function
+  | `String name ->
+    (match kind_of_name name with
+     | Some k -> Ok k
+     | None   -> Error ("unknown mutation operator: " ^ name))
+  | _ -> Error "expected the name of a mutation operator, as a string"
+
 let fail_and_exit s =
   print_endline s;
   exit 1
@@ -164,13 +181,157 @@ struct
 end
 
 
-(** A common type to represent mutations *)
+(** [range_fits ~start ~stop ~length] says whether the bytes from
+    [start] up to but not including [stop] are a run of bytes inside a
+    text of [length] bytes. An empty run, where [stop] is [start], fits
+    at any point of the text and at its end.
+
+    A location comes from the preprocessor and the text comes from the
+    file as it is now, so the two can disagree: a source file that
+    changed after a run makes this false. Ask it before you read a run
+    of bytes that a location names. *)
+let range_fits ~start ~stop ~length =
+  0 <= start && start <= stop && stop <= length
+
+(** [span_fits text loc] says whether the run of bytes that [loc] covers
+    lies inside [text]. It is [range_fits] over the two byte offsets of
+    [loc] and the length of [text]. *)
+let span_fits text (loc : Loc.location) =
+  range_fits
+    ~start:loc.loc_start.pos_cnum
+    ~stop:loc.loc_end.pos_cnum
+    ~length:(String.length text)
+
+(** One mutation of one source file.
+
+    [number] counts the mutations of a file in the order the
+    preprocessor made them, from 0. It names the file that holds the
+    output of the test run, and nothing else: it moves when the source
+    file changes above the mutation, so it is not a name.
+    [Mutaml_common.mutant_name] gives the name that does not move.
+
+    [binding] is the top-level binding that holds the mutation: the
+    name the [let] binds, with the path of the modules around it, or
+    "toplevel" for a mutation outside every top-level binding.
+
+    [kind] is the operator that made the mutation.
+
+    [original] is the text of the source file that the mutation
+    replaces, as the file writes it. [repl] is the text that replaces
+    it, and [None] means that the mutation takes the text away.
+
+    [ordinal] counts, from 0, the mutations of the file whose
+    [mutant_key] is this one's. Two mutations of a file therefore never
+    take one [mutant_name].
+
+    [loc] is the span of the source file that [original] comes from. *)
 type mutant =
   {
-    number : int;
-    repl   : string option;
-    loc    : Loc.location;
+    number   : int;
+    binding  : string;
+    kind     : kind;
+    original : string;
+    ordinal  : int;
+    repl     : string option;
+    loc      : Loc.location;
   } [@@deriving yojson { exn = true }]
+
+(* The characters a rendered name may hold. A name goes into a command
+   line, into an environment variable, and into a file name, so it holds
+   no character that a shell reads as anything but itself. *)
+let is_name_char = function
+  | 'A'..'Z' | 'a'..'z' | '0'..'9' | '_' | '.' | '-' | '/' -> true
+  | _ -> false
+
+(* [safe text] is [text] with every other character turned into "_", and
+   "_" for the empty text. *)
+let safe text =
+  if text = ""
+  then "_"
+  else String.map (fun c -> if is_name_char c then c else '_') text
+
+(* [squeeze text] is [text] with each run of space, tab, carriage return
+   and newline turned into one space, and with no space at either end.
+   The digest below reads the squeezed text, so that a source file laid
+   out again over more lines keeps the names it had. *)
+let squeeze text =
+  let is_space = function ' ' | '\t' | '\r' | '\n' -> true | _ -> false in
+  let buf = Buffer.create (String.length text) in
+  let pending = ref false in
+  String.iter
+    (fun c ->
+       if is_space c
+       then (if Buffer.length buf > 0 then pending := true)
+       else
+         begin
+           if !pending then Buffer.add_char buf ' ';
+           pending := false;
+           Buffer.add_char buf c
+         end)
+    text;
+  Buffer.contents buf
+
+(* [field text] is [text] with its length in front of it, so that two
+   fields joined together can be read apart again. *)
+let field text = Printf.sprintf "%i:%s" (String.length text) text
+
+(** [mutant_digest m] is the short digest that stands for the original
+    text and the replacement text of [m] in its name. It holds 8
+    characters, each a digit or a letter from a to f.
+
+    Two mutations with different text almost never share a digest. The
+    preprocessor stops with an error when two mutations of one file
+    would take the same name, so a shared digest cannot pass unseen. *)
+let mutant_digest m =
+  let original = field (squeeze m.original) in
+  let replacement = match m.repl with
+    | None      -> "delete"
+    | Some text -> field (squeeze text) in
+  String.sub (Digest.to_hex (Digest.string (original ^ replacement))) 0 8
+
+(** [mutant_key m] is the name of the mutation [m] without its ordinal:
+    the source file, the top-level binding, the operator, and the
+    digest, each made safe and joined with ":". It does not read
+    [m.ordinal], so the preprocessor can build it before it knows the
+    ordinal.
+
+    Two mutations of one file that share a key are exactly the
+    mutations that the ordinal must tell apart. *)
+let mutant_key m =
+  Printf.sprintf "%s:%s:%s:%s"
+    (safe m.loc.loc_start.pos_fname)
+    (safe m.binding)
+    (kind_name m.kind)
+    (mutant_digest m)
+
+(** [mutant_name m] is the name of the mutation [m]. The preprocessor
+    writes the name into the program it instruments, and the runner puts
+    it in MUTAML_MUTANT to turn that one mutation on, so the two must
+    read the same function. They do: this one.
+
+    The name holds five fields, with ":" between them:
+
+    - the source file, as the preprocessor was given it;
+    - the top-level binding that holds the mutation;
+    - the name of the mutation operator;
+    - the digest of the original text and the replacement text;
+    - the ordinal among the mutations that agree in the four fields
+      above.
+
+    So [mutant_name] of the first mutation of the boundary of a
+    comparison in the binding [classify] of [src/lib.ml] reads
+
+      src/lib.ml:classify:compare-boundary:a3f9c1d4:0
+
+    The name does not hold the line or the column, so it does not change
+    when a source file gains or loses lines above the mutation. It does
+    change when the file is renamed, when the binding is renamed, and
+    when the mutated text or the text that replaces it changes.
+
+    Every character of the name is a letter, a digit, or one of "_", ".",
+    "-", "/" and ":". A character of the source file that is not one of
+    those becomes "_". *)
+let mutant_name m = Printf.sprintf "%s:%i" (mutant_key m) m.ordinal
 
 
 (** A common type to represent test results.

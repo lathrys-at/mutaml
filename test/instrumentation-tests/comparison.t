@@ -25,14 +25,17 @@ Test <:
     match __MUTAML_MUTANT__ with
     | None -> false
     | Some mutant -> String.equal m mutant
-  let f x y = if __is_mutaml_mutant__ "test:0" then x <= y else x < y
+  let f x y =
+    if __is_mutaml_mutant__ "test.ml:f:compare-boundary:ef265273:0"
+    then x <= y
+    else x < y
   ;;assert (not (f 10 10))
 
 Check that instrumentation hasn't changed the program's behaviour
   $ dune exec --no-build ./test.bc
 
 And that mutation has changed it as expected
-  $ MUTAML_MUTANT="test:0" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:f:compare-boundary:ef265273:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 2, 0)
   [2]
 
@@ -56,12 +59,15 @@ Test <=:
     match __MUTAML_MUTANT__ with
     | None -> false
     | Some mutant -> String.equal m mutant
-  let f x y = if __is_mutaml_mutant__ "test:0" then x < y else x <= y
+  let f x y =
+    if __is_mutaml_mutant__ "test.ml:f:compare-boundary:b62bfd0f:0"
+    then x < y
+    else x <= y
   ;;assert (f 10 10)
 
   $ dune exec --no-build ./test.bc
 
-  $ MUTAML_MUTANT="test:0" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:f:compare-boundary:b62bfd0f:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 2, 0)
   [2]
 
@@ -85,12 +91,15 @@ Test >:
     match __MUTAML_MUTANT__ with
     | None -> false
     | Some mutant -> String.equal m mutant
-  let f x y = if __is_mutaml_mutant__ "test:0" then x >= y else x > y
+  let f x y =
+    if __is_mutaml_mutant__ "test.ml:f:compare-boundary:10e5793a:0"
+    then x >= y
+    else x > y
   ;;assert (not (f 10 10))
 
   $ dune exec --no-build ./test.bc
 
-  $ MUTAML_MUTANT="test:0" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:f:compare-boundary:10e5793a:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 2, 0)
   [2]
 
@@ -114,12 +123,15 @@ Test >=:
     match __MUTAML_MUTANT__ with
     | None -> false
     | Some mutant -> String.equal m mutant
-  let f x y = if __is_mutaml_mutant__ "test:0" then x > y else x >= y
+  let f x y =
+    if __is_mutaml_mutant__ "test.ml:f:compare-boundary:9e80950a:0"
+    then x > y
+    else x >= y
   ;;assert (f 10 10)
 
   $ dune exec --no-build ./test.bc
 
-  $ MUTAML_MUTANT="test:0" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:f:compare-boundary:9e80950a:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 2, 0)
   [2]
 
@@ -143,12 +155,15 @@ Test =:
     match __MUTAML_MUTANT__ with
     | None -> false
     | Some mutant -> String.equal m mutant
-  let f x y = if __is_mutaml_mutant__ "test:0" then x <> y else x = y
+  let f x y =
+    if __is_mutaml_mutant__ "test.ml:f:compare-negation:9295ef5b:0"
+    then x <> y
+    else x = y
   ;;assert (f 10 10)
 
   $ dune exec --no-build ./test.bc
 
-  $ MUTAML_MUTANT="test:0" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:f:compare-negation:9295ef5b:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 2, 0)
   [2]
 
@@ -172,12 +187,15 @@ Test <>:
     match __MUTAML_MUTANT__ with
     | None -> false
     | Some mutant -> String.equal m mutant
-  let f x y = if __is_mutaml_mutant__ "test:0" then x = y else x <> y
+  let f x y =
+    if __is_mutaml_mutant__ "test.ml:f:compare-negation:9b8b387c:0"
+    then x = y
+    else x <> y
   ;;assert (not (f 10 10))
 
   $ dune exec --no-build ./test.bc
 
-  $ MUTAML_MUTANT="test:0" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:f:compare-negation:9b8b387c:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 2, 0)
   [2]
 
@@ -201,7 +219,10 @@ The comparisons are polymorphic, so the same mutation applies to strings:
     match __MUTAML_MUTANT__ with
     | None -> false
     | Some mutant -> String.equal m mutant
-  let f x y = if __is_mutaml_mutant__ "test:0" then x <= y else x < y
+  let f x y =
+    if __is_mutaml_mutant__ "test.ml:f:compare-boundary:ef265273:0"
+    then x <= y
+    else x < y
   ;;assert (f "a" "b")
 
   $ dune exec --no-build ./test.bc
@@ -228,14 +249,14 @@ Test String.equal, which becomes its own negation:
     | Some mutant -> String.equal m mutant
   let f x y =
     let __MUTAML_TMP0__ = String.equal x y in
-    if __is_mutaml_mutant__ "test:0"
+    if __is_mutaml_mutant__ "test.ml:f:equal-function:ba5c29c9:0"
     then not __MUTAML_TMP0__
     else __MUTAML_TMP0__
   ;;assert (f "a" "a")
 
   $ dune exec --no-build ./test.bc
 
-  $ MUTAML_MUTANT="test:0" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:f:equal-function:ba5c29c9:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 2, 0)
   [2]
 
@@ -261,14 +282,14 @@ Test Int.equal:
     | Some mutant -> String.equal m mutant
   let f x y =
     let __MUTAML_TMP0__ = Int.equal x y in
-    if __is_mutaml_mutant__ "test:0"
+    if __is_mutaml_mutant__ "test.ml:f:equal-function:432db085:0"
     then not __MUTAML_TMP0__
     else __MUTAML_TMP0__
   ;;assert (f 1 1)
 
   $ dune exec --no-build ./test.bc
 
-  $ MUTAML_MUTANT="test:0" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:f:equal-function:432db085:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 2, 0)
   [2]
 
@@ -298,7 +319,10 @@ the module below is mutated:
     | Some mutant -> String.equal m mutant
   module M =
     struct
-      let equal a b = if __is_mutaml_mutant__ "test:0" then a - b else a + b
+      let equal a b =
+        if __is_mutaml_mutant__ "test.ml:M.equal:arith-operator:86790c7e:0"
+        then a - b
+        else a + b
     end
   let f x y = M.equal x y
   ;;assert ((f 1 1) = 2)

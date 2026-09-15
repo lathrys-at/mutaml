@@ -398,11 +398,11 @@ And a dune file:
   $ mutaml-runner _build/mutation/test.bc
   read mut file test.muts
   Testing without a mutant ... passed
-  Testing mutant test:0 ... passed
-  Testing mutant test:1 ... passed
-  Testing mutant test:2 ... passed
-  Testing mutant test:3 ... passed
-  Testing mutant test:4 ... passed
-  Testing mutant test:5 ... passed
-  Testing mutant test:6 ... passed
+  Testing mutant test.ml:l:int-constant:92be9951:0 ... passed
+  Testing mutant test.ml:l:int-constant:50c5a5ff:0 ... passed
+  Testing mutant test.ml:l:int-constant:626aba84:0 ... passed
+  Testing mutant test.ml:l:int-constant:31e37bfa:0 ... passed
+  Testing mutant test.ml:l:int-constant:772c04c9:0 ... passed
+  Testing mutant test.ml:o:bool-constant:c7a6885d:0 ... passed
+  Testing mutant test.ml:o:bool-constant:5bf88c8b:0 ... passed
   Writing report data to mutaml-report.json

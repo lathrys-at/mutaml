@@ -35,10 +35,14 @@ Test a sequence mutation:
     | None -> false
     | Some mutant -> String.equal m mutant
   let f () =
-    let c = ref (if __is_mutaml_mutant__ "test:0" then 1 else 0) in
-    if __is_mutaml_mutant__ "test:3" then () else incr c;
-    if __is_mutaml_mutant__ "test:2" then () else incr c;
-    if __is_mutaml_mutant__ "test:1" then () else incr c;
+    let c =
+      ref
+        (if __is_mutaml_mutant__ "test.ml:f:int-constant:92be9951:0"
+         then 1
+         else 0) in
+    if __is_mutaml_mutant__ "test.ml:f:sequence:275f74ae:0" then () else incr c;
+    if __is_mutaml_mutant__ "test.ml:f:sequence:7480acda:0" then () else incr c;
+    if __is_mutaml_mutant__ "test.ml:f:sequence:374c874f:0" then () else incr c;
     !c
   ;;assert ((f ()) = 3)
 
@@ -47,19 +51,19 @@ Check that instrumentation hasn't changed the program's behaviour
   $ _build/default/test.bc
 
 
-  $ MUTAML_MUTANT="test:0" _build/default/test.bc
+  $ MUTAML_MUTANT="test.ml:f:int-constant:92be9951:0" _build/default/test.bc
   Fatal error: exception Assert_failure("test.ml", 9, 0)
   [2]
 
-  $ MUTAML_MUTANT="test:1" _build/default/test.bc
+  $ MUTAML_MUTANT="test.ml:f:sequence:374c874f:0" _build/default/test.bc
   Fatal error: exception Assert_failure("test.ml", 9, 0)
   [2]
 
-  $ MUTAML_MUTANT="test:2" _build/default/test.bc
+  $ MUTAML_MUTANT="test.ml:f:sequence:7480acda:0" _build/default/test.bc
   Fatal error: exception Assert_failure("test.ml", 9, 0)
   [2]
 
-  $ MUTAML_MUTANT="test:3" _build/default/test.bc
+  $ MUTAML_MUTANT="test.ml:f:sequence:275f74ae:0" _build/default/test.bc
   Fatal error: exception Assert_failure("test.ml", 9, 0)
   [2]
 
@@ -67,10 +71,10 @@ Check that instrumentation hasn't changed the program's behaviour
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
   Testing without a mutant ... passed
-  Testing mutant test:0 ... failed
-  Testing mutant test:1 ... failed
-  Testing mutant test:2 ... failed
-  Testing mutant test:3 ... failed
+  Testing mutant test.ml:f:int-constant:92be9951:0 ... failed
+  Testing mutant test.ml:f:sequence:374c874f:0 ... failed
+  Testing mutant test.ml:f:sequence:7480acda:0 ... failed
+  Testing mutant test.ml:f:sequence:275f74ae:0 ... failed
   Writing report data to mutaml-report.json
 
 
@@ -103,10 +107,14 @@ Test uncaught sequence mutation:
     | None -> false
     | Some mutant -> String.equal m mutant
   let f () =
-    let c = ref (if __is_mutaml_mutant__ "test:0" then 1 else 0) in
-    if __is_mutaml_mutant__ "test:3" then () else incr c;
-    if __is_mutaml_mutant__ "test:2" then () else incr c;
-    if __is_mutaml_mutant__ "test:1" then () else incr c;
+    let c =
+      ref
+        (if __is_mutaml_mutant__ "test.ml:f:int-constant:92be9951:0"
+         then 1
+         else 0) in
+    if __is_mutaml_mutant__ "test.ml:f:sequence:275f74ae:0" then () else incr c;
+    if __is_mutaml_mutant__ "test.ml:f:sequence:7480acda:0" then () else incr c;
+    if __is_mutaml_mutant__ "test.ml:f:sequence:374c874f:0" then () else incr c;
     !c
   ;;assert ((f ()) > 0)
 
@@ -115,22 +123,22 @@ Check that instrumentation hasn't changed the program's behaviour
   $ _build/default/test.bc
 
 
-  $ MUTAML_MUTANT="test:0" _build/default/test.bc
+  $ MUTAML_MUTANT="test.ml:f:int-constant:92be9951:0" _build/default/test.bc
 
-  $ MUTAML_MUTANT="test:1" _build/default/test.bc
+  $ MUTAML_MUTANT="test.ml:f:sequence:374c874f:0" _build/default/test.bc
 
-  $ MUTAML_MUTANT="test:2" _build/default/test.bc
+  $ MUTAML_MUTANT="test.ml:f:sequence:7480acda:0" _build/default/test.bc
 
-  $ MUTAML_MUTANT="test:3" _build/default/test.bc
+  $ MUTAML_MUTANT="test.ml:f:sequence:275f74ae:0" _build/default/test.bc
 
 
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
   Testing without a mutant ... passed
-  Testing mutant test:0 ... passed
-  Testing mutant test:1 ... passed
-  Testing mutant test:2 ... passed
-  Testing mutant test:3 ... passed
+  Testing mutant test.ml:f:int-constant:92be9951:0 ... passed
+  Testing mutant test.ml:f:sequence:374c874f:0 ... passed
+  Testing mutant test.ml:f:sequence:7480acda:0 ... passed
+  Testing mutant test.ml:f:sequence:275f74ae:0 ... passed
   Writing report data to mutaml-report.json
 
 

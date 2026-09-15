@@ -47,7 +47,10 @@ Set seed and (full) mutation rate as environment variables, for repeatability
     | None -> false
     | Some mutant -> String.equal m mutant
   let (=) = Int.equal
-  let add a b = if __is_mutaml_mutant__ "test:0" then a - b else a + b
+  let add a b =
+    if __is_mutaml_mutant__ "test.ml:add:arith-operator:86790c7e:0"
+    then a - b
+    else a + b
   ;;assert ((add 4 3) >= 0)
 
   $ ls _build
@@ -62,7 +65,7 @@ Set seed and (full) mutation rate as environment variables, for repeatability
   $ mutaml-runner _build/default/test.exe
   read mut file test.muts
   Testing without a mutant ... passed
-  Testing mutant test:0 ... passed
+  Testing mutant test.ml:add:arith-operator:86790c7e:0 ... passed
   Writing report data to mutaml-report.json
 
   $ mutaml-report

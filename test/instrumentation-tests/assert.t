@@ -63,7 +63,10 @@ Set seed and (full) mutation rate as environment variables, for repeatability
     | Some mutant -> String.equal m mutant
   let foo =
     match Sys.word_size with
-    | 32 -> if __is_mutaml_mutant__ "test:0" then 33 else 32
+    | 32 ->
+        if __is_mutaml_mutant__ "test.ml:foo:int-constant:7a183cb4:0"
+        then 33
+        else 32
     | _ -> assert false
 
 
@@ -91,15 +94,22 @@ Make an .ml-file:
     | Some mutant -> String.equal m mutant
   let foo =
     match Sys.word_size with
-    | 32 -> if __is_mutaml_mutant__ "test:0" then 33 else 32
+    | 32 ->
+        if __is_mutaml_mutant__ "test.ml:foo:int-constant:7a183cb4:0"
+        then 33
+        else 32
     | _ ->
-        (if __is_mutaml_mutant__ "test:2" then () else assert (1 > 0);
-         if __is_mutaml_mutant__ "test:1" then 1 else 0)
+        (if __is_mutaml_mutant__ "test.ml:foo:sequence:cc170de4:0"
+         then ()
+         else assert (1 > 0);
+         if __is_mutaml_mutant__ "test.ml:foo:int-constant:92be9951:0"
+         then 1
+         else 0)
 
 
-  $ MUTAML_MUTANT="test:0" dune exec --no-build -- ./test.bc
+  $ MUTAML_MUTANT="test.ml:foo:int-constant:7a183cb4:0" dune exec --no-build -- ./test.bc
 
-  $ MUTAML_MUTANT="test:1" dune exec --no-build -- ./test.bc
+  $ MUTAML_MUTANT="test.ml:foo:int-constant:92be9951:0" dune exec --no-build -- ./test.bc
 
 
 ----------------------------------------------------------------------------------
@@ -132,13 +142,17 @@ Make an .ml-file:
     let tmp =
       let __MUTAML_TMP1__ =
         let __MUTAML_TMP0__ =
-          if __is_mutaml_mutant__ "test:0" then true else false in
-        if __is_mutaml_mutant__ "test:1"
+          if __is_mutaml_mutant__ "test.ml:toplevel:bool-constant:c7a6885d:0"
+          then true
+          else false in
+        if __is_mutaml_mutant__ "test.ml:toplevel:not-expression:15c8baf5:0"
         then __MUTAML_TMP0__
         else not __MUTAML_TMP0__ in
       let __MUTAML_TMP2__ =
-        if __is_mutaml_mutant__ "test:2" then false else true in
-      if __is_mutaml_mutant__ "test:3"
+        if __is_mutaml_mutant__ "test.ml:toplevel:bool-constant:5bf88c8b:0"
+        then false
+        else true in
+      if __is_mutaml_mutant__ "test.ml:toplevel:compare-negation:ffcc8711:0"
       then __MUTAML_TMP2__ <> __MUTAML_TMP1__
       else __MUTAML_TMP2__ = __MUTAML_TMP1__ in
     assert tmp
@@ -146,19 +160,26 @@ Make an .ml-file:
     let tmp =
       let __MUTAML_TMP4__ =
         let __MUTAML_TMP3__ = String.length "" in
-        if __is_mutaml_mutant__ "test:4"
+        if __is_mutaml_mutant__ "test.ml:toplevel:arith-identity:e074f9cb:0"
         then __MUTAML_TMP3__
         else 1 + __MUTAML_TMP3__ in
       let __MUTAML_TMP6__ =
         let __MUTAML_TMP5__ =
-          String.length (if __is_mutaml_mutant__ "test:5" then "" else " ") in
-        if __is_mutaml_mutant__ "test:7"
+          String.length
+            (if __is_mutaml_mutant__ "test.ml:toplevel:space-string:cbda8879:0"
+             then ""
+             else " ") in
+        if
+          __is_mutaml_mutant__
+            "test.ml:toplevel:argument-off-by-one:3f91aa3f:0"
         then __MUTAML_TMP5__ + 1
         else
-          if __is_mutaml_mutant__ "test:6"
+          if
+            __is_mutaml_mutant__
+              "test.ml:toplevel:argument-off-by-one:92aff65e:0"
           then __MUTAML_TMP5__ - 1
           else __MUTAML_TMP5__ in
-      if __is_mutaml_mutant__ "test:8"
+      if __is_mutaml_mutant__ "test.ml:toplevel:compare-negation:7a758936:0"
       then __MUTAML_TMP6__ <> __MUTAML_TMP4__
       else __MUTAML_TMP6__ = __MUTAML_TMP4__ in
     assert tmp
@@ -175,38 +196,38 @@ or like this:
 
 These should all fail however:
 
-  $ MUTAML_MUTANT="test:0" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:toplevel:bool-constant:c7a6885d:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 3, 2)
   [2]
 
-  $ MUTAML_MUTANT="test:1" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:toplevel:not-expression:15c8baf5:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 3, 2)
   [2]
 
-  $ MUTAML_MUTANT="test:2" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:toplevel:bool-constant:5bf88c8b:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 3, 2)
   [2]
 
-  $ MUTAML_MUTANT="test:3" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:toplevel:compare-negation:ffcc8711:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 3, 2)
   [2]
 
-  $ MUTAML_MUTANT="test:4" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:toplevel:arith-identity:e074f9cb:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 6, 2)
   [2]
 
-  $ MUTAML_MUTANT="test:5" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:toplevel:space-string:cbda8879:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 6, 2)
   [2]
 
-  $ MUTAML_MUTANT="test:6" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:toplevel:argument-off-by-one:92aff65e:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 6, 2)
   [2]
 
-  $ MUTAML_MUTANT="test:7" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:toplevel:argument-off-by-one:3f91aa3f:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 6, 2)
   [2]
 
-  $ MUTAML_MUTANT="test:8" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:toplevel:compare-negation:7a758936:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 6, 2)
   [2]

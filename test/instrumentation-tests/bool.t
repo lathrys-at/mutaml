@@ -25,7 +25,10 @@ Test true:
     match __MUTAML_MUTANT__ with
     | None -> false
     | Some mutant -> String.equal m mutant
-  let f () = if __is_mutaml_mutant__ "test:0" then false else true
+  let f () =
+    if __is_mutaml_mutant__ "test.ml:f:bool-constant:5bf88c8b:0"
+    then false
+    else true
   ;;assert (f ())
 
 
@@ -33,7 +36,7 @@ Check that instrumentation hasn't changed the program's behaviour
   $ dune exec --no-build ./test.bc
 
 And that mutation has changed it as expected
-  $ MUTAML_MUTANT="test:0" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:f:bool-constant:5bf88c8b:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 2, 0)
   [2]
 
@@ -57,11 +60,14 @@ Test false:
     match __MUTAML_MUTANT__ with
     | None -> false
     | Some mutant -> String.equal m mutant
-  let f () = if __is_mutaml_mutant__ "test:0" then true else false
+  let f () =
+    if __is_mutaml_mutant__ "test.ml:f:bool-constant:c7a6885d:0"
+    then true
+    else false
   ;;assert (not (f ()))
 
   $ dune exec --no-build ./test.bc
 
-  $ MUTAML_MUTANT="test:0" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:f:bool-constant:c7a6885d:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 2, 0)
   [2]

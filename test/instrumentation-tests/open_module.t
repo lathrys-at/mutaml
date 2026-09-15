@@ -60,15 +60,20 @@ Test mutation of an 'assert false':
     | None -> false
     | Some mutant -> String.equal m mutant
   let () = Printf.printf "hello from A!\n"
-  let x = if __is_mutaml_mutant__ "a:0" then 4 else 3
+  let x =
+    if __is_mutaml_mutant__ "a.ml:x:int-constant:3f492773:0" then 4 else 3
   let res =
-    let __MUTAML_TMP0__ = if __is_mutaml_mutant__ "a:1" then 7 else 6 in
+    let __MUTAML_TMP0__ =
+      if __is_mutaml_mutant__ "a.ml:res:int-constant:b9aa1da3:0" then 7 else 6 in
     let __MUTAML_TMP2__ =
-      let __MUTAML_TMP1__ = if __is_mutaml_mutant__ "a:2" then 3 else 2 in
-      if __is_mutaml_mutant__ "a:3"
+      let __MUTAML_TMP1__ =
+        if __is_mutaml_mutant__ "a.ml:res:int-constant:626aba84:0"
+        then 3
+        else 2 in
+      if __is_mutaml_mutant__ "a.ml:res:arith-operator:e3c439c3:0"
       then __MUTAML_TMP1__ + x
       else __MUTAML_TMP1__ * x in
-    if __is_mutaml_mutant__ "a:4"
+    if __is_mutaml_mutant__ "a.ml:res:compare-negation:abd7c5bb:0"
     then __MUTAML_TMP2__ <> __MUTAML_TMP0__
     else __MUTAML_TMP2__ = __MUTAML_TMP0__
   let () = assert res
@@ -81,8 +86,11 @@ Test mutation of an 'assert false':
   open A
   let () = Printf.printf "hello from B!\n"
   let res =
-    let __MUTAML_TMP0__ = if __is_mutaml_mutant__ "b:0" then 2 else 1 + 2 in
-    if __is_mutaml_mutant__ "b:1"
+    let __MUTAML_TMP0__ =
+      if __is_mutaml_mutant__ "b.ml:res:arith-identity:046a2612:0"
+      then 2
+      else 1 + 2 in
+    if __is_mutaml_mutant__ "b.ml:res:compare-negation:a736046d:0"
     then x <> __MUTAML_TMP0__
     else x = __MUTAML_TMP0__
   let () = assert res
@@ -106,29 +114,29 @@ Test mutation of an 'assert false':
   hello from A!
   hello from B!
 
-  $ MUTAML_MUTANT="a:0" dune exec --no-build -- ./b.bc
+  $ MUTAML_MUTANT="a.ml:x:int-constant:3f492773:0" dune exec --no-build -- ./b.bc
   hello from A!
   Fatal error: exception Assert_failure("a.ml", 4, 9)
   [2]
-  $ MUTAML_MUTANT="a:1" dune exec --no-build -- ./b.bc
+  $ MUTAML_MUTANT="a.ml:res:int-constant:b9aa1da3:0" dune exec --no-build -- ./b.bc
   hello from A!
   Fatal error: exception Assert_failure("a.ml", 4, 9)
   [2]
-  $ MUTAML_MUTANT="a:2" dune exec --no-build -- ./b.bc
+  $ MUTAML_MUTANT="a.ml:res:int-constant:626aba84:0" dune exec --no-build -- ./b.bc
   hello from A!
   Fatal error: exception Assert_failure("a.ml", 4, 9)
   [2]
-  $ MUTAML_MUTANT="a:3" dune exec --no-build -- ./b.bc
+  $ MUTAML_MUTANT="a.ml:res:arith-operator:e3c439c3:0" dune exec --no-build -- ./b.bc
   hello from A!
   Fatal error: exception Assert_failure("a.ml", 4, 9)
   [2]
 
-  $ MUTAML_MUTANT="b:0" dune exec --no-build -- ./b.bc
+  $ MUTAML_MUTANT="b.ml:res:arith-identity:046a2612:0" dune exec --no-build -- ./b.bc
   hello from A!
   hello from B!
   Fatal error: exception Assert_failure("b.ml", 4, 9)
   [2]
-  $ MUTAML_MUTANT="b:1" dune exec --no-build -- ./b.bc
+  $ MUTAML_MUTANT="b.ml:res:compare-negation:a736046d:0" dune exec --no-build -- ./b.bc
   hello from A!
   hello from B!
   Fatal error: exception Assert_failure("b.ml", 4, 9)

@@ -25,14 +25,17 @@ Test + 1:
     match __MUTAML_MUTANT__ with
     | None -> false
     | Some mutant -> String.equal m mutant
-  let f x = if __is_mutaml_mutant__ "test:0" then x else x + 1
+  let f x =
+    if __is_mutaml_mutant__ "test.ml:f:arith-identity:2546bcf4:0"
+    then x
+    else x + 1
   ;;assert ((f 5) = 6)
 
 Check that instrumentation hasn't changed the program's behaviour
   $ dune exec --no-build ./test.bc
 
 And that mutation has changed it as expected
-  $ MUTAML_MUTANT="test:0" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:f:arith-identity:2546bcf4:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 2, 0)
   [2]
 
@@ -56,12 +59,15 @@ Test - 1:
     match __MUTAML_MUTANT__ with
     | None -> false
     | Some mutant -> String.equal m mutant
-  let f x = if __is_mutaml_mutant__ "test:0" then x else x - 1
+  let f x =
+    if __is_mutaml_mutant__ "test.ml:f:arith-identity:3e3b8125:0"
+    then x
+    else x - 1
   ;;assert ((f 5) = 4)
 
   $ dune exec --no-build ./test.bc
 
-  $ MUTAML_MUTANT="test:0" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:f:arith-identity:3e3b8125:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 2, 0)
   [2]
 
@@ -85,12 +91,15 @@ z
     match __MUTAML_MUTANT__ with
     | None -> false
     | Some mutant -> String.equal m mutant
-  let f x = if __is_mutaml_mutant__ "test:0" then x else 1 + x
+  let f x =
+    if __is_mutaml_mutant__ "test.ml:f:arith-identity:e7d5e814:0"
+    then x
+    else 1 + x
   ;;assert ((f 5) = 6)
 
   $ dune exec --no-build ./test.bc
 
-  $ MUTAML_MUTANT="test:0" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:f:arith-identity:e7d5e814:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 2, 0)
   [2]
 
@@ -114,12 +123,15 @@ Test addition:
     match __MUTAML_MUTANT__ with
     | None -> false
     | Some mutant -> String.equal m mutant
-  let f x y = if __is_mutaml_mutant__ "test:0" then x - y else x + y
+  let f x y =
+    if __is_mutaml_mutant__ "test.ml:f:arith-operator:3c50f6ec:0"
+    then x - y
+    else x + y
   ;;assert ((f 5 6) = 11)
 
   $ dune exec --no-build ./test.bc
 
-  $ MUTAML_MUTANT="test:0" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:f:arith-operator:3c50f6ec:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 2, 0)
   [2]
 
@@ -143,12 +155,15 @@ Test subtraction mutation:
     match __MUTAML_MUTANT__ with
     | None -> false
     | Some mutant -> String.equal m mutant
-  let f x y = if __is_mutaml_mutant__ "test:0" then x + y else x - y
+  let f x y =
+    if __is_mutaml_mutant__ "test.ml:f:arith-operator:23b6b599:0"
+    then x + y
+    else x - y
   ;;assert ((f 6 5) = 1)
 
   $ dune exec --no-build ./test.bc
 
-  $ MUTAML_MUTANT="test:0" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:f:arith-operator:23b6b599:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 2, 0)
   [2]
 
@@ -172,7 +187,10 @@ Test multiplication mutation:
     match __MUTAML_MUTANT__ with
     | None -> false
     | Some mutant -> String.equal m mutant
-  let f x y = if __is_mutaml_mutant__ "test:0" then x + y else x * y
+  let f x y =
+    if __is_mutaml_mutant__ "test.ml:f:arith-operator:bd8f0d8d:0"
+    then x + y
+    else x * y
   ;;assert ((f 6 5) = 30)
 
   $ dune exec --no-build ./test.bc
@@ -197,12 +215,15 @@ Test division mutation:
     match __MUTAML_MUTANT__ with
     | None -> false
     | Some mutant -> String.equal m mutant
-  let f x y = if __is_mutaml_mutant__ "test:0" then x mod y else x / y
+  let f x y =
+    if __is_mutaml_mutant__ "test.ml:f:arith-operator:2ad31d3d:0"
+    then x mod y
+    else x / y
   ;;assert ((f 56 5) = 11)
 
   $ dune exec --no-build ./test.bc
 
-  $ MUTAML_MUTANT="test:0" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:f:arith-operator:2ad31d3d:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 2, 0)
   [2]
 
@@ -226,12 +247,15 @@ Test modulo mutation:
     match __MUTAML_MUTANT__ with
     | None -> false
     | Some mutant -> String.equal m mutant
-  let f x y = if __is_mutaml_mutant__ "test:0" then x / y else x mod y
+  let f x y =
+    if __is_mutaml_mutant__ "test.ml:f:arith-operator:f5ab5eaf:0"
+    then x / y
+    else x mod y
   ;;assert ((f 56 6) = 2)
 
   $ dune exec --no-build ./test.bc
 
-  $ MUTAML_MUTANT="test:0" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:f:arith-operator:f5ab5eaf:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 2, 0)
   [2]
 
@@ -278,7 +302,7 @@ we should use it instead.
   let f x y =
     let __MUTAML_TMP0__ = let () = print_endline "right" in y in
     let __MUTAML_TMP1__ = let () = print_endline "left" in x in
-    if __is_mutaml_mutant__ "test:0"
+    if __is_mutaml_mutant__ "test.ml:f:arith-operator:9b1f0cba:0"
     then __MUTAML_TMP1__ - __MUTAML_TMP0__
     else __MUTAML_TMP1__ + __MUTAML_TMP0__
   ;;assert ((f 5 6) = 11)
@@ -287,7 +311,7 @@ we should use it instead.
   right
   left
 
-  $ MUTAML_MUTANT="test:0" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:f:arith-operator:9b1f0cba:0" dune exec --no-build ./test.bc
   right
   left
   Fatal error: exception Assert_failure("test.ml", 4, 0)

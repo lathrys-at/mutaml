@@ -2,7 +2,18 @@
  (name report)
  (public_name mutaml-report)
  (package mutaml)
- (libraries unix ppxlib mutaml.common)
+ (libraries unix ppxlib yojson mutaml.common)
  (promote
   (until-clean)
   (into ../..)))
+
+; The version of the package, for the framework entry of the JSON
+; report. dune knows it from the version field of dune-project, so the
+; string cannot fall behind a release.
+
+(rule
+ (target version.ml)
+ (action
+  (with-stdout-to
+   version.ml
+   (echo "let mutaml = \"%{version:mutaml}\"\n"))))

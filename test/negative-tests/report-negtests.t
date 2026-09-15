@@ -69,3 +69,90 @@ Now confirm that the report tool gives no score for it:
   Attempting to read from empty-report.json...
   Found no test results in empty-report.json
   [1]
+
+Create a report file that holds one test result:
+  $ cat > one-result.json <<'EOF'
+  > [ { "status" : 0,
+  >     "mutant" : { "number" : 0, "binding" : "f", "kind" : "arith-operator",
+  >                  "original" : "+", "ordinal" : 0, "repl" : "-",
+  >                  "loc" : { "loc_start" : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 12 },
+  >                            "loc_end"   : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 13 },
+  >                            "loc_ghost" : false } } } ]
+  > EOF
+
+Check that the report tool says so when it cannot write the Markdown
+summary:
+  $ mutaml-report --markdown no-such-directory/summary.md one-result.json
+  Attempting to read from one-result.json...
+  Could not read the source file lib.ml
+  Writing the Markdown summary to no-such-directory/summary.md
+  Could not write file no-such-directory/summary.md: No such file or directory
+  [1]
+
+Check that it says so as well when it cannot write the JSON report:
+  $ mutaml-report --json-report no-such-directory/report.json one-result.json
+  Attempting to read from one-result.json...
+  Could not read the source file lib.ml
+  Writing the JSON report to no-such-directory/report.json
+  Could not write file no-such-directory/report.json: No such file or directory
+  [1]
+
+Check that the report tool names the source file, and still gives a
+score, when the source of a mutation that passed is not in the project:
+  $ mkdir -p _mutations
+  $ mutaml-report --fail-under 0 one-result.json
+  Attempting to read from one-result.json...
+  
+  Mutaml report summary:
+  ----------------------
+  
+   target                          #mutations      #failed      #timeouts      #passed 
+   -------------------------------------------------------------------------------------
+   lib.ml                                 1       0.0%    0     0.0%    0   100.0%    1
+   =====================================================================================
+  
+  Mutation programs passing the test suite:
+  -----------------------------------------
+  
+  Mutation "lib.ml-mutant0" passed (see "_mutations/lib.ml-mutant0.output"), and the source file lib.ml could not be read
+  Mutation score: 0.0% (1 mutations: 0 failed, 0 timed out, 1 passed)
+
+Check that it does the same when the source file changed, so that the
+place the mutation sits in is outside the file:
+  $ cat > lib.ml <<'EOF'
+  > let f = 1
+  > EOF
+  $ mutaml-report --fail-under 0 one-result.json
+  Attempting to read from one-result.json...
+  
+  Mutaml report summary:
+  ----------------------
+  
+   target                          #mutations      #failed      #timeouts      #passed 
+   -------------------------------------------------------------------------------------
+   lib.ml                                 1       0.0%    0     0.0%    0   100.0%    1
+   =====================================================================================
+  
+  Mutation programs passing the test suite:
+  -----------------------------------------
+  
+  Mutation "lib.ml-mutant0" passed (see "_mutations/lib.ml-mutant0.output"), and the source file lib.ml is not as it was when the tests ran
+  Mutation score: 0.0% (1 mutations: 0 failed, 0 timed out, 1 passed)
+
+Create a report file of the shape that an older mutaml wrote, in which
+a test result holds no operator, no binding, no original text and no
+ordinal:
+  $ cat > old-shape.json <<'EOF'
+  > [ { "status" : 0,
+  >     "mutant" : { "number" : 0, "repl" : "-",
+  >                  "loc" : { "loc_start" : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 12 },
+  >                            "loc_end"   : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 13 },
+  >                            "loc_ghost" : false } } } ]
+  > EOF
+
+Check that the report tool says what is wrong with it, and not that the
+file is not JSON:
+  $ mutaml-report old-shape.json
+  Attempting to read from old-shape.json...
+  Could not parse JSON in old-shape.json: a test result does not hold the fields that this release of mutaml reads. A report file that an older mutaml wrote needs a new run of mutaml-runner
+  [1]

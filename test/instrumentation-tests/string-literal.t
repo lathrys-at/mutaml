@@ -29,7 +29,10 @@ mutaml already had:
     | None -> false
     | Some mutant -> String.equal m mutant
   let greet () = "hello"
-  let gap () = if __is_mutaml_mutant__ "test:0" then "" else " "
+  let gap () =
+    if __is_mutaml_mutant__ "test.ml:gap:space-string:cbda8879:0"
+    then ""
+    else " "
   ;;assert (((greet ()) ^ (gap ())) = "hello ")
 
   $ dune exec --no-build ./test.bc
@@ -56,15 +59,21 @@ With MUTAML_STRING_LITERAL=true every string literal is mutated:
     match __MUTAML_MUTANT__ with
     | None -> false
     | Some mutant -> String.equal m mutant
-  let greet () = if __is_mutaml_mutant__ "test:0" then "" else "hello"
-  let empty () = if __is_mutaml_mutant__ "test:1" then " " else ""
+  let greet () =
+    if __is_mutaml_mutant__ "test.ml:greet:string-literal:774b4c6a:0"
+    then ""
+    else "hello"
+  let empty () =
+    if __is_mutaml_mutant__ "test.ml:empty:string-literal:ffe635b2:0"
+    then " "
+    else ""
   ;;assert (((greet ()) ^ (empty ())) = "hello")
 
 Check that instrumentation hasn't changed the program's behaviour
   $ dune exec --no-build ./test.bc
 
 And that mutation has changed it as expected
-  $ MUTAML_MUTANT="test:0" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:greet:string-literal:774b4c6a:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 3, 0)
   [2]
 
@@ -115,12 +124,15 @@ A format with no conversion in it is mutated, and it still typechecks:
     | None -> false
     | Some mutant -> String.equal m mutant
   let show () =
-    Printf.sprintf (if __is_mutaml_mutant__ "test:0" then "" else "plain")
+    Printf.sprintf
+      (if __is_mutaml_mutant__ "test.ml:show:string-literal:be13f66a:0"
+       then ""
+       else "plain")
   ;;assert ((show ()) = "plain")
 
   $ dune exec --no-build ./test.bc
 
-  $ MUTAML_MUTANT="test:0" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:show:string-literal:be13f66a:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 2, 0)
   [2]
 
@@ -153,7 +165,10 @@ environment variable:
     match __MUTAML_MUTANT__ with
     | None -> false
     | Some mutant -> String.equal m mutant
-  let greet () = if __is_mutaml_mutant__ "test:0" then "" else "hello"
+  let greet () =
+    if __is_mutaml_mutant__ "test.ml:greet:string-literal:774b4c6a:0"
+    then ""
+    else "hello"
   ;;assert ((greet ()) = "hello")
 
   $ dune exec --no-build ./test.bc
