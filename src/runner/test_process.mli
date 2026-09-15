@@ -30,11 +30,11 @@ type t
 (** One test process. [start] makes one, and [wait], [wait_any] or
     [stop_all] ends it.
 
-    The caller owns the process between the two calls, and must end
-    every process that it starts: a process that nobody ends runs until
-    the runner itself ends. A value is spent once a wait has given back
-    its run, and a spent value holds nothing that the caller must
-    release. *)
+    The caller owns the process from [start] until one of those three
+    calls takes it, and must end every process that it starts: a
+    process that nobody ends runs until the runner itself ends. A value
+    is spent once a wait has given back its run, and a spent value
+    holds nothing that the caller must release. *)
 
 val start :
   cmd:string ->
