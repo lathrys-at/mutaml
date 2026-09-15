@@ -133,11 +133,19 @@ let start ~cmd ~env ~output_file ~limit =
 
 let pid p = p.pid
 
+(* Sends [signal] to the group that the process leads, so that the
+   children of the shell take it as well. A group that is gone takes
+   nothing. *)
 let signal_group p signal =
-  (* The process leads its group, so the group holds its children as
-     well. A process that ended in the meantime is gone, and the signal
-     then reaches nothing. *)
   try Unix.kill (- p.pid) signal with Unix.Unix_error _ -> ()
+
+(* Sends [signal] to the run of [p]: to its group, and to the process
+   alone when the machine gave it no group of its own. Call this only
+   while the process is there to take it. *)
+let signal_run p signal =
+  try Unix.kill (- p.pid) signal
+  with Unix.Unix_error _ ->
+    (try Unix.kill p.pid signal with Unix.Unix_error _ -> ())
 
 let rec collect p = match Unix.waitpid [Unix.WNOHANG] p.pid with
   | 0, _      -> None
@@ -158,15 +166,20 @@ let advance p now = match p.state with
     then
       begin
         p.at_limit <- true;
-        signal_group p Sys.sigterm;
+        signal_run p Sys.sigterm;
         p.state <- Stopping (now +. grace_period)
       end
   | Stopping kill_at ->
     if now >= kill_at
-    then (signal_group p Sys.sigkill; p.state <- Killed)
+    then (signal_run p Sys.sigkill; p.state <- Killed)
   | Killed | Spent -> ()
 
 let finish p ending =
+  (* The shell of a stopped run answers the signal TERM and is gone,
+     while a program that it started can answer the signal itself and
+     stay. The whole group therefore takes the signal KILL here, so
+     that no program of the run is left behind. *)
+  let () = if p.at_limit then signal_group p Sys.sigkill in
   p.state <- Spent;
   {
     status = (if p.at_limit then timeout_status else status_of_end ending);
@@ -177,14 +190,16 @@ let check_unspent name p = match p.state with
   | Spent -> invalid_arg (name ^ ": this process is spent")
   | Running | Stopping _ | Killed -> ()
 
+(* Collects before it holds the limit, so that a run which ended in the
+   last moments before its limit keeps the status it answered. *)
 let rec wait_loop ps pause =
-  let now = Unix.gettimeofday () in
-  let () = List.iter (fun p -> advance p now) ps in
   match
     List.find_map (fun p -> Option.map (fun ending -> (p,ending)) (collect p)) ps
   with
   | Some (p,ending) -> (p, finish p ending)
   | None ->
+    let now = Unix.gettimeofday () in
+    let () = List.iter (fun p -> advance p now) ps in
     Unix.sleepf pause;
     wait_loop ps (Float.min longest_pause (pause *. 2.0))
 

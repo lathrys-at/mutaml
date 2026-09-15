@@ -150,6 +150,19 @@ there:
   $ test -e lingering.txt
   [1]
 
+The runner sends the signal TERM to a run that reaches its limit, and
+the signal KILL two seconds later. The test command below does not
+answer the signal TERM, so only the signal KILL ends it. The command is
+a line of shell and not the path of a script, which the runner reads the
+same way:
+
+  $ mutaml-runner --muts lib.muts --timeout 3 "trap '' TERM; while : ; do sleep 1; done"
+  Testing without a mutant ... timeout
+  The test suite did not pass without a mutant. Its exit status was 124.
+  The output of the run is in _mutations/baseline-1.output.
+  Every mutant would look killed, so mutaml-runner stops here.
+  [1]
+
 Without --timeout the limit follows the run without a mutant: five times
 that run, and never less than ten seconds. The suite below takes three
 seconds without a mutant, which gives a limit of fifteen seconds, and

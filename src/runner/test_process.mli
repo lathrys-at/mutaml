@@ -64,8 +64,8 @@ val start :
     does not work here.
 
     [limit] is the number of seconds that the run may take. A wait
-    stops a run that takes longer. A limit of 0 or less stops the run
-    at the first wait.
+    stops a run that takes longer. With a limit of 0 or less, a wait
+    stops the run at its first look at it.
 
     Raises [Failed_to_run] when it cannot open [output_file] or cannot
     make a process. *)
@@ -80,8 +80,13 @@ val wait : t -> run
     afterwards.
 
     When the run reaches its limit, this module sends the group of the
-    process the signal TERM, and the signal KILL two seconds later. The
-    run then has the status 124, whatever the process answered.
+    process the signal TERM, and the signal KILL two seconds later. It
+    sends the signal KILL to the group as well once the process itself
+    is gone, so that a program which the test command started and which
+    answers the signal TERM is not left behind. The run then has the
+    status 124, whatever the process answered.
+
+    A run that ends before its limit keeps the status that it answered.
 
     Raises [Invalid_argument] when [p] is already spent. Raises
     [Failed_to_run] when the machine loses the process. *)
