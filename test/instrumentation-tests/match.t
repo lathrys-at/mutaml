@@ -230,6 +230,7 @@ Same example but with GADT-unsafe mutations enabled:
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
   Testing without a mutant ... passed
+  The limit of a test run is 5 times the run without a mutant, and never less than 10 seconds.
   Testing mutant test.ml:f:merge-cases:b926fe1a:0 ... passed
   Testing mutant test.ml:f:merge-cases:bbc44d9b:0 ... passed
   Writing report data to mutaml-report.json
@@ -402,6 +403,7 @@ Instead we trigger the collapse-consecutive-patterns mutation:
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
   Testing without a mutant ... passed
+  The limit of a test run is 5 times the run without a mutant, and never less than 10 seconds.
   Testing mutant test.ml:count_zeroes:int-constant:92be9951:0 ... passed
   Testing mutant test.ml:count_zeroes:arith-identity:bb4e2da4:0 ... passed
   Testing mutant test.ml:count_zeroes:merge-cases:5a49d5ec:0 ... passed
@@ -713,6 +715,7 @@ Another example that would trigger merge-of-consecutive-patterns w/GADT true:
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
   Testing without a mutant ... passed
+  The limit of a test run is 5 times the run without a mutant, and never less than 10 seconds.
   Testing mutant test.ml:interpret:arith-operator:6464eb37:0 ... passed
   Testing mutant test.ml:interpret:arith-operator:048599f5:0 ... passed
   Testing mutant test.ml:toplevel:int-constant:626aba84:0 ... passed
@@ -888,6 +891,7 @@ Same example that triggers merge-of-consecutive-patterns w/GADT false:
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
   Testing without a mutant ... passed
+  The limit of a test run is 5 times the run without a mutant, and never less than 10 seconds.
   Testing mutant test.ml:interpret:arith-operator:6464eb37:0 ... passed
   Testing mutant test.ml:interpret:arith-operator:048599f5:0 ... passed
   Testing mutant test.ml:interpret:merge-cases:0d7e7164:0 ... passed

@@ -71,6 +71,7 @@ Check that instrumentation hasn't changed the program's behaviour
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
   Testing without a mutant ... passed
+  The limit of a test run is 5 times the run without a mutant, and never less than 10 seconds.
   Testing mutant test.ml:f:int-constant:92be9951:0 ... failed
   Testing mutant test.ml:f:sequence:374c874f:0 ... failed
   Testing mutant test.ml:f:sequence:7480acda:0 ... failed
@@ -135,6 +136,7 @@ Check that instrumentation hasn't changed the program's behaviour
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
   Testing without a mutant ... passed
+  The limit of a test run is 5 times the run without a mutant, and never less than 10 seconds.
   Testing mutant test.ml:f:int-constant:92be9951:0 ... passed
   Testing mutant test.ml:f:sequence:374c874f:0 ... passed
   Testing mutant test.ml:f:sequence:7480acda:0 ... passed

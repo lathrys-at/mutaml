@@ -53,6 +53,18 @@ Next release
   that draws random values then reports a mutation as a survivor only
   when every seed passes, and the report names the seed that killed a
   mutation
+- Run each test in a process that `mutaml-runner` starts itself, and
+  stop a run that takes too long in `mutaml-runner` itself, in place of
+  the `timeout` command. The tool needs no `timeout` command on `PATH`,
+  and macOS needs no GNU coreutils for it. Each run leads a process
+  group, so a run that is stopped takes with it the programs that it
+  started
+- Take the limit of a test run from the run without a mutation, when
+  `--timeout` gives no limit: five times that run, and never less than
+  10 seconds, in place of the fixed 20 seconds. The run without a
+  mutation may itself take 300 seconds
+- Print the limit of a test run, as the rule that gives it, after the
+  runs without a mutation
 - Run the test command with no mutation before testing any mutation, and
   stop when it fails
 - Add `--baseline-env NAME=VALUE` to `mutaml-runner`, repeatable, which

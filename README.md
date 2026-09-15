@@ -412,10 +412,11 @@ will only consider mutations of the corresponding library
 
 The other options of `mutaml-runner` are:
 
-- `--timeout seconds` - the time that one test run may take. The
-  default is 20 seconds. A run that takes longer is stopped and counted
-  as a timeout. The environment variable `MUTAML_TIMEOUT` sets the same
-  value, and the command-line option takes precedence over it.
+- `--timeout seconds` - the time that one test run may take. A run that
+  takes longer is stopped and counted as a timeout. Without this option
+  the limit is five times the run without a mutation, and never less
+  than 10 seconds. The environment variable `MUTAML_TIMEOUT` sets the
+  same value, and the command-line option takes precedence over it.
 
 - `--test-env NAME=VALUE` - set `NAME` to `VALUE` in every test
   process. Repeat the option for each variable you want to set. Use it
@@ -471,13 +472,23 @@ not in the project, and says on one line that it did. `dune` runs the
 preprocessor again only for a source file that changed, so the list of
 `.muts` files can name a file you have since deleted or renamed.
 
-`mutaml-runner` runs every test through the `timeout` command, which
-must be on `PATH`. It reads the exit status of that command to tell
-what happened: 124 means that the run took too long, and a status above
-128 means that a signal ended the run, which the runner reports as a
-crash and not as a timeout. GNU coreutils `timeout` follows those
-rules. macOS has no `timeout` command of its own, so install GNU
-coreutils there.
+`mutaml-runner` starts each test run itself and stops a run that takes
+longer than the limit. It needs no `timeout` command on `PATH`.
+
+Each test run leads a process group of its own. When a run reaches its
+limit, `mutaml-runner` sends the signal TERM to that whole group, and
+the signal KILL two seconds later, so that a program which the test
+command started is stopped with it. Such a run counts as a timeout. A
+run that a signal ended counts as a crash, and not as a timeout.
+
+The limit of a mutation run follows the run without a mutation. The run
+without a mutation therefore has a limit of its own: 300 seconds, when
+`--timeout` gives no limit.
+
+`mutaml-runner` prints the rule for the limit after the runs without a
+mutation, and not the number of seconds that the rule gives. That
+number follows a measurement, and a measurement differs from one
+machine to the next.
 
 
 Which test suites are safe to test more than one mutation at a time
