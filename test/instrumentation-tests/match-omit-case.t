@@ -143,6 +143,7 @@ Start runner and generate report to ensure mutants print correctly:
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
   Testing without a mutant ... passed
+  The limit of a test run is 5 times the run without a mutant, and never less than 10 seconds.
   Testing mutant test.ml:identify_char:omit-case:28c0e54a:0 ... passed
   Testing mutant test.ml:identify_char:omit-case:735872fe:0 ... passed
   Testing mutant test.ml:identify_char:omit-case:09ddd467:0 ... passed
@@ -303,6 +304,7 @@ Test that same example with a variable will be instrumented with this mutation:
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
   Testing without a mutant ... passed
+  The limit of a test run is 5 times the run without a mutant, and never less than 10 seconds.
   Testing mutant test.ml:identify_char:int-constant:50c5a5ff:0 ... passed
   Testing mutant test.ml:identify_char:omit-case:28c0e54a:0 ... passed
   Testing mutant test.ml:identify_char:omit-case:735872fe:0 ... passed
@@ -468,6 +470,7 @@ Start runner and generate report to ensure mutants print correctly:
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
   Testing without a mutant ... passed
+  The limit of a test run is 5 times the run without a mutant, and never less than 10 seconds.
   Testing mutant test.ml:prioritize:omit-case:aefaec4c:0 ... passed
   Testing mutant test.ml:prioritize:omit-case:3108b588:0 ... passed
   Testing mutant test.ml:toplevel:some-to-none:cb2134b9:0 ... passed

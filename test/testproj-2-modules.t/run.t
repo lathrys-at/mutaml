@@ -37,6 +37,7 @@ list of mutation files is sorted.
   read mut file src/lib1.muts
   read mut file src/lib2.muts
   Testing without a mutant ... passed
+  The limit of a test run is 5 times the run without a mutant, and never less than 10 seconds.
   Testing mutant src/lib1.ml:fac:int-constant:50c5a5ff:0 ... failed
   Testing mutant src/lib1.ml:fac:arith-identity:8e7062aa:0 ... failed
   Testing mutant src/lib1.ml:fac:arith-operator:4f1e5b0c:0 ... failed
@@ -116,6 +117,7 @@ Now try testing only the mutations in src/lib1.muts:
 
   $ mutaml-runner --muts src/lib1.muts _build/default/test/ounittest.exe
   Testing without a mutant ... passed
+  The limit of a test run is 5 times the run without a mutant, and never less than 10 seconds.
   Testing mutant src/lib1.ml:fac:int-constant:50c5a5ff:0 ... failed
   Testing mutant src/lib1.ml:fac:arith-identity:8e7062aa:0 ... failed
   Testing mutant src/lib1.ml:fac:arith-operator:4f1e5b0c:0 ... failed
@@ -140,6 +142,7 @@ Now try the same for src/lib2.muts:
 
   $ mutaml-runner --muts src/lib2.muts _build/default/test/ounittest.exe
   Testing without a mutant ... passed
+  The limit of a test run is 5 times the run without a mutant, and never less than 10 seconds.
   Testing mutant src/lib2.ml:fac:int-constant:50c5a5ff:0 ... passed
   Testing mutant src/lib2.ml:fac:arith-identity:8e7062aa:0 ... passed
   Testing mutant src/lib2.ml:fac:arith-operator:4f1e5b0c:0 ... passed
