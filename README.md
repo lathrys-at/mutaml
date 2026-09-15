@@ -432,7 +432,10 @@ The other options of `mutaml-runner` are:
   the second time with another seed, for example `--test-env
   QCHECK_SEED=1 --baseline-env QCHECK_SEED=2`. A test suite that passes
   under one seed and fails under another does not give a mutation score
-  any meaning, and this is how to find that out before the run.
+  any meaning, and this is how to find that out before the run. Give
+  `--baseline-env` a value of its own, and not the two characters `{}`:
+  a run without a mutation is run number 1, so `{}` gives 1 in both
+  runs, and the two runs would be the same run twice.
 
 - `-j count` - the number of mutations to test at one time. The default
   is 1. The environment variable `MUTAML_JOBS` sets the same number, and
