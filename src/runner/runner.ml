@@ -49,6 +49,12 @@ struct
      [test_env]. Empty means that there is no second run. *)
   let baseline_env = ref []
 
+  (* Mutations to test at one time. [None] means the default. *)
+  let jobs = ref None
+
+  (* The greatest number of test runs that one mutation gets. *)
+  let repeat = ref 1
+
   let set_timeout_from source str = match int_of_string_opt str with
     | Some secs when secs > 0 -> timeout := Some secs
     | _ ->
@@ -57,6 +63,21 @@ struct
            "The value of %s must be a whole number of seconds above 0." source)
 
   let set_timeout str = set_timeout_from "--timeout" str
+
+  let set_jobs_from source str = match int_of_string_opt str with
+    | Some count when count > 0 -> jobs := Some count
+    | _ ->
+      fail_and_exit
+        (Printf.sprintf
+           "The value of %s must be a whole number of jobs above 0." source)
+
+  let set_jobs str = set_jobs_from "-j" str
+
+  let set_repeat str = match int_of_string_opt str with
+    | Some count when count > 0 -> repeat := count
+    | _ ->
+      fail_and_exit
+        "The value of --repeat must be a whole number of runs above 0."
 
   let rec all_chars_from ok str i =
     i >= String.length str || (ok str.[i] && all_chars_from ok str (i+1))
@@ -96,7 +117,11 @@ struct
        ("--test-env",      Arg.String add_test_env,
         "<NAME=VALUE> Set NAME to VALUE in every test process. Repeatable");
        ("--baseline-env",  Arg.String add_baseline_env,
-        "<NAME=VALUE> Run the test suite a second time without a mutation, with NAME set to VALUE. Repeatable")]
+        "<NAME=VALUE> Run the test suite a second time without a mutation, with NAME set to VALUE. Repeatable");
+       ("-j",              Arg.String set_jobs,
+        "<count> Test <count> mutations at one time. The default is 1");
+       ("--repeat",        Arg.String set_repeat,
+        "<count> Run the test command for one mutation until a run kills it, up to <count> runs. In the value of a --test-env, {} becomes the number of the run")]
 end
 
 let ensure_output_dir dir_name =
@@ -114,8 +139,6 @@ let rec ensure_output_dir dir_name =
     ensure_output_dir par_name;
     Sys.mkdir dir_name 0o755
 *)
-
-let test_results = ref []
 
 let read_instrumentation_overview ppx_output_prefix file_name =
   let rec read_loop ch acc =
@@ -196,16 +219,12 @@ let drop_absent_sources muts =
              false))
     muts
 
-let save_test_outcome ret test_env mut =
-  test_results := { status = ret; mutant = mut; test_env }::(!test_results)
-
-let write_report_file file_name =
+let write_report_file file_name results =
   Printf.printf "Writing report data to %s\n" file_name;
   let ch = open_out file_name in
-  let ys = !test_results |> List.rev |> List.map test_result_to_yojson in
-  let () = Yojson.Safe.to_channel ch (`List ys) in
-  let () = close_out ch in
-  ()
+  Fun.protect ~finally:(fun () -> close_out_noerr ch)
+    (fun () ->
+       Yojson.Safe.to_channel ch (`List (List.map test_result_to_yojson results)))
 
 
 (** The actual test runner *)
@@ -228,31 +247,6 @@ let run_test_command test_cmd ~test_env ~limit ~mut_id ~output_file =
   | _   -> run
 
 let status_word status = outcome_word (outcome_of_status status)
-
-let run_single_test test_cmd ~test_env ~limit mut =
-  let file_name = mut.loc.loc_start.pos_fname in
-  (* The preprocessor wrote this same name into the program it
-     instrumented, through this same function, so the two agree. *)
-  let mut_id = mutant_name mut in
-  let output_file = output_file_name file_name mut.number in
-  let () = Printf.printf "Testing mutant %s ... %!" mut_id in
-  let run = run_test_command test_cmd ~test_env ~limit ~mut_id ~output_file in
-  let ret = run.Test_process.status in
-  let () = Printf.printf "%s\n%!" (status_word ret) in
-  ret
-
-let rec run_module_mutation_tests test_cmd ~test_env ~limit mutants = match mutants with
-  | [] -> ()
-  | mut::muts ->
-    let ret = run_single_test test_cmd ~test_env ~limit mut in
-    save_test_outcome ret test_env mut;
-    run_module_mutation_tests test_cmd ~test_env ~limit muts
-
-let rec run_all_mutation_tests test_cmd ~test_env ~limit muts = match muts with
-  | [] -> ()
-  | (_file_name, mutations)::muts' ->
-    run_module_mutation_tests test_cmd ~test_env ~limit mutations;
-    run_all_mutation_tests test_cmd ~test_env ~limit muts'
 
 
 (** The baseline run: the test suite without a mutant *)
@@ -342,6 +336,13 @@ let main () =
   let () = match !CLI.timeout, Sys.getenv_opt "MUTAML_TIMEOUT" with
     | None, Some secs -> CLI.set_timeout_from "MUTAML_TIMEOUT" secs
     | _, _            -> () in
+  let () = match !CLI.jobs, Sys.getenv_opt "MUTAML_JOBS" with
+    | None, Some count -> CLI.set_jobs_from "MUTAML_JOBS" count
+    | _, _             -> () in
+  let jobs = Option.value !CLI.jobs ~default:1 in
+  let () = match Pool.jobs_conflict ~cmd:!test_cmd ~jobs with
+    | None     -> ()
+    | Some msg -> fail_and_exit msg in
   let ppx_output_prefix = match !CLI.build_ctx, Sys.getenv_opt "MUTAML_BUILD_CONTEXT" with
     | "", opt -> Option.fold ~some:Fun.id opt ~none:defaults.ppx_output_prefix
     | s, _opt -> s in
@@ -368,9 +369,11 @@ let main () =
       ~limit:(Option.value given ~default:baseline_timeout) in
   let limit = mutant_limit given measured in
   print_limit given limit;
-  run_all_mutation_tests !test_cmd ~test_env ~limit mutants;
-  write_report_file defaults.mutaml_report_file;
-  ()
+  let results =
+    Pool.run ~cmd:!test_cmd ~test_env ~jobs ~repeat:!CLI.repeat
+      ~limit:(float_of_int limit)
+      (List.concat_map (fun (_file_name, mutations) -> mutations) mutants) in
+  write_report_file defaults.mutaml_report_file results
 
 let () =
   try main () with
