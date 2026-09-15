@@ -36,9 +36,16 @@ Compile with instrumentation and filter result:
     | Some mutant -> String.equal m mutant
   let () =
     print_string
-      (string_of_bool (if __is_mutaml_mutant__ "test:0" then false else true))
+      (string_of_bool
+         (if __is_mutaml_mutant__ "test.ml:toplevel:bool-constant:5bf88c8b:0"
+          then false
+          else true))
   let () = print_newline ()
-  let () = print_int (if __is_mutaml_mutant__ "test:1" then 6 else 5)
+  let () =
+    print_int
+      (if __is_mutaml_mutant__ "test.ml:toplevel:int-constant:6311d79c:0"
+       then 6
+       else 5)
   let () = print_newline ()
 
 
@@ -58,10 +65,10 @@ Compile with instrumentation and filter result:
   true
   5
 
-  $ MUTAML_MUTANT="test:0" dune exec --no-build -- ./test.bc
+  $ MUTAML_MUTANT="test.ml:toplevel:bool-constant:5bf88c8b:0" dune exec --no-build -- ./test.bc
   false
   5
 
-  $ MUTAML_MUTANT="test:1" dune exec --no-build -- ./test.bc
+  $ MUTAML_MUTANT="test.ml:toplevel:int-constant:6311d79c:0" dune exec --no-build -- ./test.bc
   true
   6

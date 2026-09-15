@@ -25,14 +25,17 @@ Test not:
     match __MUTAML_MUTANT__ with
     | None -> false
     | Some mutant -> String.equal m mutant
-  let f b = if __is_mutaml_mutant__ "test:0" then b else not b
+  let f b =
+    if __is_mutaml_mutant__ "test.ml:f:not-expression:7c4452d5:0"
+    then b
+    else not b
   ;;assert (f false)
 
 Check that instrumentation hasn't changed the program's behaviour
   $ dune exec --no-build ./test.bc
 
 And that mutation has changed it as expected
-  $ MUTAML_MUTANT="test:0" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:f:not-expression:7c4452d5:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 2, 0)
   [2]
 
@@ -58,19 +61,21 @@ gives more than one mutant:
     | Some mutant -> String.equal m mutant
   let f x y =
     let __MUTAML_TMP0__ =
-      if __is_mutaml_mutant__ "test:0" then x <= y else x < y in
-    if __is_mutaml_mutant__ "test:1"
+      if __is_mutaml_mutant__ "test.ml:f:compare-boundary:6d33af4a:0"
+      then x <= y
+      else x < y in
+    if __is_mutaml_mutant__ "test.ml:f:not-expression:b5936d0b:0"
     then __MUTAML_TMP0__
     else not __MUTAML_TMP0__
   ;;assert (f 10 10)
 
   $ dune exec --no-build ./test.bc
 
-  $ MUTAML_MUTANT="test:0" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:f:compare-boundary:6d33af4a:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 2, 0)
   [2]
 
-  $ MUTAML_MUTANT="test:1" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:f:not-expression:b5936d0b:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 2, 0)
   [2]
 

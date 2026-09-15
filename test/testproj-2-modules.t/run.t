@@ -37,15 +37,15 @@ list of mutation files is sorted.
   read mut file src/lib1.muts
   read mut file src/lib2.muts
   Testing without a mutant ... passed
-  Testing mutant src/lib1:0 ... failed
-  Testing mutant src/lib1:1 ... failed
-  Testing mutant src/lib1:2 ... failed
-  Testing mutant src/lib2:0 ... passed
-  Testing mutant src/lib2:1 ... passed
-  Testing mutant src/lib2:2 ... passed
-  Testing mutant src/lib2:3 ... failed
-  Testing mutant src/lib2:4 ... failed
-  Testing mutant src/lib2:5 ... failed
+  Testing mutant src/lib1.ml:fac:int-constant:50c5a5ff:0 ... failed
+  Testing mutant src/lib1.ml:fac:arith-identity:8e7062aa:0 ... failed
+  Testing mutant src/lib1.ml:fac:arith-operator:4f1e5b0c:0 ... failed
+  Testing mutant src/lib2.ml:fac:int-constant:50c5a5ff:0 ... passed
+  Testing mutant src/lib2.ml:fac:arith-identity:8e7062aa:0 ... passed
+  Testing mutant src/lib2.ml:fac:arith-operator:4f1e5b0c:0 ... passed
+  Testing mutant src/lib2.ml:sum:int-constant:92be9951:0 ... failed
+  Testing mutant src/lib2.ml:sum:arith-identity:8e7062aa:0 ... failed
+  Testing mutant src/lib2.ml:sum:arith-operator:ee3a39aa:0 ... failed
   Writing report data to mutaml-report.json
 
   $ mutaml-report
@@ -116,9 +116,9 @@ Now try testing only the mutations in src/lib1.muts:
 
   $ mutaml-runner --muts src/lib1.muts _build/default/test/ounittest.exe
   Testing without a mutant ... passed
-  Testing mutant src/lib1:0 ... failed
-  Testing mutant src/lib1:1 ... failed
-  Testing mutant src/lib1:2 ... failed
+  Testing mutant src/lib1.ml:fac:int-constant:50c5a5ff:0 ... failed
+  Testing mutant src/lib1.ml:fac:arith-identity:8e7062aa:0 ... failed
+  Testing mutant src/lib1.ml:fac:arith-operator:4f1e5b0c:0 ... failed
   Writing report data to mutaml-report.json
 
 And report a summary:
@@ -140,12 +140,12 @@ Now try the same for src/lib2.muts:
 
   $ mutaml-runner --muts src/lib2.muts _build/default/test/ounittest.exe
   Testing without a mutant ... passed
-  Testing mutant src/lib2:0 ... passed
-  Testing mutant src/lib2:1 ... passed
-  Testing mutant src/lib2:2 ... passed
-  Testing mutant src/lib2:3 ... failed
-  Testing mutant src/lib2:4 ... failed
-  Testing mutant src/lib2:5 ... failed
+  Testing mutant src/lib2.ml:fac:int-constant:50c5a5ff:0 ... passed
+  Testing mutant src/lib2.ml:fac:arith-identity:8e7062aa:0 ... passed
+  Testing mutant src/lib2.ml:fac:arith-operator:4f1e5b0c:0 ... passed
+  Testing mutant src/lib2.ml:sum:int-constant:92be9951:0 ... failed
+  Testing mutant src/lib2.ml:sum:arith-identity:8e7062aa:0 ... failed
+  Testing mutant src/lib2.ml:sum:arith-operator:ee3a39aa:0 ... failed
   Writing report data to mutaml-report.json
 
 And report a diff-free summary:

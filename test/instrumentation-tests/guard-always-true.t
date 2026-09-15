@@ -60,7 +60,9 @@ it must not:
     | Some mutant -> String.equal m mutant
   let f flag n =
     match n with
-    | x when (__is_mutaml_mutant__ "test:0") || flag -> x
+    | x when
+        (__is_mutaml_mutant__ "test.ml:f:guard-always-true:de18115f:0") || flag
+        -> x
     | _ -> "no"
   ;;assert ((f false "yes") = "no")
 
@@ -68,7 +70,7 @@ Check that instrumentation hasn't changed the program's behaviour
   $ dune exec --no-build ./test.bc
 
 And that the mutant makes the guarded case fire
-  $ MUTAML_MUTANT="test:0" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:f:guard-always-true:de18115f:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 4, 0)
   [2]
 
@@ -99,10 +101,12 @@ Both mutants are made on the same case, and they are different mutants:
   let f flag n =
     ((match n with
       | "a" when
-          ((__is_mutaml_mutant__ "test:0") || flag) &&
-            (not (__is_mutaml_mutant__ "test:2"))
+          ((__is_mutaml_mutant__ "test.ml:f:guard-always-true:de18115f:0") ||
+             flag)
+            && (not (__is_mutaml_mutant__ "test.ml:f:omit-case:a9d6604e:0"))
           -> "A"
-      | "b" when not (__is_mutaml_mutant__ "test:1") -> "B"
+      | "b" when not (__is_mutaml_mutant__ "test.ml:f:omit-case:525e4809:0") ->
+          "B"
       | _ -> "other")
     [@ocaml.warning "-8"])
   ;;assert ((f false "a") = "other")
@@ -110,12 +114,12 @@ Both mutants are made on the same case, and they are different mutants:
   $ dune exec --no-build ./test.bc
 
 Mutant 0 makes the guard always hold, so the first case fires
-  $ MUTAML_MUTANT="test:0" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:f:guard-always-true:de18115f:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 5, 0)
   [2]
 
 Mutant 2 makes the same case fire never, and no test here catches that
-  $ MUTAML_MUTANT="test:2" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:f:omit-case:a9d6604e:0" dune exec --no-build ./test.bc
 
 
 The instrumentation option -guard-always-true true does the same as the
@@ -150,7 +154,9 @@ environment variable:
     | Some mutant -> String.equal m mutant
   let f flag n =
     match n with
-    | x when (__is_mutaml_mutant__ "test:0") || flag -> x
+    | x when
+        (__is_mutaml_mutant__ "test.ml:f:guard-always-true:de18115f:0") || flag
+        -> x
     | _ -> "no"
   ;;assert ((f false "yes") = "no")
 

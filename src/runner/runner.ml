@@ -125,15 +125,19 @@ let read_instrumentation_overview ppx_output_prefix file_name =
 let read_module_mutations_json ppx_output_prefix file_name =
   try
     let ch = open_in (full_ppx_path ppx_output_prefix file_name) in
-    let mutants = match Yojson.Safe.from_channel ch with
-      | `List ys -> List.map mutant_of_yojson_exn ys
-      | _        -> fail_and_exit ("Could not parse " ^ file_name)
-    in
-    mutants
+    Fun.protect ~finally:(fun () -> close_in_noerr ch)
+      (fun () -> match Yojson.Safe.from_channel ch with
+         | `List ys -> List.map mutant_of_yojson_exn ys
+         | _        -> fail_and_exit ("Could not parse " ^ file_name))
   with Sys_error msg ->
     fail_and_exit (Printf.sprintf "Could not read file %s - %s" file_name msg)
-     | Failure msg ->
-       fail_and_exit (Printf.sprintf "Failure while reading file %s - %s" file_name msg)
+     | Yojson.Json_error msg ->
+       fail_and_exit (Printf.sprintf "Could not parse %s - %s" file_name msg)
+     | Failure _ ->
+       fail_and_exit
+         (Printf.sprintf
+            "A mutation in %s does not hold the fields that this release of mutaml reads. A mutation file that an older mutaml wrote needs a new build with --instrument-with mutaml."
+            file_name)
 
 let read_all_mutations ppx_output_prefix file_name =
   (* Sorted, so that the order of the report does not depend on the order
@@ -227,7 +231,9 @@ let status_word status = outcome_word (outcome_of_status status)
 
 let run_single_test test_cmd ~test_env ~timeout mut =
   let file_name = mut.loc.loc_start.pos_fname in
-  let mut_id = make_mut_id file_name mut.number in
+  (* The preprocessor wrote this same name into the program it
+     instrumented, through this same function, so the two agree. *)
+  let mut_id = mutant_name mut in
   let output_file = output_file_name file_name mut.number in
   let () = Printf.printf "Testing mutant %s ... %!" mut_id in
   let ret = run_test_command test_cmd ~test_env ~timeout ~mut_id ~output_file in

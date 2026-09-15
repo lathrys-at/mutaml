@@ -32,11 +32,18 @@ Make an .ml-file:
     | Some mutant -> String.equal m mutant
   let identify_char =
     ((function
-      | 'a'..'z' when not (__is_mutaml_mutant__ "test:2") ->
-          "lower-case letter"
-      | 'A'..'Z' when not (__is_mutaml_mutant__ "test:1") ->
-          "upper-case letter"
-      | '0'..'9' when not (__is_mutaml_mutant__ "test:0") -> "digit"
+      | 'a'..'z' when
+          not
+            (__is_mutaml_mutant__ "test.ml:identify_char:omit-case:09ddd467:0")
+          -> "lower-case letter"
+      | 'A'..'Z' when
+          not
+            (__is_mutaml_mutant__ "test.ml:identify_char:omit-case:735872fe:0")
+          -> "upper-case letter"
+      | '0'..'9' when
+          not
+            (__is_mutaml_mutant__ "test.ml:identify_char:omit-case:28c0e54a:0")
+          -> "digit"
       | _ -> "other")
     [@ocaml.warning "-8"])
   let () = print_endline (identify_char 'e')
@@ -51,19 +58,19 @@ Make an .ml-file:
   digit
   other
 
-  $ MUTAML_MUTANT="test:0" _build/default/test.bc
+  $ MUTAML_MUTANT="test.ml:identify_char:omit-case:28c0e54a:0" _build/default/test.bc
   lower-case letter
   upper-case letter
   other
   other
 
-  $ MUTAML_MUTANT="test:1" _build/default/test.bc
+  $ MUTAML_MUTANT="test.ml:identify_char:omit-case:735872fe:0" _build/default/test.bc
   lower-case letter
   other
   digit
   other
 
-  $ MUTAML_MUTANT="test:2" _build/default/test.bc
+  $ MUTAML_MUTANT="test.ml:identify_char:omit-case:09ddd467:0" _build/default/test.bc
   other
   upper-case letter
   digit
@@ -75,9 +82,9 @@ Start runner and generate report to ensure mutants print correctly:
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
   Testing without a mutant ... passed
-  Testing mutant test:0 ... passed
-  Testing mutant test:1 ... passed
-  Testing mutant test:2 ... passed
+  Testing mutant test.ml:identify_char:omit-case:28c0e54a:0 ... passed
+  Testing mutant test.ml:identify_char:omit-case:735872fe:0 ... passed
+  Testing mutant test.ml:identify_char:omit-case:09ddd467:0 ... passed
   Writing report data to mutaml-report.json
 
 
@@ -171,14 +178,26 @@ Test that same example with a variable will be instrumented with this mutation:
     | Some mutant -> String.equal m mutant
   let identify_char =
     ((function
-      | 'a'..'z' when not (__is_mutaml_mutant__ "test:3") ->
-          "lower-case letter"
-      | 'A'..'Z' when not (__is_mutaml_mutant__ "test:2") ->
-          "upper-case letter"
-      | '0'..'9' when not (__is_mutaml_mutant__ "test:1") -> "digit"
+      | 'a'..'z' when
+          not
+            (__is_mutaml_mutant__ "test.ml:identify_char:omit-case:09ddd467:0")
+          -> "lower-case letter"
+      | 'A'..'Z' when
+          not
+            (__is_mutaml_mutant__ "test.ml:identify_char:omit-case:735872fe:0")
+          -> "upper-case letter"
+      | '0'..'9' when
+          not
+            (__is_mutaml_mutant__ "test.ml:identify_char:omit-case:28c0e54a:0")
+          -> "digit"
       | c ->
           "other char: " ^
-            (String.make (if __is_mutaml_mutant__ "test:0" then 0 else 1) c))
+            (String.make
+               (if
+                  __is_mutaml_mutant__
+                    "test.ml:identify_char:int-constant:50c5a5ff:0"
+                then 0
+                else 1) c))
     [@ocaml.warning "-8"])
   let () = print_endline (identify_char 'e')
   let () = print_endline (identify_char 'U')
@@ -192,25 +211,25 @@ Test that same example with a variable will be instrumented with this mutation:
   digit
   other char: _
 
-  $ MUTAML_MUTANT="test:0" _build/default/test.bc
+  $ MUTAML_MUTANT="test.ml:identify_char:int-constant:50c5a5ff:0" _build/default/test.bc
   lower-case letter
   upper-case letter
   digit
   other char: 
 
-  $ MUTAML_MUTANT="test:1" _build/default/test.bc
+  $ MUTAML_MUTANT="test.ml:identify_char:omit-case:28c0e54a:0" _build/default/test.bc
   lower-case letter
   upper-case letter
   other char: 5
   other char: _
 
-  $ MUTAML_MUTANT="test:2" _build/default/test.bc
+  $ MUTAML_MUTANT="test.ml:identify_char:omit-case:735872fe:0" _build/default/test.bc
   lower-case letter
   other char: U
   digit
   other char: _
 
-  $ MUTAML_MUTANT="test:3" _build/default/test.bc
+  $ MUTAML_MUTANT="test.ml:identify_char:omit-case:09ddd467:0" _build/default/test.bc
   other char: e
   upper-case letter
   digit
@@ -221,10 +240,10 @@ Test that same example with a variable will be instrumented with this mutation:
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
   Testing without a mutant ... passed
-  Testing mutant test:0 ... passed
-  Testing mutant test:1 ... passed
-  Testing mutant test:2 ... passed
-  Testing mutant test:3 ... passed
+  Testing mutant test.ml:identify_char:int-constant:50c5a5ff:0 ... passed
+  Testing mutant test.ml:identify_char:omit-case:28c0e54a:0 ... passed
+  Testing mutant test.ml:identify_char:omit-case:735872fe:0 ... passed
+  Testing mutant test.ml:identify_char:omit-case:09ddd467:0 ... passed
   Writing report data to mutaml-report.json
 
 
@@ -332,18 +351,31 @@ Another test w/tuples and wildcards:
     | Some mutant -> String.equal m mutant
   let prioritize fallback =
     function
-    | (Some x, _) when not (__is_mutaml_mutant__ "test:1") -> x
-    | (_, Some y) when not (__is_mutaml_mutant__ "test:0") -> y
+    | (Some x, _) when
+        not (__is_mutaml_mutant__ "test.ml:prioritize:omit-case:3108b588:0") ->
+        x
+    | (_, Some y) when
+        not (__is_mutaml_mutant__ "test.ml:prioritize:omit-case:aefaec4c:0") ->
+        y
     | (_, _) -> fallback
   ;;(prioritize "3rd"
-       ((if __is_mutaml_mutant__ "test:2" then None else Some "1st"),
-         (if __is_mutaml_mutant__ "test:3" then None else Some "2nd")))
+       ((if __is_mutaml_mutant__ "test.ml:toplevel:some-to-none:cb2134b9:0"
+         then None
+         else Some "1st"),
+         (if __is_mutaml_mutant__ "test.ml:toplevel:some-to-none:8b23a14d:0"
+          then None
+          else Some "2nd")))
       |> print_endline
   ;;(prioritize "3rd"
-       ((if __is_mutaml_mutant__ "test:4" then None else Some "1st"), None))
+       ((if __is_mutaml_mutant__ "test.ml:toplevel:some-to-none:cb2134b9:1"
+         then None
+         else Some "1st"), None))
       |> print_endline
   ;;(prioritize "3rd"
-       (None, (if __is_mutaml_mutant__ "test:5" then None else Some "2nd")))
+       (None,
+         (if __is_mutaml_mutant__ "test.ml:toplevel:some-to-none:8b23a14d:1"
+          then None
+          else Some "2nd")))
       |> print_endline
   ;;(prioritize "3rd" (None, None)) |> print_endline
 
@@ -353,13 +385,13 @@ Another test w/tuples and wildcards:
   2nd
   3rd
 
-  $ MUTAML_MUTANT="test:0" _build/default/test.bc
+  $ MUTAML_MUTANT="test.ml:prioritize:omit-case:aefaec4c:0" _build/default/test.bc
   1st
   1st
   3rd
   3rd
 
-  $ MUTAML_MUTANT="test:1" _build/default/test.bc
+  $ MUTAML_MUTANT="test.ml:prioritize:omit-case:3108b588:0" _build/default/test.bc
   2nd
   3rd
   2nd
@@ -371,12 +403,12 @@ Start runner and generate report to ensure mutants print correctly:
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
   Testing without a mutant ... passed
-  Testing mutant test:0 ... passed
-  Testing mutant test:1 ... passed
-  Testing mutant test:2 ... passed
-  Testing mutant test:3 ... passed
-  Testing mutant test:4 ... passed
-  Testing mutant test:5 ... passed
+  Testing mutant test.ml:prioritize:omit-case:aefaec4c:0 ... passed
+  Testing mutant test.ml:prioritize:omit-case:3108b588:0 ... passed
+  Testing mutant test.ml:toplevel:some-to-none:cb2134b9:0 ... passed
+  Testing mutant test.ml:toplevel:some-to-none:8b23a14d:0 ... passed
+  Testing mutant test.ml:toplevel:some-to-none:cb2134b9:1 ... passed
+  Testing mutant test.ml:toplevel:some-to-none:8b23a14d:1 ... passed
   Writing report data to mutaml-report.json
 
 
@@ -516,13 +548,22 @@ Same example without wildcards will not be instrumented with this mutation:
   let prioritize fallback =
     function | (Some x, _) -> x | (_, Some y) -> y | (None, None) -> fallback
   ;;(prioritize "3rd"
-       ((if __is_mutaml_mutant__ "test:0" then None else Some "1st"),
-         (if __is_mutaml_mutant__ "test:1" then None else Some "2nd")))
+       ((if __is_mutaml_mutant__ "test.ml:toplevel:some-to-none:cb2134b9:0"
+         then None
+         else Some "1st"),
+         (if __is_mutaml_mutant__ "test.ml:toplevel:some-to-none:8b23a14d:0"
+          then None
+          else Some "2nd")))
       |> print_endline
   ;;(prioritize "3rd"
-       ((if __is_mutaml_mutant__ "test:2" then None else Some "1st"), None))
+       ((if __is_mutaml_mutant__ "test.ml:toplevel:some-to-none:cb2134b9:1"
+         then None
+         else Some "1st"), None))
       |> print_endline
   ;;(prioritize "3rd"
-       (None, (if __is_mutaml_mutant__ "test:3" then None else Some "2nd")))
+       (None,
+         (if __is_mutaml_mutant__ "test.ml:toplevel:some-to-none:8b23a14d:1"
+          then None
+          else Some "2nd")))
       |> print_endline
   ;;(prioritize "3rd" (None, None)) |> print_endline

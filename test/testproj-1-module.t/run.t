@@ -63,21 +63,21 @@ Set seed and (full) mutation rate as environment variables, for repeatability
   $ mutaml-runner _build/default/ounittest.exe
   read mut file lib.muts
   Testing without a mutant ... passed
-  Testing mutant lib:0 ... failed
-  Testing mutant lib:1 ... failed
-  Testing mutant lib:2 ... failed
-  Testing mutant lib:3 ... failed
-  Testing mutant lib:4 ... failed
-  Testing mutant lib:5 ... failed
-  Testing mutant lib:6 ... passed
-  Testing mutant lib:7 ... failed
-  Testing mutant lib:8 ... passed
-  Testing mutant lib:9 ... failed
-  Testing mutant lib:10 ... failed
-  Testing mutant lib:11 ... failed
-  Testing mutant lib:12 ... failed
-  Testing mutant lib:13 ... failed
-  Testing mutant lib:14 ... passed
+  Testing mutant lib.ml:fac:int-constant:50c5a5ff:0 ... failed
+  Testing mutant lib.ml:fac:arith-identity:8e7062aa:0 ... failed
+  Testing mutant lib.ml:fac:arith-operator:4f1e5b0c:0 ... failed
+  Testing mutant lib.ml:sum:int-constant:92be9951:0 ... failed
+  Testing mutant lib.ml:sum:arith-identity:8e7062aa:0 ... failed
+  Testing mutant lib.ml:sum:arith-operator:ee3a39aa:0 ... failed
+  Testing mutant lib.ml:pi:int-constant:92be9951:0 ... passed
+  Testing mutant lib.ml:pi:compare-negation:59f183be:0 ... failed
+  Testing mutant lib.ml:pi:compare-boundary:50b27812:0 ... passed
+  Testing mutant lib.ml:pi:arith-identity:8e7062aa:0 ... failed
+  Testing mutant lib.ml:pi:arith-identity:1ae70d21:0 ... failed
+  Testing mutant lib.ml:pi:arith-identity:8e7062aa:1 ... failed
+  Testing mutant lib.ml:pi:if-condition:1f091ce1:0 ... failed
+  Testing mutant lib.ml:pi:if-condition:18eaa0a1:0 ... failed
+  Testing mutant lib.ml:pi:int-constant:92be9951:1 ... passed
   Writing report data to mutaml-report.json
 
   $ mutaml-report mutaml-report.json
@@ -149,42 +149,42 @@ Restarting runner should give the same output:
   $ mutaml-runner _build/default/ounittest.exe
   read mut file lib.muts
   Testing without a mutant ... passed
-  Testing mutant lib:0 ... failed
-  Testing mutant lib:1 ... failed
-  Testing mutant lib:2 ... failed
-  Testing mutant lib:3 ... failed
-  Testing mutant lib:4 ... failed
-  Testing mutant lib:5 ... failed
-  Testing mutant lib:6 ... passed
-  Testing mutant lib:7 ... failed
-  Testing mutant lib:8 ... passed
-  Testing mutant lib:9 ... failed
-  Testing mutant lib:10 ... failed
-  Testing mutant lib:11 ... failed
-  Testing mutant lib:12 ... failed
-  Testing mutant lib:13 ... failed
-  Testing mutant lib:14 ... passed
+  Testing mutant lib.ml:fac:int-constant:50c5a5ff:0 ... failed
+  Testing mutant lib.ml:fac:arith-identity:8e7062aa:0 ... failed
+  Testing mutant lib.ml:fac:arith-operator:4f1e5b0c:0 ... failed
+  Testing mutant lib.ml:sum:int-constant:92be9951:0 ... failed
+  Testing mutant lib.ml:sum:arith-identity:8e7062aa:0 ... failed
+  Testing mutant lib.ml:sum:arith-operator:ee3a39aa:0 ... failed
+  Testing mutant lib.ml:pi:int-constant:92be9951:0 ... passed
+  Testing mutant lib.ml:pi:compare-negation:59f183be:0 ... failed
+  Testing mutant lib.ml:pi:compare-boundary:50b27812:0 ... passed
+  Testing mutant lib.ml:pi:arith-identity:8e7062aa:0 ... failed
+  Testing mutant lib.ml:pi:arith-identity:1ae70d21:0 ... failed
+  Testing mutant lib.ml:pi:arith-identity:8e7062aa:1 ... failed
+  Testing mutant lib.ml:pi:if-condition:1f091ce1:0 ... failed
+  Testing mutant lib.ml:pi:if-condition:18eaa0a1:0 ... failed
+  Testing mutant lib.ml:pi:int-constant:92be9951:1 ... passed
   Writing report data to mutaml-report.json
 
 
   $ mutaml-runner _build/default/ounittest.exe
   read mut file lib.muts
   Testing without a mutant ... passed
-  Testing mutant lib:0 ... failed
-  Testing mutant lib:1 ... failed
-  Testing mutant lib:2 ... failed
-  Testing mutant lib:3 ... failed
-  Testing mutant lib:4 ... failed
-  Testing mutant lib:5 ... failed
-  Testing mutant lib:6 ... passed
-  Testing mutant lib:7 ... failed
-  Testing mutant lib:8 ... passed
-  Testing mutant lib:9 ... failed
-  Testing mutant lib:10 ... failed
-  Testing mutant lib:11 ... failed
-  Testing mutant lib:12 ... failed
-  Testing mutant lib:13 ... failed
-  Testing mutant lib:14 ... passed
+  Testing mutant lib.ml:fac:int-constant:50c5a5ff:0 ... failed
+  Testing mutant lib.ml:fac:arith-identity:8e7062aa:0 ... failed
+  Testing mutant lib.ml:fac:arith-operator:4f1e5b0c:0 ... failed
+  Testing mutant lib.ml:sum:int-constant:92be9951:0 ... failed
+  Testing mutant lib.ml:sum:arith-identity:8e7062aa:0 ... failed
+  Testing mutant lib.ml:sum:arith-operator:ee3a39aa:0 ... failed
+  Testing mutant lib.ml:pi:int-constant:92be9951:0 ... passed
+  Testing mutant lib.ml:pi:compare-negation:59f183be:0 ... failed
+  Testing mutant lib.ml:pi:compare-boundary:50b27812:0 ... passed
+  Testing mutant lib.ml:pi:arith-identity:8e7062aa:0 ... failed
+  Testing mutant lib.ml:pi:arith-identity:1ae70d21:0 ... failed
+  Testing mutant lib.ml:pi:arith-identity:8e7062aa:1 ... failed
+  Testing mutant lib.ml:pi:if-condition:1f091ce1:0 ... failed
+  Testing mutant lib.ml:pi:if-condition:18eaa0a1:0 ... failed
+  Testing mutant lib.ml:pi:int-constant:92be9951:1 ... passed
   Writing report data to mutaml-report.json
 
 
@@ -632,16 +632,16 @@ Create a dune-workspace file with another build context:
   $ mutaml-runner _build/mutation/ounittest.exe
   read mut file lib.muts
   Testing without a mutant ... passed
-  Testing mutant lib:0 ... failed
-  Testing mutant lib:1 ... failed
-  Testing mutant lib:2 ... failed
-  Testing mutant lib:3 ... failed
-  Testing mutant lib:4 ... failed
-  Testing mutant lib:5 ... passed
-  Testing mutant lib:6 ... failed
-  Testing mutant lib:7 ... failed
-  Testing mutant lib:8 ... failed
-  Testing mutant lib:9 ... passed
+  Testing mutant lib.ml:fac:int-constant:50c5a5ff:0 ... failed
+  Testing mutant lib.ml:fac:arith-identity:8e7062aa:0 ... failed
+  Testing mutant lib.ml:fac:arith-operator:4f1e5b0c:0 ... failed
+  Testing mutant lib.ml:sum:arith-operator:ee3a39aa:0 ... failed
+  Testing mutant lib.ml:pi:compare-negation:59f183be:0 ... failed
+  Testing mutant lib.ml:pi:compare-boundary:50b27812:0 ... passed
+  Testing mutant lib.ml:pi:arith-identity:8e7062aa:0 ... failed
+  Testing mutant lib.ml:pi:arith-identity:1ae70d21:0 ... failed
+  Testing mutant lib.ml:pi:int-constant:50c5a5ff:0 ... failed
+  Testing mutant lib.ml:pi:int-constant:92be9951:0 ... passed
   Writing report data to mutaml-report.json
 
   $ mutaml-report
@@ -712,16 +712,16 @@ Similar, but by passing a command line option:
   $ mutaml-runner --build-context "_build/mutation" _build/mutation/ounittest.exe
   read mut file lib.muts
   Testing without a mutant ... passed
-  Testing mutant lib:0 ... failed
-  Testing mutant lib:1 ... failed
-  Testing mutant lib:2 ... failed
-  Testing mutant lib:3 ... failed
-  Testing mutant lib:4 ... failed
-  Testing mutant lib:5 ... passed
-  Testing mutant lib:6 ... failed
-  Testing mutant lib:7 ... failed
-  Testing mutant lib:8 ... failed
-  Testing mutant lib:9 ... passed
+  Testing mutant lib.ml:fac:int-constant:50c5a5ff:0 ... failed
+  Testing mutant lib.ml:fac:arith-identity:8e7062aa:0 ... failed
+  Testing mutant lib.ml:fac:arith-operator:4f1e5b0c:0 ... failed
+  Testing mutant lib.ml:sum:arith-operator:ee3a39aa:0 ... failed
+  Testing mutant lib.ml:pi:compare-negation:59f183be:0 ... failed
+  Testing mutant lib.ml:pi:compare-boundary:50b27812:0 ... passed
+  Testing mutant lib.ml:pi:arith-identity:8e7062aa:0 ... failed
+  Testing mutant lib.ml:pi:arith-identity:1ae70d21:0 ... failed
+  Testing mutant lib.ml:pi:int-constant:50c5a5ff:0 ... failed
+  Testing mutant lib.ml:pi:int-constant:92be9951:0 ... passed
   Writing report data to mutaml-report.json
 
   $ mutaml-report
@@ -794,16 +794,16 @@ Similar, but by passing a command line option:
   $ mutaml-runner --build-context "_build/mutation" _build/mutation/ounittest.exe
   read mut file lib.muts
   Testing without a mutant ... passed
-  Testing mutant lib:0 ... failed
-  Testing mutant lib:1 ... failed
-  Testing mutant lib:2 ... failed
-  Testing mutant lib:3 ... failed
-  Testing mutant lib:4 ... failed
-  Testing mutant lib:5 ... passed
-  Testing mutant lib:6 ... failed
-  Testing mutant lib:7 ... failed
-  Testing mutant lib:8 ... failed
-  Testing mutant lib:9 ... passed
+  Testing mutant lib.ml:fac:int-constant:50c5a5ff:0 ... failed
+  Testing mutant lib.ml:fac:arith-identity:8e7062aa:0 ... failed
+  Testing mutant lib.ml:fac:arith-operator:4f1e5b0c:0 ... failed
+  Testing mutant lib.ml:sum:arith-operator:ee3a39aa:0 ... failed
+  Testing mutant lib.ml:pi:compare-negation:59f183be:0 ... failed
+  Testing mutant lib.ml:pi:compare-boundary:50b27812:0 ... passed
+  Testing mutant lib.ml:pi:arith-identity:8e7062aa:0 ... failed
+  Testing mutant lib.ml:pi:arith-identity:1ae70d21:0 ... failed
+  Testing mutant lib.ml:pi:int-constant:50c5a5ff:0 ... failed
+  Testing mutant lib.ml:pi:int-constant:92be9951:0 ... passed
   Writing report data to mutaml-report.json
 
   $ mutaml-report

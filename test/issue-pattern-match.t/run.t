@@ -55,8 +55,12 @@ Set seed and (full) mutation rate as environment variables, for repeatability
     | None -> false
     | Some mutant -> String.equal m mutant
   let accepted_codes n =
-    let __MUTAML_TMP0__ = if __is_mutaml_mutant__ "test:0" then 43 else 42 in
-    if __is_mutaml_mutant__ "test:1"
+    let __MUTAML_TMP0__ =
+      if __is_mutaml_mutant__ "test.ml:accepted_codes:int-constant:5ca5a1be:0"
+      then 43
+      else 42 in
+    if
+      __is_mutaml_mutant__ "test.ml:accepted_codes:compare-negation:5478078a:0"
     then n <> __MUTAML_TMP0__
     else n = __MUTAML_TMP0__
   let make status =
@@ -64,8 +68,9 @@ Set seed and (full) mutation rate as environment variables, for repeatability
       let exit_status =
         ((match status with
           | WEXITED n when
-              (accepted_codes n) && (not (__is_mutaml_mutant__ "test:2")) ->
-              Ok n
+              (accepted_codes n) &&
+                (not (__is_mutaml_mutant__ "test.ml:make:omit-case:893b3af7:0"))
+              -> Ok n
           | WEXITED n -> Error (Printf.sprintf "Exited %n" n)
           | WSIGNALED n -> Error (Printf.sprintf "Signaled %n" n)
           | WSTOPPED _ -> assert false)
@@ -85,9 +90,9 @@ Set seed and (full) mutation rate as environment variables, for repeatability
   $ mutaml-runner _build/default/test.exe
   read mut file test.muts
   Testing without a mutant ... passed
-  Testing mutant test:0 ... passed
-  Testing mutant test:1 ... failed
-  Testing mutant test:2 ... passed
+  Testing mutant test.ml:accepted_codes:int-constant:5ca5a1be:0 ... passed
+  Testing mutant test.ml:accepted_codes:compare-negation:5478078a:0 ... failed
+  Testing mutant test.ml:make:omit-case:893b3af7:0 ... passed
   Writing report data to mutaml-report.json
 
   $ mutaml-report

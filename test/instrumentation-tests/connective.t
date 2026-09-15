@@ -27,7 +27,7 @@ Test &&:
     | Some mutant -> String.equal m mutant
   let f a b =
     let __MUTAML_TMP0__ () = b in
-    if __is_mutaml_mutant__ "test:0"
+    if __is_mutaml_mutant__ "test.ml:f:connective:68f3fbac:0"
     then a || (__MUTAML_TMP0__ ())
     else a && (__MUTAML_TMP0__ ())
   ;;assert (not (f true false))
@@ -36,7 +36,7 @@ Check that instrumentation hasn't changed the program's behaviour
   $ dune exec --no-build ./test.bc
 
 And that mutation has changed it as expected
-  $ MUTAML_MUTANT="test:0" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:f:connective:68f3fbac:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 2, 0)
   [2]
 
@@ -62,14 +62,14 @@ Test ||:
     | Some mutant -> String.equal m mutant
   let f a b =
     let __MUTAML_TMP0__ () = b in
-    if __is_mutaml_mutant__ "test:0"
+    if __is_mutaml_mutant__ "test.ml:f:connective:ab8e6cc5:0"
     then a && (__MUTAML_TMP0__ ())
     else a || (__MUTAML_TMP0__ ())
   ;;assert (f true false)
 
   $ dune exec --no-build ./test.bc
 
-  $ MUTAML_MUTANT="test:0" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:f:connective:ab8e6cc5:0" dune exec --no-build ./test.bc
   Fatal error: exception Assert_failure("test.ml", 2, 0)
   [2]
 
@@ -112,20 +112,28 @@ With instrumentation and no mutant active, it does the same:
     | None -> false
     | Some mutant -> String.equal m mutant
   let left () =
-    if __is_mutaml_mutant__ "test:1" then () else print_endline "left";
-    if __is_mutaml_mutant__ "test:0" then true else false
+    if __is_mutaml_mutant__ "test.ml:left:sequence:54504adc:0"
+    then ()
+    else print_endline "left";
+    if __is_mutaml_mutant__ "test.ml:left:bool-constant:c7a6885d:0"
+    then true
+    else false
   let right () =
-    if __is_mutaml_mutant__ "test:3" then () else print_endline "right";
-    if __is_mutaml_mutant__ "test:2" then false else true
+    if __is_mutaml_mutant__ "test.ml:right:sequence:90331016:0"
+    then ()
+    else print_endline "right";
+    if __is_mutaml_mutant__ "test.ml:right:bool-constant:5bf88c8b:0"
+    then false
+    else true
   let () =
     if
       let __MUTAML_TMP2__ =
         let __MUTAML_TMP0__ = left () in
         let __MUTAML_TMP1__ () = right () in
-        if __is_mutaml_mutant__ "test:4"
+        if __is_mutaml_mutant__ "test.ml:toplevel:connective:b3e0d467:0"
         then __MUTAML_TMP0__ || (__MUTAML_TMP1__ ())
         else __MUTAML_TMP0__ && (__MUTAML_TMP1__ ()) in
-      (if __is_mutaml_mutant__ "test:5"
+      (if __is_mutaml_mutant__ "test.ml:toplevel:if-condition:7e90ce3e:0"
        then not __MUTAML_TMP2__
        else __MUTAML_TMP2__)
     then print_endline "yes"
@@ -138,7 +146,7 @@ With instrumentation and no mutant active, it does the same:
 With the mutant of the connective active, && becomes ||, so the left
 operand no longer decides the answer and the right operand runs:
 
-  $ MUTAML_MUTANT="test:4" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:toplevel:connective:b3e0d467:0" dune exec --no-build ./test.bc
   left
   right
   yes
@@ -179,20 +187,28 @@ With instrumentation and no mutant active:
     | None -> false
     | Some mutant -> String.equal m mutant
   let left () =
-    if __is_mutaml_mutant__ "test:1" then () else print_endline "left";
-    if __is_mutaml_mutant__ "test:0" then false else true
+    if __is_mutaml_mutant__ "test.ml:left:sequence:ffd76e4e:0"
+    then ()
+    else print_endline "left";
+    if __is_mutaml_mutant__ "test.ml:left:bool-constant:5bf88c8b:0"
+    then false
+    else true
   let right () =
-    if __is_mutaml_mutant__ "test:3" then () else print_endline "right";
-    if __is_mutaml_mutant__ "test:2" then true else false
+    if __is_mutaml_mutant__ "test.ml:right:sequence:edd4cc48:0"
+    then ()
+    else print_endline "right";
+    if __is_mutaml_mutant__ "test.ml:right:bool-constant:c7a6885d:0"
+    then true
+    else false
   let () =
     if
       let __MUTAML_TMP2__ =
         let __MUTAML_TMP0__ = left () in
         let __MUTAML_TMP1__ () = right () in
-        if __is_mutaml_mutant__ "test:4"
+        if __is_mutaml_mutant__ "test.ml:toplevel:connective:6c6e87fb:0"
         then __MUTAML_TMP0__ && (__MUTAML_TMP1__ ())
         else __MUTAML_TMP0__ || (__MUTAML_TMP1__ ()) in
-      (if __is_mutaml_mutant__ "test:5"
+      (if __is_mutaml_mutant__ "test.ml:toplevel:if-condition:8ad6f24c:0"
        then not __MUTAML_TMP2__
        else __MUTAML_TMP2__)
     then print_endline "yes"
@@ -204,7 +220,7 @@ With instrumentation and no mutant active:
 
 With the mutant of the connective active, || becomes &&:
 
-  $ MUTAML_MUTANT="test:4" dune exec --no-build ./test.bc
+  $ MUTAML_MUTANT="test.ml:toplevel:connective:6c6e87fb:0" dune exec --no-build ./test.bc
   left
   right
   no

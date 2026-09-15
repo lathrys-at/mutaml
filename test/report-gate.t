@@ -15,12 +15,14 @@ percent and the report tool exits with 0:
 
   $ cat > caught.json <<'EOF'
   > [ { "status" : 1,
-  >     "mutant" : { "number" : 0, "repl" : "2",
+  >     "mutant" : { "number" : 0, "binding" : "f", "kind" : "int-constant",
+  >                  "original" : "1", "ordinal" : 0, "repl" : "2",
   >                  "loc" : { "loc_start" : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 14 },
   >                            "loc_end"   : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 15 },
   >                            "loc_ghost" : false } } },
   >   { "status" : 124,
-  >     "mutant" : { "number" : 1, "repl" : "-",
+  >     "mutant" : { "number" : 1, "binding" : "f", "kind" : "arith-operator",
+  >                  "original" : "+", "ordinal" : 0, "repl" : "-",
   >                  "loc" : { "loc_start" : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 12 },
   >                            "loc_end"   : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 13 },
   >                            "loc_ghost" : false } } } ]
@@ -45,12 +47,14 @@ it exits with 2:
 
   $ cat > survivor.json <<'EOF'
   > [ { "status" : 1,
-  >     "mutant" : { "number" : 0, "repl" : "2",
+  >     "mutant" : { "number" : 0, "binding" : "f", "kind" : "int-constant",
+  >                  "original" : "1", "ordinal" : 0, "repl" : "2",
   >                  "loc" : { "loc_start" : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 14 },
   >                            "loc_end"   : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 15 },
   >                            "loc_ghost" : false } } },
   >   { "status" : 0,
-  >     "mutant" : { "number" : 1, "repl" : "-",
+  >     "mutant" : { "number" : 1, "binding" : "f", "kind" : "arith-operator",
+  >                  "original" : "+", "ordinal" : 0, "repl" : "-",
   >                  "loc" : { "loc_start" : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 12 },
   >                            "loc_end"   : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 13 },
   >                            "loc_ghost" : false } } } ]
@@ -142,12 +146,14 @@ reason that is not a failing test:
 
   $ cat > crashed.json <<'EOF'
   > [ { "status" : 1,
-  >     "mutant" : { "number" : 0, "repl" : "2",
+  >     "mutant" : { "number" : 0, "binding" : "f", "kind" : "int-constant",
+  >                  "original" : "1", "ordinal" : 0, "repl" : "2",
   >                  "loc" : { "loc_start" : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 14 },
   >                            "loc_end"   : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 15 },
   >                            "loc_ghost" : false } } },
   >   { "status" : 139,
-  >     "mutant" : { "number" : 1, "repl" : "-",
+  >     "mutant" : { "number" : 1, "binding" : "f", "kind" : "arith-operator",
+  >                  "original" : "+", "ordinal" : 0, "repl" : "-",
   >                  "loc" : { "loc_start" : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 12 },
   >                            "loc_end"   : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 13 },
   >                            "loc_ghost" : false } } } ]

@@ -30,7 +30,10 @@ A function whose body is an expression:
     match __MUTAML_MUTANT__ with
     | None -> false
     | Some mutant -> String.equal m mutant
-  let f ?(x= if __is_mutaml_mutant__ "test:0" then 2 else 1 + 2) () = x
+  let f ?(x=
+    if __is_mutaml_mutant__ "test.ml:f:arith-identity:046a2612:0"
+    then 2
+    else 1 + 2) () = x
   let () = print_int (f ())
   let () = print_newline ()
 
@@ -39,7 +42,7 @@ A function whose body is an expression:
   $ _build/default/test.bc
   3
 
-  $ MUTAML_MUTANT="test:0" dune exec --no-build -- ./test.bc
+  $ MUTAML_MUTANT="test.ml:f:arith-identity:046a2612:0" dune exec --no-build -- ./test.bc
   2
 
 A function whose body is a set of cases. The parameter comes before the
@@ -64,12 +67,22 @@ cases, and both are mutated:
     match __MUTAML_MUTANT__ with
     | None -> false
     | Some mutant -> String.equal m mutant
-  let g ?(x= if __is_mutaml_mutant__ "test:0" then 2 else 1 + 2) =
+  let g ?(x=
+    if __is_mutaml_mutant__ "test.ml:g:arith-identity:046a2612:0"
+    then 2
+    else 1 + 2) =
     function
     | true -> x
-    | false -> if __is_mutaml_mutant__ "test:1" then 1 else 0
+    | false ->
+        if __is_mutaml_mutant__ "test.ml:g:int-constant:92be9951:0"
+        then 1
+        else 0
   let () =
-    print_int (g (if __is_mutaml_mutant__ "test:2" then false else true))
+    print_int
+      (g
+         (if __is_mutaml_mutant__ "test.ml:toplevel:bool-constant:5bf88c8b:0"
+          then false
+          else true))
   let () = print_newline ()
 
 
@@ -77,5 +90,5 @@ cases, and both are mutated:
   $ _build/default/test.bc
   3
 
-  $ MUTAML_MUTANT="test:0" dune exec --no-build -- ./test.bc
+  $ MUTAML_MUTANT="test.ml:g:arith-identity:046a2612:0" dune exec --no-build -- ./test.bc
   2

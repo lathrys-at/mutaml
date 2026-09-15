@@ -27,7 +27,10 @@ bool-constant: true becomes false, and the reverse
     match __MUTAML_MUTANT__ with
     | None -> false
     | Some mutant -> String.equal m mutant
-  let f () = if __is_mutaml_mutant__ "test:0" then false else true
+  let f () =
+    if __is_mutaml_mutant__ "test.ml:f:bool-constant:5bf88c8b:0"
+    then false
+    else true
   ;;assert (f ())
 
   $ dune clean
@@ -64,7 +67,8 @@ int-constant: an integer literal gains one
     match __MUTAML_MUTANT__ with
     | None -> false
     | Some mutant -> String.equal m mutant
-  let f () = if __is_mutaml_mutant__ "test:0" then 43 else 42
+  let f () =
+    if __is_mutaml_mutant__ "test.ml:f:int-constant:5ca5a1be:0" then 43 else 42
   ;;assert ((f ()) = 42)
 
   $ dune clean
@@ -101,7 +105,10 @@ space-string: the literal " " becomes ""
     match __MUTAML_MUTANT__ with
     | None -> false
     | Some mutant -> String.equal m mutant
-  let f () = if __is_mutaml_mutant__ "test:0" then "" else " "
+  let f () =
+    if __is_mutaml_mutant__ "test.ml:f:space-string:cbda8879:0"
+    then ""
+    else " "
   ;;assert ((f ()) = " ")
 
   $ dune clean
@@ -138,7 +145,10 @@ arith-operator: * becomes +
     match __MUTAML_MUTANT__ with
     | None -> false
     | Some mutant -> String.equal m mutant
-  let f a b = if __is_mutaml_mutant__ "test:0" then a + b else a * b
+  let f a b =
+    if __is_mutaml_mutant__ "test.ml:f:arith-operator:8e44960b:0"
+    then a + b
+    else a * b
   ;;assert ((f 2 3) = 6)
 
   $ dune clean
@@ -177,7 +187,10 @@ instead and turns the + into a -.
     match __MUTAML_MUTANT__ with
     | None -> false
     | Some mutant -> String.equal m mutant
-  let f n = if __is_mutaml_mutant__ "test:0" then n else n + 1
+  let f n =
+    if __is_mutaml_mutant__ "test.ml:f:arith-identity:f8aa5f2a:0"
+    then n
+    else n + 1
   ;;assert ((f 1) = 2)
 
   $ dune clean
@@ -193,8 +206,9 @@ instead and turns the + into a -.
     | None -> false
     | Some mutant -> String.equal m mutant
   let f n =
-    let __MUTAML_TMP0__ = if __is_mutaml_mutant__ "test:0" then 0 else 1 in
-    if __is_mutaml_mutant__ "test:1"
+    let __MUTAML_TMP0__ =
+      if __is_mutaml_mutant__ "test.ml:f:int-constant:50c5a5ff:0" then 0 else 1 in
+    if __is_mutaml_mutant__ "test.ml:f:arith-operator:40db783f:0"
     then n - __MUTAML_TMP0__
     else n + __MUTAML_TMP0__
   ;;assert ((f 1) = 2)
@@ -216,7 +230,11 @@ expression:
     match __MUTAML_MUTANT__ with
     | None -> false
     | Some mutant -> String.equal m mutant
-  let f n = n + (if __is_mutaml_mutant__ "test:0" then 0 else 1)
+  let f n =
+    n +
+      (if __is_mutaml_mutant__ "test.ml:f:int-constant:50c5a5ff:0"
+       then 0
+       else 1)
   ;;assert ((f 1) = 2)
 
 
@@ -239,7 +257,12 @@ if-condition: the condition of an if is negated
     | None -> false
     | Some mutant -> String.equal m mutant
   let f b =
-    if (if __is_mutaml_mutant__ "test:0" then not b else b) then "y" else "n"
+    if
+      (if __is_mutaml_mutant__ "test.ml:f:if-condition:60f4251a:0"
+       then not b
+       else b)
+    then "y"
+    else "n"
   ;;assert ((f true) = "y")
 
   $ dune clean
@@ -277,7 +300,9 @@ sequence: in e0; e1 the expression e0 becomes ()
     | None -> false
     | Some mutant -> String.equal m mutant
   let f () =
-    if __is_mutaml_mutant__ "test:0" then () else print_string "a";
+    if __is_mutaml_mutant__ "test.ml:f:sequence:d9de38a3:0"
+    then ()
+    else print_string "a";
     print_string "b"
   ;;f ()
 
@@ -320,8 +345,10 @@ omit-case: a case of a pattern match fires never
     | Some mutant -> String.equal m mutant
   let f s =
     ((match s with
-      | "a" when not (__is_mutaml_mutant__ "test:1") -> "A"
-      | "b" when not (__is_mutaml_mutant__ "test:0") -> "B"
+      | "a" when not (__is_mutaml_mutant__ "test.ml:f:omit-case:dcedd9d2:0") ->
+          "A"
+      | "b" when not (__is_mutaml_mutant__ "test.ml:f:omit-case:525e4809:0") ->
+          "B"
       | _ -> "other")
     [@ocaml.warning "-8"])
   ;;assert ((f "a") = "A")
@@ -368,7 +395,8 @@ constructor patterns to agree.
     | Some mutant -> String.equal m mutant
   let f b =
     ((match b with
-      | true when not (__is_mutaml_mutant__ "test:0") -> "y"
+      | true when not (__is_mutaml_mutant__ "test.ml:f:merge-cases:bec444c2:0")
+          -> "y"
       | true | false -> "n")
     [@ocaml.warning "-8"])
   ;;assert ((f true) = "y")
