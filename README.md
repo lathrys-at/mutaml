@@ -479,7 +479,9 @@ Each test run leads a process group of its own. When a run reaches its
 limit, `mutaml-runner` sends the signal TERM to that whole group, and
 the signal KILL two seconds later, so that a program which the test
 command started is stopped with it. Such a run counts as a timeout. A
-run that a signal ended counts as a crash, and not as a timeout.
+run that a signal ended counts as a crash, and not as a timeout. The
+line that the shell prints when a test process dies by a signal goes to
+the output file of the mutation, with the rest of what the run wrote.
 
 The limit of a mutation run follows the run without a mutation. The run
 without a mutation therefore has a limit of its own: 300 seconds, when

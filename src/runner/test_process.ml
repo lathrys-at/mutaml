@@ -178,8 +178,11 @@ let finish p ending =
   (* The shell of a stopped run answers the signal TERM and is gone,
      while a program that it started can answer the signal itself and
      stay. The whole group therefore takes the signal KILL here, so
-     that no program of the run is left behind. *)
-  let () = if p.at_limit then signal_group p Sys.sigkill in
+     that no program of the run is left behind. A run that already took
+     the signal KILL does not take a second one. *)
+  let () = match p.state with
+    | Stopping _ -> signal_group p Sys.sigkill
+    | Running | Killed | Spent -> () in
   p.state <- Spent;
   {
     status = (if p.at_limit then timeout_status else status_of_end ending);
@@ -190,13 +193,21 @@ let check_unspent name p = match p.state with
   | Spent -> invalid_arg (name ^ ": this process is spent")
   | Running | Stopping _ | Killed -> ()
 
-(* Collects before it holds the limit, so that a run which ended in the
-   last moments before its limit keeps the status it answered. *)
+(* Collects before it holds a limit, so that a run which ended in the
+   last moments before its limit keeps the status it answered. Holds the
+   limit of every process on every turn, the turn where a process ends
+   as well, so that a run which hangs beside runs that end still reaches
+   its own limit. A process that [finish] has spent takes nothing from
+   [advance]. *)
 let rec wait_loop ps pause =
   match
     List.find_map (fun p -> Option.map (fun ending -> (p,ending)) (collect p)) ps
   with
-  | Some (p,ending) -> (p, finish p ending)
+  | Some (p,ending) ->
+    let ended = finish p ending in
+    let now = Unix.gettimeofday () in
+    let () = List.iter (fun q -> advance q now) ps in
+    (p, ended)
   | None ->
     let now = Unix.gettimeofday () in
     let () = List.iter (fun p -> advance p now) ps in

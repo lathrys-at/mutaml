@@ -167,8 +167,16 @@ Without --timeout the limit follows the run without a mutant: five times
 that run, and never less than ten seconds. The suite below takes three
 seconds without a mutant, which gives a limit of fifteen seconds, and
 eleven seconds for the mutant. A limit of ten seconds would stop the
-mutant run; the limit that the measurement gives does not:
+mutant run; the limit that the measurement gives does not. One mutation
+is enough to show it, so this test reads a mutation file of its own:
 
+  $ cat > _build/.mutaml/default/one.muts <<'EOF'
+  > [ { "number" : 0, "binding" : "f", "kind" : "int-constant",
+  >     "original" : "1", "ordinal" : 0, "repl" : "2",
+  >     "loc" : { "loc_start" : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 14 },
+  >               "loc_end"   : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 15 },
+  >               "loc_ghost" : false } } ]
+  > EOF
   $ cat > slow.sh <<'EOF'
   > #!/bin/sh
   > case "$MUTAML_MUTANT" in
@@ -177,11 +185,10 @@ mutant run; the limit that the measurement gives does not:
   > esac
   > EOF
   $ chmod +x slow.sh
-  $ mutaml-runner --muts lib.muts ./slow.sh
+  $ mutaml-runner --muts one.muts ./slow.sh
   Testing without a mutant ... passed
   The limit of a test run is 5 times the run without a mutant, and never less than 10 seconds.
   Testing mutant lib.ml:f:int-constant:4fad8996:0 ... passed
-  Testing mutant lib.ml:f:arith-operator:b614c1c7:0 ... passed
   Writing report data to mutaml-report.json
 
 A test suite that fails without a mutant stops the run. Every mutant
