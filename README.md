@@ -433,6 +433,32 @@ The other options of `mutaml-runner` are:
   under one seed and fails under another does not give a mutation score
   any meaning, and this is how to find that out before the run.
 
+- `-j count` - the number of mutations to test at one time. The default
+  is 1. The environment variable `MUTAML_JOBS` sets the same number, and
+  the command-line option takes precedence over it. Each of the `count`
+  workers runs a test process of its own, writes to the output file of
+  the mutation it holds, and has `TMPDIR` set to a directory of its own
+  under `_mutations/tmp`. `mutaml-runner` removes those directories at
+  the end of the run. The results keep the order of the mutations, so
+  the lines the runner prints and the report it writes do not depend on
+  which run ends first. Read "Which test suites are safe to test more
+  than one mutation at a time" below before you raise this above 1.
+
+- `--repeat count` - the greatest number of test runs that one mutation
+  gets. The default is 1. A mutation runs again while the run before it
+  passed and while runs are left. A mutation that any run kills is
+  killed, and only a mutation that every run passes is a survivor. The
+  report holds the run that killed the mutation and the variables that
+  run was given. Use `--repeat` with a variable value that holds the two
+  characters `{}`: `mutaml-runner` replaces `{}` by the number of the
+  run, counted from 1. So `--repeat 3 --test-env QCHECK_SEED={}` gives
+  one mutation the seeds 1, 2 and 3, and the run with no mutation the
+  seed 1. Use it for a test suite that draws random values, where one
+  seed can miss a mutation that another seed catches. A surviving
+  mutation then costs `count` test suite runs instead of one. A killed
+  mutation usually still costs one, because most mutations die under the
+  first seed.
+
 `mutaml-runner` runs the test command with no mutation before it tests
 any mutation, and again a second time when `--baseline-env` is given. It
 stops with an error when a run fails, because every mutation would then
@@ -453,6 +479,38 @@ crash and not as a timeout. GNU coreutils `timeout` follows those
 rules. macOS has no `timeout` command of its own, so install GNU
 coreutils there.
 
+
+Which test suites are safe to test more than one mutation at a time
+-------------------------------------------------------------------
+
+`-j` above 1 runs several copies of the test command at the same time,
+in one working directory. A test suite is safe when no two copies of it
+write the same file. Check these four things before you raise `-j`:
+
+1. **The test command must not start with `dune`.** `dune` locks the
+   build directory, so a second `dune` fails. `mutaml-runner` refuses
+   `-j` above 1 for such a command and says so. Give the path of the
+   test executable instead, for example
+   `_build/default/test/mytests.exe`. The build directory is safe to
+   read: nothing builds while the mutations run.
+
+2. **No test may write a file of a fixed name in the working
+   directory.** A test that writes `output.txt` or `test.db` beside
+   itself breaks when two copies run at once. A test that makes its
+   files with `Filename.temp_file` is safe: that function draws a name
+   that no other copy takes, and it writes under `TMPDIR`, which each
+   worker has of its own.
+
+3. **A cache on disk must write whole files.** A cache that writes a
+   temporary file and then renames it is safe, because a reader sees
+   either the old file or the new one. A cache that writes in place is
+   not: a second copy can read a half-written file. Put such a cache
+   under `TMPDIR`, which each worker has of its own, or fill it with one
+   run before the mutation run and then only read it.
+
+4. **The machine must have the cores.** The test suite already uses the
+   machine. Start with half of the cores, and do not go above the number
+   of cores less one.
 
 Report Options and Environment Variables
 ----------------------------------------

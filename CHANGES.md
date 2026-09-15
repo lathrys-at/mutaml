@@ -38,6 +38,21 @@ Next release
   each of them once, so that a second build no longer makes the runner
   test every mutation twice and an incremental build no longer drops the
   mutations of the files it did not rebuild
+- Add `-j <count>` and `MUTAML_JOBS` to `mutaml-runner`, which test
+  `<count>` mutations at one time. Each worker writes to the output file
+  of the mutation it holds and has `TMPDIR` set to a directory of its
+  own, and the results keep the order of the mutations, so the printed
+  lines and the report do not depend on which run ends first. The runner
+  refuses more than one at a time for a test command that starts with
+  `dune`, which locks the build directory
+- Add `--repeat <count>` to `mutaml-runner`, which runs the test command
+  for one mutation until a run kills it, up to `<count>` runs. The value
+  that `--test-env` gives may hold the two characters `{}`, which the
+  runner replaces by the number of the run, so `--repeat 3 --test-env
+  QCHECK_SEED={}` gives one mutation the seeds 1, 2 and 3. A test suite
+  that draws random values then reports a mutation as a survivor only
+  when every seed passes, and the report names the seed that killed a
+  mutation
 - Run the test command with no mutation before testing any mutation, and
   stop when it fails
 - Add `--baseline-env NAME=VALUE` to `mutaml-runner`, repeatable, which
