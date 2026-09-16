@@ -220,6 +220,35 @@ one place and not two:
   $ grep -o '"reason":"[^"]*"' _build/.mutaml/default/test.muts
   "reason":"the outer reason"
 
+Where the attribute binds
+-------------------------
+
+An attribute binds to the expression right in front of it, and it
+binds tighter than an operator. Without parentheses it therefore marks
+the operand and not the whole expression:
+
+  $ cat > test.ml <<'EOF'
+  > let is_ready count = count >= 1 [@mutaml.skip "the two tests agree here"]
+  > let () = if is_ready 2 then print_endline "y"
+  > EOF
+  $ bash ../filter_dune_build.sh ./test.bc --instrument-with mutaml | grep -E 'Created|Skipped'
+  Created 3 mutations of test.ml
+  Skipped 1 place in test.ml
+  $ grep -o '"kinds":\[[^]]*\]' _build/.mutaml/default/test.muts
+  "kinds":["int-constant"]
+
+With parentheses it marks the whole expression:
+
+  $ cat > test.ml <<'EOF'
+  > let is_ready count = ((count >= 1) [@mutaml.skip "the two tests agree here"])
+  > let () = if is_ready 2 then print_endline "y"
+  > EOF
+  $ bash ../filter_dune_build.sh ./test.bc --instrument-with mutaml | grep -E 'Created|Skipped'
+  Created 2 mutations of test.ml
+  Skipped 1 place in test.ml
+  $ grep -o '"kinds":\[[^]]*\]' _build/.mutaml/default/test.muts
+  "kinds":["int-constant","compare-boundary"]
+
 A place that mutaml does not read
 ---------------------------------
 

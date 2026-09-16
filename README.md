@@ -287,6 +287,22 @@ let describe n =
     "the two texts read the same to every caller"]
 ```
 
+Put the expression you mean in parentheses. An attribute binds to the
+expression right in front of it, and it binds tighter than an
+operator, so
+
+```ocaml
+let is_ready count = count >= 1 [@mutaml.skip "..."]
+```
+
+marks the `1` alone and leaves the comparison to be mutated, while
+
+```ocaml
+let is_ready count = ((count >= 1) [@mutaml.skip "..."])
+```
+
+marks both.
+
 The reason is a string, and it is not optional. An attribute with no
 reason, with an empty reason, or with a payload that is not a string
 stops the build with a message that names the file and the line:
