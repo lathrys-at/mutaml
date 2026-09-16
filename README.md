@@ -531,15 +531,11 @@ write the same file. Check these four things before you raise `-j`:
 Report Options and Environment Variables
 ----------------------------------------
 
-Currently `mutaml-report` uses `diff --color -u` as its default
-command to print `diff`s. It falls back to `diff -u` when the
-environment variable `CI` is `true`. The used command can also be
-configured with an environment variable:
-
-- `MUTAML_DIFF_COMMAND` - the command and options to use instead,
-  e.g. `MUTAML_DIFF_COMMAND="diff -U 5"` will disable colored outputs
-  and add 5 lines of unified context. Mutaml expects the specified
-  command to support `--label` options.
+`mutaml-report` writes the `diff` of a mutation itself, in the unified
+format, with three lines of context on each side of the change. It
+runs no other program to do it, so the text is the same on every
+machine and the tool needs no `diff` command of the system. The text
+carries no colour.
 
 Passing the option `--no-diff` to `mutaml-report` prevents any
 mutation `diff`s from being printed.

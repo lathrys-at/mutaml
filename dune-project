@@ -33,7 +33,6 @@
   (ppxlib (>= 0.36.0))
   (ppx_deriving_yojson (>= 3.7.0))
   stdlib-random
-  conf-diffutils
   ;; transitive lower versions to avoid CI errors
   (ocaml-compiler-libs (>= v0.12.0))
   (ppx_derivers (>= 1.2.1))

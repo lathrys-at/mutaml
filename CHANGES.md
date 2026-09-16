@@ -97,6 +97,11 @@ Next release
   and an environment variable that turn it off. Every operator that
   was on before is still on by default, so a project that sets nothing
   sees no change
+- Write the `diff` of a mutation in `mutaml-report` itself, in the
+  unified format, instead of running the `diff` command of the system.
+  The text is now the same on every machine, the package no longer
+  depends on `conf-diffutils`, and the environment variable
+  `MUTAML_DIFF_COMMAND` is gone
 - List every mutation operator in the README, with its default and
   what it cannot see
 - Use dune.3.18 support to generate `x-maintenance-intent` entry

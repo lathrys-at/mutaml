@@ -76,11 +76,6 @@ struct
        "<path> Write the report in the mutation-testing-elements format to <path>";
        "--markdown", Arg.String (fun path -> markdown := Some path),
        "<path> Write a Markdown summary to <path>, for the summary page of a CI job"]
-
-  let diff_cmd = match Sys.getenv_opt "MUTAML_DIFF_COMMAND", Sys.getenv_opt "CI" with
-    | Some cmd, _       -> cmd
-    | None, Some "true" -> "diff -u"
-    | None, _           -> "diff --color -u"
 end
 
 (* The bytes of [file_name], or [None] when the file cannot be read.
@@ -143,19 +138,23 @@ let write_mutated_version output_file ~start ~stop contents repl =
     output_string ch (String.sub contents stop.pos_cnum (String.length contents - stop.pos_cnum));
     close_out ch
 
-(* Prints the diff between the source file and its mutated copy, as the
-   diff command of the system makes it. *)
-let print_diff_of_passed ~file_name ~mut_name ~full_mut_name ~test_output_file =
+(* Prints the diff between the source file and the file that the
+   mutation makes of it. [Unified_diff] writes the text, so it reads
+   the same on every system and no other program has to be installed.
+   [contents] is the text of the source file, and the mutation replaces
+   the bytes from [start] up to but not including [stop] with [repl]. *)
+let print_diff_of_passed ~file_name ~mut_name ~test_output_file
+      ~contents ~start ~stop ~repl =
   Printf.printf "Mutation \"%s\" passed (see \"%s\"):\n\n%!" mut_name test_output_file;
-  let cmd =
-    Printf.sprintf "%s --label \"%s\" %s --label \"%s\" %s 1>&2"
-      CLI.diff_cmd file_name file_name mut_name full_mut_name in
-  let () = match Sys.command cmd with
-    | 1 -> ()
-    | 0   -> fail_and_exit "The two source code files did not differ, despite mutation"
-    | 127 -> fail_and_exit "Could not find the 'diff' command"
-    | i   -> fail_and_exit (Printf.sprintf "'diff' command failed with status code %i" i)
-  in
+  let diff =
+    Unified_diff.unified ~old_label:file_name ~new_label:mut_name
+      ~contents ~start ~stop ~repl in
+  (* A mutation that leaves every line of the file as it was has no
+     hunk to show. The report says so and goes on to the next mutation,
+     because one such mutation is no reason to give up the report. *)
+  if String.equal diff ""
+  then Printf.printf "The mutation leaves every line of %s as it was, so there is no diff here.\n" file_name
+  else Printf.printf "%s" diff;
   Format.printf "\n";
   Format.printf "%s\n\n" (String.make 75 '-')
 
@@ -179,7 +178,8 @@ let print_passed print_diff (res:test_result) =
       ~start:loc.loc_start ~stop:loc.loc_end contents repl;
     if print_diff
     then
-      print_diff_of_passed ~file_name ~mut_name ~full_mut_name ~test_output_file
+      print_diff_of_passed ~file_name ~mut_name ~test_output_file
+        ~contents ~start:loc.loc_start.pos_cnum ~stop:loc.loc_end.pos_cnum ~repl
     else
       Printf.printf "Mutation \"%s\" passed (see \"%s\")\n%!" mut_name test_output_file
 
