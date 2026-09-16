@@ -542,6 +542,11 @@ The other options of `mutaml-runner` are:
   under it. `mutaml-runner` stops with a message when it cannot run
   `git`, and when `git` does not know `rev`.
 
+  A source file that `git` does not track is in no diff against a
+  revision, so `mutaml-runner` asks `git ls-files --others` for those
+  files as well and counts every line of one as changed. A new file
+  that nobody has added to `git` is the code that most wants testing.
+
   When no mutation is left, `mutaml-runner` says so on one line, runs
   no test at all, and writes a report in which every mutation did not
   run. `mutaml-report` then says that the run has no score, instead of

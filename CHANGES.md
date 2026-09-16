@@ -134,7 +134,8 @@ Next release
 - Add `--changed-since <rev>` to `mutaml-runner`, which tests only the
   mutations that sit on a line that the project changed since the
   revision `<rev>`. It asks `git diff --unified=0 <rev> --` for the
-  lines. Every other mutation is recorded as not run, which is a new
+  lines, and it counts every line of a file that git does not track as
+  changed. Every other mutation is recorded as not run, which is a new
   outcome that the three reports name and that the mutation score leaves
   out. When no mutation is left, the runner says so, runs no test at
   all, and `mutaml-report` says that the run has no score instead of

@@ -388,9 +388,9 @@ let print_choice ~rev ~to_run ~left_out =
       (mutations total) rev
   else
     Printf.printf
-      "%i of the %s sit on a line that changed since %s. The other %s not tested.\n%!"
-      to_run (mutations total) rev
-      (if left_out = 1 then "1 is" else Printf.sprintf "%i are" left_out)
+      "%i of the %s %s on a line that changed since %s. The other %s not tested.\n%!"
+      to_run (mutations total) (if to_run = 1 then "sits" else "sit") rev
+      (if left_out = 1 then "one is" else Printf.sprintf "%i are" left_out)
 
 (** Executable entry point *)
 

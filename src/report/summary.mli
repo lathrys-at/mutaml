@@ -2,9 +2,10 @@
 
     A run of [mutaml-runner] gives one test result for each mutant, the
     mutants that did not run included, and one record for each place
-    that [[@mutaml.skip "reason"]] took out of the run. This module groups the results in two ways, by the outcome
-    of the test process and by the source file that the mutant belongs
-    to, and it groups the skipped places by source file. *)
+    that [[@mutaml.skip "reason"]] took out of the run. This module
+    groups the results in two ways, by the outcome of the test process
+    and by the source file that the mutant belongs to, and it groups
+    the skipped places by source file. *)
 
 open Mutaml_common
 

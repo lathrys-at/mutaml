@@ -74,7 +74,7 @@ With the option, only the mutation on the line that changed is tested:
   $ rm -rf _mutations mutaml-report.json
   $ mutaml-runner --changed-since HEAD ./tests.sh
   read mut file lib.muts
-  1 of the 2 mutations sit on a line that changed since HEAD. The other 1 is not tested.
+  1 of the 2 mutations sits on a line that changed since HEAD. The other one is not tested.
   Testing without a mutant ... passed
   The limit of a test run is 5 times the run without a mutant, and never less than 10 seconds.
   Testing mutant lib.ml:g:int-constant:626aba84:0 ... passed
@@ -180,11 +180,52 @@ suite caught every mutant, because it caught none:
   
   No attribute takes a place out of this run.
 
+A source file that git does not track is in no diff against a
+revision, so every line of it counts as changed. A new file is the code
+that most wants testing, and it must not go untested because nobody ran
+git add. Add a second source file with one mutation, and do not add it
+to git:
+
+  $ cat > new.ml <<'EOF'
+  > let h x = x + 5
+  > EOF
+  $ cat > _build/.mutaml/default/new.muts <<'EOF'
+  > { "mutants" :
+  >   [ { "number" : 0, "binding" : "h", "kind" : "int-constant",
+  >       "original" : "5", "ordinal" : 0, "repl" : "6",
+  >       "loc" : { "loc_start" : { "pos_fname" : "new.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 14 },
+  >                 "loc_end"   : { "pos_fname" : "new.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 15 },
+  >                 "loc_ghost" : false } } ],
+  >   "skipped" : [] }
+  > EOF
+  $ cat > _build/.mutaml/default/mutaml-mut-files.txt <<'EOF'
+  > lib.muts
+  > new.muts
+  > EOF
+  $ git status --short new.ml
+  ?? new.ml
+  $ rm -rf _mutations mutaml-report.json
+  $ mutaml-runner --changed-since HEAD ./tests.sh
+  read mut file lib.muts
+  read mut file new.muts
+  1 of the 3 mutations sits on a line that changed since HEAD. The other 2 are not tested.
+  Testing without a mutant ... passed
+  The limit of a test run is 5 times the run without a mutant, and never less than 10 seconds.
+  Testing mutant new.ml:h:int-constant:6311d79c:0 ... passed
+  Writing report data to mutaml-report.json
+
+Put the list of mutation files back as it was:
+
+  $ rm new.ml _build/.mutaml/default/new.muts
+  $ cat > _build/.mutaml/default/mutaml-mut-files.txt <<'EOF'
+  > lib.muts
+  > EOF
+
 A revision that git does not know stops the runner with a message:
 
   $ mutaml-runner --changed-since no-such-revision ./tests.sh
   read mut file lib.muts
-  git could not do "git diff --unified=0 no-such-revision --". Check that the revision is one that git knows, and that this directory is in a git repository.
+  git could not do "git -c core.quotePath=false diff --no-ext-diff --no-textconv --dst-prefix=b/ --unified=0 no-such-revision --". Check that the revision is one that git knows, and that this directory is in a git repository.
   [1]
 
 A git that cannot start stops the runner with a message of its own. A

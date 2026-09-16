@@ -11,7 +11,27 @@ type t =
        ends with "/". *)
     prefix : string;
     files  : (string * (int * int) list) list;
+    (* The files that git does not track. A diff against a revision
+       says nothing about such a file, so every line of it counts as
+       changed. *)
+    others : string list;
   }
+
+(* The settings that git is given, whatever the person's own
+   configuration holds. Each one stops a setting that would change the
+   text below into text that this reader cannot read, which would leave
+   it finding no changed line and the runner testing nothing.
+
+   - core.quotePath writes a file name that holds a byte above 127
+     inside quotation marks, with escapes.
+   - diff.external hands the work to another program, whose output has
+     no hunk header at all. --no-ext-diff stops that, and --no-textconv
+     stops the same thing for one path.
+   - diff.mnemonicPrefix and diff.noprefix change or drop the "b/" in
+     front of the name of the file as it is now. --dst-prefix puts it
+     back. *)
+let fixed_config = ["-c"; "core.quotePath=false"]
+let fixed_diff = ["--no-ext-diff"; "--no-textconv"; "--dst-prefix=b/"]
 
 let error_message = function
   | Cannot_run reason ->
@@ -52,6 +72,7 @@ let errors_fd () =
    git without a shell, so an argument holding a character that a shell
    reads is still one argument. *)
 let git args =
+  let args = fixed_config @ args in
   match Unix.pipe () with
   | exception Unix.Unix_error (e,_,_) -> Error (Cannot_run (Unix.error_message e))
   | (from_git, to_us) ->
@@ -122,9 +143,10 @@ let hunk_lines header =
    names, and [None] when the line names no file, which is what git
    writes for a file that the change took away.
 
-   git writes the name after "b/", unless the configuration asks for
-   another letter, so this takes the two characters away only when they
-   are there. *)
+   git writes the name after "b/", because [fixed_diff] asks for that
+   prefix whatever the configuration holds. The two characters come
+   away only when they are there, so a git that writes the name alone
+   is read as well. *)
 let file_of_header header =
   let name = after ~prefix:"+++ " header in
   if String.equal name "/dev/null" then None
@@ -162,6 +184,12 @@ let parse diff =
   let files = loop true None [] (String.split_on_char '\n' diff) in
   List.map (fun (file,runs) -> (file, List.rev runs)) files
 
+(* [lines text] is the lines of [text], without the empty line that the
+   newline at the end of the last one would otherwise make. *)
+let lines text =
+  List.filter (fun line -> not (String.equal line ""))
+    (String.split_on_char '\n' text)
+
 let since ~rev =
   match git ["rev-parse"; "--show-prefix"] with
   | Error _ as error -> error
@@ -171,14 +199,22 @@ let since ~rev =
     let prefix = match String.split_on_char '\n' prefix with
       | first :: _ -> first
       | []         -> "" in
-    (match git ["diff"; "--unified=0"; rev; "--"] with
+    (match git (["diff"] @ fixed_diff @ ["--unified=0"; rev; "--"]) with
      | Error _ as error -> error
-     | Ok diff          -> Ok { prefix; files = parse diff })
+     | Ok diff          ->
+       (* A file that git does not track is in no diff against a
+          revision, and a new source file is the code that most wants
+          testing. Ask for those files by name. *)
+       (match git ["ls-files"; "--others"; "--exclude-standard"; "--full-name"; "--"] with
+        | Error _ as error -> error
+        | Ok others        -> Ok { prefix; files = parse diff; others = lines others }))
 
 let touches t ~file ~first ~last =
   if last < first then false
   else
     let path = if Filename.is_relative file then t.prefix ^ file else file in
-    match List.assoc_opt path t.files with
-    | None      -> false
-    | Some runs -> List.exists (fun (from,upto) -> from <= last && first <= upto) runs
+    if List.exists (String.equal path) t.others then true
+    else
+      match List.assoc_opt path t.files with
+      | None      -> false
+      | Some runs -> List.exists (fun (from,upto) -> from <= last && first <= upto) runs
