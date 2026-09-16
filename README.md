@@ -311,6 +311,14 @@ of a run, and one reason rarely covers every mutation of it. A place
 inside a marked place needs no mark of its own: the outer one covers
 it.
 
+The attribute stops the build in any other place, on a type for
+example, rather than pass unread:
+
+```
+File "lib.ml", line 1, characters 13-61:
+Error: mutaml: the attribute [@mutaml.skip] is in a place that mutaml does not read. Write it on an expression, on a let binding, on a module, on an open or on an include.
+```
+
 A marked place is not a mutation, so it is outside the mutation score,
 and it moves the name of no other mutation of the file. The
 preprocessor writes each place in the `lib.muts` file of its source

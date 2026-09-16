@@ -220,6 +220,26 @@ one place and not two:
   $ grep -o '"reason":"[^"]*"' _build/.mutaml/default/test.muts
   "reason":"the outer reason"
 
+A place that mutaml does not read
+---------------------------------
+
+The preprocessor takes the attribute out of every place it reads, so
+an attribute that is left after the walk sits where the preprocessor
+never looked. It stops the build rather than let the place be mutated
+while the person who wrote the attribute believes it is not:
+
+  $ cat > test.ml <<'EOF'
+  > type t = int [@@mutaml.skip "a type holds nothing to mutate"]
+  > let f (x : t) = x + 1
+  > let () = print_int (f 2)
+  > EOF
+
+  $ bash ../filter_dune_build.sh ./test.bc --instrument-with mutaml 2>&1 | grep -A 3 'File "test.ml"'
+  File "test.ml", line 1, characters 13-61:
+  1 | type t = int [@@mutaml.skip "a type holds nothing to mutate"]
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  Error: mutaml: the attribute [@mutaml.skip] is in a place that mutaml does not read. Write it on an expression, on a let binding, on a module, on an open or on an include.
+
 A reason that is missing
 ------------------------
 

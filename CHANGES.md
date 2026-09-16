@@ -5,7 +5,9 @@ Next release
   the preprocessor must not mutate. It goes on an expression, on a
   `let` binding, on a module, on an `open` and on an `include`. The
   reason is a string and it is not optional: an attribute without one
-  stops the build with a message that names the file and the line. A
+  stops the build with a message that names the file and the line, and
+  so does an attribute in any other place, which would otherwise pass
+  unread and leave the place mutated. A
   marked place is outside the mutation score, and it moves the name of
   no other mutation of the file. The terminal report and the Markdown
   summary name each place, its reason, and the mutation operators that

@@ -146,6 +146,25 @@ let remove_skip_attributes = object
          attrs)
 end
 
+(* Stops the preprocessor when a [mutaml.skip] attribute is still in the
+   tree after the walk. The walk takes the attribute out of every place
+   it reads, so one that is left sits where the preprocessor does not
+   read it. Without this check the build would pass and the place would
+   still be mutated, and the person who wrote the attribute would read
+   the report as if the place were out of the run. *)
+let check_no_skip_left = object
+  inherit Ppxlib.Ast_traverse.iter as super
+  method! attribute attr =
+    if String.equal attr.attr_name.txt skip_attribute
+    then
+      Location.raise_errorf ~loc:attr.attr_loc
+        "mutaml: the attribute [@%s] is in a place that mutaml does not \
+         read. Write it on an expression, on a let binding, on a module, \
+         on an open or on an include."
+        skip_attribute;
+    super#attribute attr
+end
+
 (* [item_skip item] is the reason that a [mutaml.skip] attribute of the
    structure item [item] carries, paired with [item] without that
    attribute, and [None] when [item] carries no such attribute.
@@ -1280,6 +1299,7 @@ class mutate_mapper (initial_rs : RS.t) =
       Printf.printf "Skipped %i place%s in %s\n%!" skip_count
         (if skip_count=1 then "" else "s") input_name;
 
+    let () = check_no_skip_left#structure instrumented_ast in
     let () = write_muts_file input_name ~mutations ~skipped in
     errs @ (add_preamble instrumented_ast input_name)
 end
