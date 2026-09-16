@@ -95,7 +95,28 @@ let add_survivor buf sources res =
     let fence = fence_for diff in
     Printf.bprintf buf "%sdiff\n%s%s\n" fence diff fence
 
-let render ~sources ~results =
+let places_of n = if n = 1 then "1 place" else Printf.sprintf "%i places" n
+
+let add_skipped buf (s : skipped) =
+  let file = s.loc.loc_start.pos_fname in
+  Printf.bprintf buf "\n### `%s`\n\n" (skip_name s);
+  Printf.bprintf buf "`%s`, line %i.\n\n" file s.loc.loc_start.pos_lnum;
+  Printf.bprintf buf "The reason: %s\n\n" s.reason;
+  Printf.bprintf buf "%s\n" (skip_operators s)
+
+let add_skipped_section buf skipped =
+  Buffer.add_string buf "\n## Skipped places\n";
+  match skipped with
+  | [] ->
+    Buffer.add_string buf
+      "\nNo attribute takes a place out of this run.\n"
+  | skipped ->
+    Printf.bprintf buf
+      "\nThe attribute `[@mutaml.skip]` takes %s out of this run. A\nskipped place has no mutant, so it is outside the score and in no\nrow of the table above.\n"
+      (places_of (List.length skipped));
+    List.iter (add_skipped buf) skipped
+
+let render ~sources ~results ~skipped =
   let buf = Buffer.create 4096 in
   Buffer.add_string buf "# Mutation report\n\n";
   if results = []
@@ -109,4 +130,5 @@ let render ~sources ~results =
     (match Summary.with_outcome summary Passed with
      | [] -> Buffer.add_string buf "\nThe test suite caught every mutant.\n"
      | survivors -> List.iter (add_survivor buf sources) survivors);
+    add_skipped_section buf skipped;
     Buffer.contents buf

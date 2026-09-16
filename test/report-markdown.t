@@ -17,6 +17,7 @@ Write a report that holds one mutation of each outcome. The mutation of
 out, and the one that takes `2` away ended with signal 11:
 
   $ cat > mutaml-report.json <<'EOF'
+  > { "results" :
   > [ { "status" : 1,
   >     "mutant" : { "number" : 0, "binding" : "f", "kind" : "arith-operator",
   >                  "original" : "+", "ordinal" : 0, "repl" : "-",
@@ -40,7 +41,7 @@ out, and the one that takes `2` away ended with signal 11:
   >                  "original" : "2", "ordinal" : 0, "repl" : null,
   >                  "loc" : { "loc_start" : { "pos_fname" : "other.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 14 },
   >                            "loc_end"   : { "pos_fname" : "other.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 15 },
-  >                            "loc_ghost" : false } } } ]
+  >                            "loc_ghost" : false } } } ] }
   > EOF
 
 Ask for the summary. Three of the four mutations were caught, so the
@@ -78,6 +79,10 @@ the total, and the one mutation that passed with its name and its diff:
   -let f x = x + 1
   +let f x = x + 2
   ```
+  
+  ## Skipped places
+  
+  No attribute takes a place out of this run.
 
 A mutation whose source file cannot be read keeps its place in the
 summary, which says why it has no diff:
@@ -92,3 +97,7 @@ summary, which says why it has no diff:
   `lib.ml`, line 1.
   
   The source file `lib.ml` could not be read, so there is no diff here.
+  
+  ## Skipped places
+  
+  No attribute takes a place out of this run.

@@ -43,10 +43,17 @@ let score t =
   then invalid_arg "Summary.score: no test results"
   else 100. *. float_of_int (detected t) /. float_of_int t.total
 
+let group_by_file file_of items =
+  let files = List.sort_uniq String.compare (List.map file_of items) in
+  List.map
+    (fun file ->
+       (file, List.filter (fun item -> String.equal file (file_of item)) items))
+    files
+
 let source_file res = res.mutant.loc.loc_start.pos_fname
 
-let by_file results =
-  let files = List.sort_uniq String.compare (List.map source_file results) in
-  List.map
-    (fun file -> (file, List.filter (fun res -> String.equal file (source_file res)) results))
-    files
+let by_file results = group_by_file source_file results
+
+let skipped_file (s : skipped) = s.loc.loc_start.pos_fname
+
+let skipped_by_file skipped = group_by_file skipped_file skipped

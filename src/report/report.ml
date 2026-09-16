@@ -89,17 +89,21 @@ let file_contents_opt file_name =
       (fun () -> Some (really_input_string ch (in_channel_length ch)))
   with Sys_error _ | End_of_file -> None
 
-(* The bytes of every source file that [results] names. A file that
-   cannot be read is left out, and named, because the report of its
-   mutants then holds no source. *)
-let read_sources results =
+(* The bytes of every source file that [results] or [skipped] names. A
+   file that cannot be read is left out, and named, because the report
+   of its mutants then holds no source. *)
+let read_sources ~results ~skipped =
+  let files =
+    List.sort_uniq String.compare
+      (List.map fst (Summary.by_file results)
+       @ List.map fst (Summary.skipped_by_file skipped)) in
   List.filter_map
-    (fun (file_name,_) -> match file_contents_opt file_name with
+    (fun file_name -> match file_contents_opt file_name with
        | Some contents -> Some (file_name,contents)
        | None ->
          Printf.printf "Could not read the source file %s\n%!" file_name;
          None)
-    (Summary.by_file results)
+    files
 
 (* Writes [text] to [file_name], and stops the program when it cannot. *)
 let write_text_file file_name text =
@@ -111,21 +115,22 @@ let write_text_file file_name text =
     fail_and_exit (Printf.sprintf "Could not write file %s" msg)
 
 (* Writes the report files that the command line asked for. *)
-let write_report_files results =
+let write_report_files ~results ~skipped =
   match !CLI.json_report, !CLI.markdown with
   | None, None -> ()
   | json_path, markdown_path ->
-    let sources = read_sources results in
+    let sources = read_sources ~results ~skipped in
     Option.iter
       (fun path ->
          Printf.printf "Writing the Markdown summary to %s\n%!" path;
-         write_text_file path (Markdown_report.render ~sources ~results))
+         write_text_file path (Markdown_report.render ~sources ~results ~skipped))
       markdown_path;
     Option.iter
       (fun path ->
          Printf.printf "Writing the JSON report to %s\n%!" path;
          write_text_file path
-           (Mte_report.render ~fail_under:!CLI.fail_under ~sources ~results))
+           (Mte_report.render ~fail_under:!CLI.fail_under ~sources ~results
+              ~skipped))
       json_path
 
 let write_mutated_version output_file ~start ~stop contents repl =
@@ -233,6 +238,25 @@ let print_crashed results =
       Printf.printf "\n"
     end
 
+(** Prints the places that [[@mutaml.skip "reason"]] took out of the
+    run. The preprocessor made no mutation in such a place, so the place
+    is outside the score, and the report names it so that a reader can
+    see what the run did not test. *)
+let print_skipped skipped =
+  if skipped <> []
+  then
+    begin
+      Printf.printf "Places that the attribute took out of the run:\n";
+      Printf.printf "----------------------------------------------\n\n";
+      List.iter
+        (fun (s : skipped) ->
+           Printf.printf "\"%s\", line %i: %s\n"
+             s.loc.loc_start.pos_fname s.loc.loc_start.pos_lnum s.reason;
+           Printf.printf "  %s\n" (skip_operators s))
+        skipped;
+      Printf.printf "\n"
+    end
+
 (* Prints [message] and ends the program with status 2, which says that
    the score is too low. Status 1 says that the tool itself could not do
    its work. *)
@@ -275,9 +299,10 @@ let () =
   let results = report.results in
   if results = []
   then fail_and_exit (Printf.sprintf "Found no test results in %s" report_file);
-  write_report_files results;
+  write_report_files ~results ~skipped:report.skipped;
   let passed = print_report results in
   print_crashed results;
+  print_skipped report.skipped;
   if passed <> []
   then
     (Printf.printf "Mutation programs passing the test suite:\n";

@@ -25,7 +25,7 @@ Two functions hold the same `if`. The attribute marks the second one:
   Running mutaml instrumentation on "test.ml"
   Randomness seed: 896745231   Mutation rate: 100   GADTs enabled: true
   Created 5 mutations of test.ml
-  Skipped 1 site in test.ml
+  Skipped 1 place in test.ml
   Writing mutation info to test.muts
   let __MUTAML_MUTANT__ = Stdlib.Sys.getenv_opt "MUTAML_MUTANT"
   let __is_mutaml_mutant__ m =
@@ -99,7 +99,7 @@ On a let binding
   Running mutaml instrumentation on "test.ml"
   Randomness seed: 896745231   Mutation rate: 100   GADTs enabled: true
   Created 3 mutations of test.ml
-  Skipped 1 site in test.ml
+  Skipped 1 place in test.ml
   Writing mutation info to test.muts
   let __MUTAML_MUTANT__ = Stdlib.Sys.getenv_opt "MUTAML_MUTANT"
   let __is_mutaml_mutant__ m =
@@ -142,7 +142,7 @@ On a structure item
   Running mutaml instrumentation on "test.ml"
   Randomness seed: 896745231   Mutation rate: 100   GADTs enabled: true
   Created 1 mutation of test.ml
-  Skipped 1 site in test.ml
+  Skipped 1 place in test.ml
   Writing mutation info to test.muts
   let __MUTAML_MUTANT__ = Stdlib.Sys.getenv_opt "MUTAML_MUTANT"
   let __is_mutaml_mutant__ m =
@@ -174,7 +174,7 @@ takes nothing away:
   Running mutaml instrumentation on "test.ml"
   Randomness seed: 896745231   Mutation rate: 100   GADTs enabled: true
   Created 0 mutations of test.ml
-  Skipped 1 site in test.ml
+  Skipped 1 place in test.ml
   Writing mutation info to test.muts
   let __MUTAML_MUTANT__ = Stdlib.Sys.getenv_opt "MUTAML_MUTANT"
   let __is_mutaml_mutant__ m =
@@ -203,7 +203,7 @@ one place and not two:
   Running mutaml instrumentation on "test.ml"
   Randomness seed: 896745231   Mutation rate: 100   GADTs enabled: true
   Created 1 mutation of test.ml
-  Skipped 1 site in test.ml
+  Skipped 1 place in test.ml
   Writing mutation info to test.muts
   let __MUTAML_MUTANT__ = Stdlib.Sys.getenv_opt "MUTAML_MUTANT"
   let __is_mutaml_mutant__ m =

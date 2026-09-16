@@ -46,7 +46,7 @@ let add_preamble structure input_name =
   [%stri let __is_mutaml_mutant__ m = match __MUTAML_MUTANT__ with None -> false | Some mutant -> String.equal m mutant]::
   structure
 
-(** Write the mutations and the skipped sites of a file 'src/lib.ml' to
+(** Write the mutations and the skipped places of a file 'src/lib.ml' to
     a 'src/lib.muts', and add that name to the list of .muts files that
     the runner reads. Mutaml_side_files chooses the directory both go
     in. [mutations] and [skipped] are in the order the walk made them,
@@ -440,8 +440,8 @@ class mutate_mapper (initial_rs : RS.t) =
   object (self)
   inherit Ppxlib.Ast_traverse.map_with_expansion_context_and_errors as super
 
-  (* The walk of a skipped site puts this state back as it was, so that
-     a skipped site moves no name and no number of any other mutation of
+  (* The walk of a skipped place puts this state back as it was, so that
+     a skipped place moves no name and no number of any other mutation of
      the file. Every part of it is therefore mutable. *)
   val mutable rs            = initial_rs
 
@@ -449,8 +449,8 @@ class mutate_mapper (initial_rs : RS.t) =
   val mutable mutations     = []
   val mutable tmp_var_count = 0
 
-  (* The sites that [[@mutaml.skip "reason"]] took out of the run,
-     newest first. The walk makes no mutation inside such a site. *)
+  (* The places that [[@mutaml.skip "reason"]] took out of the run,
+     newest first. The walk makes no mutation inside such a place. *)
   val mutable skipped       = []
 
   (* The top-level binding the walk is inside, and the modules around
@@ -463,7 +463,7 @@ class mutate_mapper (initial_rs : RS.t) =
 
   (* How many mutations of this file already agree with a given
      binding, kind, original text and replacement text. The count is
-     the ordinal of the next such mutation. A skipped site of the file
+     the ordinal of the next such mutation. A skipped place of the file
      counts here too: its key holds the word "skip" where the key of a
      mutation holds the name of an operator, and no operator is named
      "skip", so the two kinds of key never meet. *)
@@ -589,12 +589,12 @@ class mutate_mapper (initial_rs : RS.t) =
      mutations that [walk] made, in the order it made them. It then puts
      the state of the walk back as it was: the mutation count, the
      mutations, the temporary-variable count, the ordinal table, the
-     name table, the skipped sites, and the random state. So the
+     name table, the skipped places, and the random state. So the
      mutations that [walk] made are gone, and the walk that follows
      gives every other mutation of the file the name and the number it
      would have had.
 
-     A skipped site inside [walk] stays skipped, and the mutations that
+     A skipped place inside [walk] stays skipped, and the mutations that
      it holds are therefore not counted here either. That is the
      answer we want: those mutations would not have been made in any
      case. *)
@@ -631,11 +631,11 @@ class mutate_mapper (initial_rs : RS.t) =
                mutations) in
     List.rev_map (fun m -> m.Mutaml_common.kind) !made
 
-  (* [self#record_skipped ~reason ~kinds ~span] writes down one site
+  (* [self#record_skipped ~reason ~kinds ~span] writes down one place
      that [[@mutaml.skip]] took out of the run. [span] covers the text
-     of the source file that the site holds, [reason] is the text of the
+     of the source file that the place holds, [reason] is the text of the
      attribute, and [kinds] holds the operators that the walk would have
-     used inside the site. *)
+     used inside the place. *)
   method record_skipped ~reason ~kinds ~span =
     let binding = self#current_binding in
     let original = self#span_text span in
@@ -1277,7 +1277,7 @@ class mutate_mapper (initial_rs : RS.t) =
     let skip_count = List.length skipped in
     if skip_count > 0
     then
-      Printf.printf "Skipped %i site%s in %s\n%!" skip_count
+      Printf.printf "Skipped %i place%s in %s\n%!" skip_count
         (if skip_count=1 then "" else "s") input_name;
 
     let () = write_muts_file input_name ~mutations ~skipped in

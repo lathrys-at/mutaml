@@ -61,7 +61,7 @@ Check that a value of --fail-under that is not a number is rejected:
 
 Create a report file that holds no test results:
   $ cat > empty-report.json <<'EOF'
-  > []
+  > { "results" : [] }
   > EOF
 
 Now confirm that the report tool gives no score for it:
@@ -72,12 +72,13 @@ Now confirm that the report tool gives no score for it:
 
 Create a report file that holds one test result:
   $ cat > one-result.json <<'EOF'
+  > { "results" :
   > [ { "status" : 0,
   >     "mutant" : { "number" : 0, "binding" : "f", "kind" : "arith-operator",
   >                  "original" : "+", "ordinal" : 0, "repl" : "-",
   >                  "loc" : { "loc_start" : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 12 },
   >                            "loc_end"   : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 13 },
-  >                            "loc_ghost" : false } } } ]
+  >                            "loc_ghost" : false } } } ] }
   > EOF
 
 Check that the report tool says so when it cannot write the Markdown
@@ -139,20 +140,38 @@ place the mutation sits in is outside the file:
   Mutation "lib.ml-mutant0" passed (see "_mutations/lib.ml-mutant0.output"), and the source file lib.ml is not as it was when the tests ran
   Mutation score: 0.0% (1 mutations: 0 failed, 0 timed out, 1 passed)
 
-Create a report file of the shape that an older mutaml wrote, in which
-a test result holds no operator, no binding, no original text and no
-ordinal:
+Create a report file of the shape that a mutaml before the attribute
+[@mutaml.skip] wrote: a JSON list, and not an object that holds the
+results and the skipped places:
+  $ cat > list-shape.json <<'EOF'
+  > [ { "status" : 0,
+  >     "mutant" : { "number" : 0, "binding" : "f", "kind" : "arith-operator",
+  >                  "original" : "+", "ordinal" : 0, "repl" : "-",
+  >                  "loc" : { "loc_start" : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 12 },
+  >                            "loc_end"   : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 13 },
+  >                            "loc_ghost" : false } } } ]
+  > EOF
+
+Check that the report tool tells the person to run the runner again:
+  $ mutaml-report list-shape.json
+  Attempting to read from list-shape.json...
+  Could not parse JSON in list-shape.json: it does not hold the fields that this release of mutaml reads. A report file that an older mutaml wrote needs a new run of mutaml-runner
+  [1]
+
+Create a report file in which a test result holds no operator, no
+binding, no original text and no ordinal:
   $ cat > old-shape.json <<'EOF'
+  > { "results" :
   > [ { "status" : 0,
   >     "mutant" : { "number" : 0, "repl" : "-",
   >                  "loc" : { "loc_start" : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 12 },
   >                            "loc_end"   : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 13 },
-  >                            "loc_ghost" : false } } } ]
+  >                            "loc_ghost" : false } } } ] }
   > EOF
 
 Check that the report tool says what is wrong with it, and not that the
 file is not JSON:
   $ mutaml-report old-shape.json
   Attempting to read from old-shape.json...
-  Could not parse JSON in old-shape.json: a test result does not hold the fields that this release of mutaml reads. A report file that an older mutaml wrote needs a new run of mutaml-runner
+  Could not parse JSON in old-shape.json: it does not hold the fields that this release of mutaml reads. A report file that an older mutaml wrote needs a new run of mutaml-runner
   [1]

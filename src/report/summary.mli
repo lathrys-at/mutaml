@@ -1,8 +1,10 @@
 (** The counts that a report of a run needs.
 
-    A run of [mutaml-runner] gives one test result for each mutant.
-    This module groups those results in two ways: by the outcome of the
-    test process, and by the source file that the mutant belongs to. *)
+    A run of [mutaml-runner] gives one test result for each mutant, and
+    one record for each place that [[@mutaml.skip "reason"]] took out of
+    the run. This module groups the results in two ways, by the outcome
+    of the test process and by the source file that the mutant belongs
+    to, and it groups the skipped places by source file. *)
 
 open Mutaml_common
 
@@ -44,4 +46,14 @@ val by_file : test_result list -> (string * test_result list) list
 
     The name of the source file of a result is the file of the start of
     the mutant's location, which is the name that the preprocessor
+    recorded. *)
+
+val skipped_by_file : skipped list -> (string * skipped list) list
+(** [skipped_by_file skipped] pairs the name of each source file that
+    [skipped] names with the skipped places of that file. The files come
+    in the order of [String.compare]. Inside a pair the places keep the
+    order they have in [skipped].
+
+    The name of the source file of a place is the file of the start of
+    the place's location, which is the name that the preprocessor
     recorded. *)

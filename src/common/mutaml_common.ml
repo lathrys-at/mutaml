@@ -335,24 +335,24 @@ let mutant_name (m : mutant) = Printf.sprintf "%s:%i" (mutant_key m) m.ordinal
 
 (** One place in a source file that [[@mutaml.skip "reason"]] took out
     of the mutation run. The preprocessor makes no mutation there, so a
-    skipped site is not a mutation and never reaches a test run. The
+    skipped place is not a mutation and never reaches a test run. The
     reports name it, with its reason, and leave it out of the score.
 
-    [binding] is the top-level binding that holds the site, in the same
+    [binding] is the top-level binding that holds the place, in the same
     form as the [binding] of a mutation.
 
     [reason] is the text that the attribute carries. The preprocessor
     refuses an attribute that carries none, so this is never empty.
 
-    [original] is the text of the source file that the site covers, as
+    [original] is the text of the source file that the place covers, as
     the file writes it.
 
-    [ordinal] counts, from 0, the skipped sites of the file whose
-    [skip_key] is this one's, so that two sites of a file never take one
+    [ordinal] counts, from 0, the skipped places of the file whose
+    [skip_key] is this one's, so that two places of a file never take one
     [skip_name].
 
     [kinds] holds the mutation operators that the preprocessor would
-    have used inside the site, in the order it would have used them. It
+    have used inside the place, in the order it would have used them. It
     is empty when the preprocessor would have made no mutation there,
     which says that the attribute takes nothing away.
 
@@ -377,7 +377,7 @@ let skip_digest (s : skipped) =
   let reason = field (squeeze s.reason) in
   String.sub (Digest.to_hex (Digest.string (original ^ reason))) 0 8
 
-(** [skip_key s] is the name of the skipped site [s] without its
+(** [skip_key s] is the name of the skipped place [s] without its
     ordinal: the source file, the top-level binding, the word "skip",
     and the digest, each made safe and joined with ":". It does not read
     [s.ordinal], so the preprocessor can build it before it knows the
@@ -388,26 +388,36 @@ let skip_key (s : skipped) =
     (safe s.binding)
     (skip_digest s)
 
-(** [skip_name s] is the name of the skipped site [s]. It holds the
+(** [skip_name s] is the name of the skipped place [s]. It holds the
     same five fields as {!mutant_name}, with the word "skip" where the
     name of the mutation operator stands:
 
       src/lib.ml:classify:skip:a3f9c1d4:0
 
-    A skipped site never runs, so no environment variable ever carries
-    this name. It is there so that a report can name one site of a file
+    A skipped place never runs, so no environment variable ever carries
+    this name. It is there so that a report can name one place of a file
     among several, and so that two reports of one program name the same
-    site alike. Like {!mutant_name}, it does not hold the line or the
+    place alike. Like {!mutant_name}, it does not hold the line or the
     column, so it does not change when the file gains or loses lines
-    above the site. *)
+    above the place. *)
 let skip_name (s : skipped) = Printf.sprintf "%s:%i" (skip_key s) s.ordinal
 
+(** [skip_operators s] is the sentence that a report prints for the
+    mutation operators that the attribute takes out of the place [s].
+    It ends with a full stop and holds no newline. *)
+let skip_operators (s : skipped) = match s.kinds with
+  | []    -> "The attribute takes no operator out of this place."
+  | kinds ->
+    Printf.sprintf
+      "The attribute takes these operators out of this place: %s."
+      (String.concat ", " (List.map kind_name kinds))
+
 (** What the preprocessor writes in the [.muts] file of one source
-    file: every mutation it made there, and every site that
+    file: every mutation it made there, and every place that
     [[@mutaml.skip "reason"]] took out.
 
     The file holds a JSON object with these two fields. A file whose
-    [skipped] field is absent reads as a file with no skipped site, so
+    [skipped] field is absent reads as a file with no skipped place, so
     a [.muts] file that another writer made still reads. A [.muts] file
     of a release before the skip attribute holds a JSON list and not an
     object, and does not read: build the program again. *)
@@ -431,12 +441,12 @@ type test_result =
   } [@@deriving yojson { exn = true }]
 
 (** What the runner writes in its report file, and what the report tool
-    reads from it: the result of every test run, and every site that
+    reads from it: the result of every test run, and every place that
     [[@mutaml.skip "reason"]] took out, gathered from the [.muts] files
     of the run.
 
     The file holds a JSON object with these two fields. A file whose
-    [skipped] field is absent reads as a run with no skipped site. A
+    [skipped] field is absent reads as a run with no skipped place. A
     report file of a release before the skip attribute holds a JSON
     list and not an object, and does not read: run the runner again. *)
 type report =
