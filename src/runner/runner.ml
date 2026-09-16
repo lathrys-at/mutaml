@@ -115,30 +115,23 @@ struct
           "<seconds> Stop a test run that takes longer than <seconds>. Without this option the limit is %i times the run without a mutant, and never less than %i seconds"
           timeout_multiple timeout_floor);
        ("--test-env",      Arg.String add_test_env,
-        "<NAME=VALUE> Set NAME to VALUE in every test process. Repeatable");
+        "<NAME=VALUE> Set NAME to VALUE in every test process. In the value, {} becomes the number of the run: 1 and 2 for the two runs without a mutation, and the number of the run for a mutation. Repeatable");
        ("--baseline-env",  Arg.String add_baseline_env,
-        "<NAME=VALUE> Run the test suite a second time without a mutation, with NAME set to VALUE. Repeatable");
+        "<NAME=VALUE> Run the test suite a second time without a mutation, with NAME set to VALUE on top of what --test-env sets. Needed only for a value that is not the number of the run. Repeatable");
        ("-j",              Arg.String set_jobs,
         "<count> Test <count> mutations at one time. The default is 1");
        ("--repeat",        Arg.String set_repeat,
-        "<count> Run the test command for one mutation until a run kills it, up to <count> runs. In the value of a --test-env, {} becomes the number of the run")]
+        "<count> Run the test command for one mutation until a run kills it, up to <count> runs, each with a different {} in the values of --test-env")]
 end
 
+(* Makes a directory that the runner needs, and stops the program with
+   a message when it cannot. [Dir.ensure] does the work; the message is
+   the runner's own. *)
 let ensure_output_dir dir_name =
-  if 0 <> Sys.command ("mkdir -p " ^ dir_name)
-  then fail_and_exit (Printf.sprintf "Failed to create directory %s" dir_name)
-(* Sys.mkdir is a 4.12 addition. Use a crude Sys.command for backwards compat. for now *)
-(*
-let rec ensure_output_dir dir_name =
-  try (* base case: directory exists *)
-    if not (Sys.is_directory dir_name)
-    then fail_and_exit (Printf.sprintf "Expected directory %s is not a directory" dir_name)
-  with Sys_error _ ->
-    (* rec.case: ensure parent directory exists *)
-    let par_name = Filename.dirname dir_name in
-    ensure_output_dir par_name;
-    Sys.mkdir dir_name 0o755
-*)
+  match Dir.ensure dir_name with
+  | () -> ()
+  | exception Sys_error msg ->
+    fail_and_exit (Printf.sprintf "Failed to make the directory %s - %s" dir_name msg)
 
 let read_instrumentation_overview ppx_output_prefix file_name =
   let rec read_loop ch acc =
@@ -272,35 +265,48 @@ let override base extra =
 let baseline_output_file number =
   full_path (Printf.sprintf "baseline-%i.output" number)
 
-(* Runs the test suite without a mutant. It runs a second time when
-   [baseline_env] holds an assignment, with those assignments on top of
-   [test_env]. Stops the program when a run fails, and when the two runs
-   disagree: a score has no meaning in either case. Returns the seconds
-   that the longer run took, which is the measurement that the limit of
-   a mutant run comes from. *)
+(* [baseline_run_env test_env baseline_env number] is the environment of
+   the run without a mutant that has the number [number]. The first run
+   has the variables of [test_env] and the second run has those of
+   [baseline_env] on top of them. The number of the run replaces every
+   "{}" in a value, so one --test-env option can give the two runs two
+   seeds. *)
+let baseline_run_env test_env baseline_env number =
+  Run_env.expand ~run:number
+    (if number = 1 then test_env else override test_env baseline_env)
+
+(* Runs the test suite without a mutant. It runs a second time when the
+   second run would not be the first run over again, which is when
+   [baseline_env] changes a value or when a value holds "{}": two runs
+   of one environment find nothing that one run does not find. Stops the
+   program when a run fails, and when the two runs disagree: a score has
+   no meaning in either case. Returns the seconds that the longer run
+   took, which is the measurement that the limit of a mutant run comes
+   from. *)
 let run_baseline test_cmd ~test_env ~baseline_env ~limit =
-  let run number env =
+  let env_of = baseline_run_env test_env baseline_env in
+  let run number =
     let output_file = baseline_output_file number in
     let () =
       if number = 1
       then Printf.printf "Testing without a mutant ... %!"
       else Printf.printf "Testing without a mutant a second time ... %!" in
     let run =
-      run_test_command test_cmd ~test_env:(Run_env.expand ~run:1 env) ~limit
+      run_test_command test_cmd ~test_env:(env_of number) ~limit
         ~mut_id:"" ~output_file in
     let () = Printf.printf "%s\n%!" (status_word run.Test_process.status) in
     run in
-  let first = run 1 test_env in
+  let first = run 1 in
   if first.Test_process.status <> 0
   then
     fail_and_exit
       (Printf.sprintf
          "The test suite did not pass without a mutant. Its exit status was %i.\nThe output of the run is in %s.\nEvery mutant would look killed, so mutaml-runner stops here."
          first.Test_process.status (baseline_output_file 1));
-  if baseline_env = []
+  if env_of 2 = env_of 1
   then first.Test_process.duration
   else
-    let second = run 2 (override test_env baseline_env) in
+    let second = run 2 in
     if second.Test_process.status <> 0
     then
       fail_and_exit

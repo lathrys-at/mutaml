@@ -424,18 +424,28 @@ The other options of `mutaml-runner` are:
   `--test-env QCHECK_SEED=1234`, so that the whole run repeats exactly.
   `mutaml-runner` writes the variables it set beside every result in
   `mutaml-report.json`, so the result of a killed mutation names the
-  environment that killed it.
+  environment that killed it. In a value, the two characters `{}`
+  become the number of the run: 1 and 2 for the two runs without a
+  mutation, and the number of the run for a mutation, as `--repeat`
+  below describes.
 
 - `--baseline-env NAME=VALUE` - run the test suite a second time with no
   mutation, with `NAME` set to `VALUE` on top of what `--test-env` sets.
-  Repeat the option for each variable you want to change. Use it to run
-  the second time with another seed, for example `--test-env
-  QCHECK_SEED=1 --baseline-env QCHECK_SEED=2`. A test suite that passes
-  under one seed and fails under another does not give a mutation score
-  any meaning, and this is how to find that out before the run. Give
-  `--baseline-env` a value of its own, and not the two characters `{}`:
-  a run without a mutation is run number 1, so `{}` gives 1 in both
-  runs, and the two runs would be the same run twice.
+  Repeat the option for each variable you want to change. A test suite
+  that passes under one seed and fails under another does not give a
+  mutation score any meaning, and the second run is how to find that
+  out before the mutations run.
+
+  You need this option only for a value that is not the number of the
+  run. `--test-env QCHECK_SEED={}` alone already asks for the second
+  run and gives the two runs the seeds 1 and 2. Use `--baseline-env`
+  for a value of another shape, for example `--test-env
+  QCHECK_SEED=1234 --baseline-env QCHECK_SEED=9999`.
+
+  `mutaml-runner` runs the test suite a second time without a mutation
+  when the second run would not be the first run over again: when
+  `--baseline-env` changes a value, or when a value holds `{}`. Two
+  runs of one environment find nothing that one run does not find.
 
 - `-j count` - the number of mutations to test at one time. The default
   is 1. The environment variable `MUTAML_JOBS` sets the same number, and
@@ -456,19 +466,20 @@ The other options of `mutaml-runner` are:
   run was given. Use `--repeat` with a variable value that holds the two
   characters `{}`: `mutaml-runner` replaces `{}` by the number of the
   run, counted from 1. So `--repeat 3 --test-env QCHECK_SEED={}` gives
-  one mutation the seeds 1, 2 and 3, and the run with no mutation the
-  seed 1. Use it for a test suite that draws random values, where one
-  seed can miss a mutation that another seed catches. A surviving
-  mutation then costs `count` test suite runs instead of one. A killed
-  mutation usually still costs one, because most mutations die under the
-  first seed.
+  one mutation the seeds 1, 2 and 3, and the two runs without a
+  mutation the seeds 1 and 2. Use it for a test suite that draws random
+  values, where one seed can miss a mutation that another seed catches.
+  A surviving mutation then costs `count` test suite runs instead of
+  one. A killed mutation usually still costs one, because most
+  mutations die under the first seed.
 
 `mutaml-runner` runs the test command with no mutation before it tests
-any mutation, and again a second time when `--baseline-env` is given. It
-stops with an error when a run fails, because every mutation would then
-look killed, and when the two runs do not agree. It writes the output of
-the runs to `_mutations/baseline-1.output` and, when there is a second
-run, `_mutations/baseline-2.output`.
+any mutation, and again a second time when the second run would differ
+from the first, as `--baseline-env` above describes. It stops with an
+error when a run fails, because every mutation would then look killed,
+and when the two runs do not agree. It writes the output of the runs to
+`_mutations/baseline-1.output` and, when there is a second run,
+`_mutations/baseline-2.output`.
 
 `mutaml-runner` skips a `lib.muts` file whose source file `lib.ml` is
 not in the project, and says on one line that it did. `dune` runs the

@@ -101,6 +101,16 @@ ordinal, names the file and says what to do:
 Put the mutation file of this release back:
   $ cp new-shape.muts _build/.mutaml/default/somefile.muts
 
+The runner writes the output of every test run under _mutations. When it
+cannot make that directory, it names the directory and says why. Here a
+file of that name is in the way:
+  $ touch _mutations
+  $ mutaml-runner true
+  read mut file somefile.muts
+  Failed to make the directory _mutations - _mutations is there and is not a directory
+  [1]
+  $ rm _mutations
+
 Now try running again with a broken command:
   $ mutaml-runner scooby-doo.sh
   read mut file somefile.muts

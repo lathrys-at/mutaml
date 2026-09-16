@@ -19,20 +19,6 @@ let jobs_conflict ~cmd ~jobs =
        dune locks the build directory, so a second dune cannot run at the same time.\n\
        Give the path of the test executable to run more tests at a time, for example _build/default/test/mytests.exe."
 
-(* [ensure_dir path] makes the directory [path] and every directory
-   above it that is not there yet. It raises [Sys_error] when a name on
-   the path is there and is not a directory. *)
-let rec ensure_dir path =
-  if not (Sys.file_exists path)
-  then begin
-    let parent = Filename.dirname path in
-    if parent <> path then ensure_dir parent;
-    try Sys.mkdir path 0o755 with
-    | Sys_error _ when Sys.file_exists path && Sys.is_directory path -> ()
-  end
-  else if not (Sys.is_directory path)
-  then raise (Sys_error (path ^ " is not a directory"))
-
 (* [remove_tree path] removes [path] and everything under it. It removes
    a symbolic link itself and does not follow it. It passes over a name
    that it cannot remove. *)
@@ -92,7 +78,7 @@ let run ~cmd ~test_env ~jobs ~repeat ~limit mutants =
       List.iter
         (fun slot ->
            let dir = worker_tmp_dir slot in
-           match ensure_dir dir with
+           match Dir.ensure dir with
            | () -> ()
            | exception Sys_error msg -> fail_dir dir msg)
         slots in
@@ -119,7 +105,7 @@ let run ~cmd ~test_env ~jobs ~repeat ~limit mutants =
       @ (if jobs > 1 then [("TMPDIR", worker_tmp_dir slot)] else []) in
     let output_file = output_file_name mutant.loc.loc_start.pos_fname mutant.number in
     let dir = Filename.dirname output_file in
-    let () = match ensure_dir dir with
+    let () = match Dir.ensure dir with
       | () -> ()
       | exception Sys_error msg -> fail_dir dir msg in
     let () =

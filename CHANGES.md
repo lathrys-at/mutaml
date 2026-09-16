@@ -102,6 +102,17 @@ Next release
   The text is now the same on every machine, the package no longer
   depends on `conf-diffutils`, and the environment variable
   `MUTAML_DIFF_COMMAND` is gone
+- Give the two runs without a mutation the numbers 1 and 2, so that a
+  value of `--test-env` that holds `{}` gives them two seeds. The
+  runner tests without a mutation a second time when the second run
+  would not be the first run over again, which is when `--baseline-env`
+  changes a value or when a value holds `{}`. `--baseline-env` is now
+  needed only for a value that is not the number of the run
+- Make every directory that `mutaml-runner` needs in one function, with
+  `Sys.mkdir`, in place of a call to the shell command `mkdir -p` and a
+  second copy of the same work. The runner no longer needs a shell to
+  make a directory, and it names the directory and the reason when it
+  cannot make one
 - List every mutation operator in the README, with its default and
   what it cannot see
 - Use dune.3.18 support to generate `x-maintenance-intent` entry
