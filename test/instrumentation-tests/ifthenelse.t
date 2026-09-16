@@ -54,6 +54,7 @@ Example with a simple if-then-else:
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
   Testing without a mutant ... passed
+  The limit of a test run is 5 times the run without a mutant, and never less than 10 seconds.
   Testing mutant test.ml:test:if-condition:e8e7a668:0 ... passed
   Testing mutant test.ml:toplevel:bool-constant:5bf88c8b:0 ... passed
   Testing mutant test.ml:toplevel:bool-constant:c7a6885d:0 ... passed
@@ -212,6 +213,7 @@ An example with nested ifs:
   $ mutaml-runner _build/default/test.bc
   read mut file test.muts
   Testing without a mutant ... passed
+  The limit of a test run is 5 times the run without a mutant, and never less than 10 seconds.
   Testing mutant test.ml:test:int-constant:92be9951:0 ... passed
   Testing mutant test.ml:test:compare-boundary:8dce48d9:0 ... passed
   Testing mutant test.ml:test:int-constant:92be9951:1 ... passed

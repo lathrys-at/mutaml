@@ -63,6 +63,7 @@ Set seed and (full) mutation rate as environment variables, for repeatability
   $ mutaml-runner _build/default/ounittest.exe
   read mut file lib.muts
   Testing without a mutant ... passed
+  The limit of a test run is 5 times the run without a mutant, and never less than 10 seconds.
   Testing mutant lib.ml:fac:int-constant:50c5a5ff:0 ... failed
   Testing mutant lib.ml:fac:arith-identity:8e7062aa:0 ... failed
   Testing mutant lib.ml:fac:arith-operator:4f1e5b0c:0 ... failed
@@ -149,6 +150,7 @@ Restarting runner should give the same output:
   $ mutaml-runner _build/default/ounittest.exe
   read mut file lib.muts
   Testing without a mutant ... passed
+  The limit of a test run is 5 times the run without a mutant, and never less than 10 seconds.
   Testing mutant lib.ml:fac:int-constant:50c5a5ff:0 ... failed
   Testing mutant lib.ml:fac:arith-identity:8e7062aa:0 ... failed
   Testing mutant lib.ml:fac:arith-operator:4f1e5b0c:0 ... failed
@@ -170,6 +172,7 @@ Restarting runner should give the same output:
   $ mutaml-runner _build/default/ounittest.exe
   read mut file lib.muts
   Testing without a mutant ... passed
+  The limit of a test run is 5 times the run without a mutant, and never less than 10 seconds.
   Testing mutant lib.ml:fac:int-constant:50c5a5ff:0 ... failed
   Testing mutant lib.ml:fac:arith-identity:8e7062aa:0 ... failed
   Testing mutant lib.ml:fac:arith-operator:4f1e5b0c:0 ... failed
@@ -632,6 +635,7 @@ Create a dune-workspace file with another build context:
   $ mutaml-runner _build/mutation/ounittest.exe
   read mut file lib.muts
   Testing without a mutant ... passed
+  The limit of a test run is 5 times the run without a mutant, and never less than 10 seconds.
   Testing mutant lib.ml:fac:int-constant:50c5a5ff:0 ... failed
   Testing mutant lib.ml:fac:arith-identity:8e7062aa:0 ... failed
   Testing mutant lib.ml:fac:arith-operator:4f1e5b0c:0 ... failed
@@ -712,6 +716,7 @@ Similar, but by passing a command line option:
   $ mutaml-runner --build-context "_build/mutation" _build/mutation/ounittest.exe
   read mut file lib.muts
   Testing without a mutant ... passed
+  The limit of a test run is 5 times the run without a mutant, and never less than 10 seconds.
   Testing mutant lib.ml:fac:int-constant:50c5a5ff:0 ... failed
   Testing mutant lib.ml:fac:arith-identity:8e7062aa:0 ... failed
   Testing mutant lib.ml:fac:arith-operator:4f1e5b0c:0 ... failed
@@ -794,6 +799,7 @@ Similar, but by passing a command line option:
   $ mutaml-runner --build-context "_build/mutation" _build/mutation/ounittest.exe
   read mut file lib.muts
   Testing without a mutant ... passed
+  The limit of a test run is 5 times the run without a mutant, and never less than 10 seconds.
   Testing mutant lib.ml:fac:int-constant:50c5a5ff:0 ... failed
   Testing mutant lib.ml:fac:arith-identity:8e7062aa:0 ... failed
   Testing mutant lib.ml:fac:arith-operator:4f1e5b0c:0 ... failed

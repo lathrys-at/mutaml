@@ -1,7 +1,15 @@
 (* driver for mutation testing *)
 
-let timeout_cmd     = "timeout"
-let default_timeout = 20
+(* The limit of one mutant run, when --timeout gives none: this many
+   times the run without a mutant, and never less than the floor. The
+   floor is a number of seconds. *)
+let timeout_multiple = 5
+let timeout_floor    = 10
+
+(* The limit of a run without a mutant, in seconds, when --timeout
+   gives none. The limit of a mutant run comes from that run, so that
+   run cannot take its limit from itself. *)
+let baseline_timeout = 300
 
 open Mutaml_common
 
@@ -41,6 +49,12 @@ struct
      [test_env]. Empty means that there is no second run. *)
   let baseline_env = ref []
 
+  (* Mutations to test at one time. [None] means the default. *)
+  let jobs = ref None
+
+  (* The greatest number of test runs that one mutation gets. *)
+  let repeat = ref 1
+
   let set_timeout_from source str = match int_of_string_opt str with
     | Some secs when secs > 0 -> timeout := Some secs
     | _ ->
@@ -49,6 +63,21 @@ struct
            "The value of %s must be a whole number of seconds above 0." source)
 
   let set_timeout str = set_timeout_from "--timeout" str
+
+  let set_jobs_from source str = match int_of_string_opt str with
+    | Some count when count > 0 -> jobs := Some count
+    | _ ->
+      fail_and_exit
+        (Printf.sprintf
+           "The value of %s must be a whole number of jobs above 0." source)
+
+  let set_jobs str = set_jobs_from "-j" str
+
+  let set_repeat str = match int_of_string_opt str with
+    | Some count when count > 0 -> repeat := count
+    | _ ->
+      fail_and_exit
+        "The value of --repeat must be a whole number of runs above 0."
 
   let rec all_chars_from ok str i =
     i >= String.length str || (ok str.[i] && all_chars_from ok str (i+1))
@@ -82,11 +111,17 @@ struct
       [("--muts",          Arg.Set_string muts_file, " Run mutations in the given muts-file");
        ("--build-context", Arg.Set_string build_ctx, " Specify the build context to read from");
        ("--timeout",       Arg.String set_timeout,
-        "<seconds> Stop a test run that takes longer than <seconds>");
+        Printf.sprintf
+          "<seconds> Stop a test run that takes longer than <seconds>. Without this option the limit is %i times the run without a mutant, and never less than %i seconds"
+          timeout_multiple timeout_floor);
        ("--test-env",      Arg.String add_test_env,
         "<NAME=VALUE> Set NAME to VALUE in every test process. Repeatable");
        ("--baseline-env",  Arg.String add_baseline_env,
-        "<NAME=VALUE> Run the test suite a second time without a mutation, with NAME set to VALUE. Repeatable")]
+        "<NAME=VALUE> Run the test suite a second time without a mutation, with NAME set to VALUE. Repeatable");
+       ("-j",              Arg.String set_jobs,
+        "<count> Test <count> mutations at one time. The default is 1");
+       ("--repeat",        Arg.String set_repeat,
+        "<count> Run the test command for one mutation until a run kills it, up to <count> runs. In the value of a --test-env, {} becomes the number of the run")]
 end
 
 let ensure_output_dir dir_name =
@@ -104,8 +139,6 @@ let rec ensure_output_dir dir_name =
     ensure_output_dir par_name;
     Sys.mkdir dir_name 0o755
 *)
-
-let test_results = ref []
 
 let read_instrumentation_overview ppx_output_prefix file_name =
   let rec read_loop ch acc =
@@ -186,72 +219,34 @@ let drop_absent_sources muts =
              false))
     muts
 
-let save_test_outcome ret test_env mut =
-  test_results := { status = ret; mutant = mut; test_env }::(!test_results)
-
-let write_report_file file_name =
+let write_report_file file_name results =
   Printf.printf "Writing report data to %s\n" file_name;
   let ch = open_out file_name in
-  let ys = !test_results |> List.rev |> List.map test_result_to_yojson in
-  let () = Yojson.Safe.to_channel ch (`List ys) in
-  let () = close_out ch in
-  ()
+  Fun.protect ~finally:(fun () -> close_out_noerr ch)
+    (fun () ->
+       Yojson.Safe.to_channel ch (`List (List.map test_result_to_yojson results)))
 
 
 (** The actual test runner *)
 
-(* The shell assignments that set the fixed variables of a test process. *)
-let env_prefix test_env =
-  String.concat ""
-    (List.map
-       (fun (name,value) -> Printf.sprintf "%s=%s " name (Filename.quote value))
-       test_env)
-
 (* Runs [test_cmd] once, with [mut_id] in MUTAML_MUTANT and with [test_env]
    set, and with its output in [output_file]. The empty [mut_id] runs the
-   program without a mutant. Returns the exit status of the test process.
-
-   The command runs inside a brace group, so that the redirection also
-   takes the line the shell itself prints when the test process dies by
-   a signal ("Segmentation fault: 11" on macOS). That line then goes into
-   [output_file] with the rest of the run, and not into the runner's
-   own output. *)
-let run_test_command test_cmd ~test_env ~timeout ~mut_id ~output_file =
+   program without a mutant. Returns the run, which holds the exit status
+   of the test process and the seconds the run took. [limit] is the
+   seconds that the run may take. *)
+let run_test_command test_cmd ~test_env ~limit ~mut_id ~output_file =
   ensure_output_dir (Filename.dirname output_file);
-  let env_test_cmd =
-    Printf.sprintf "{ %sMUTAML_MUTANT=%s %s %i %s; } > %s 2>&1"
-      (env_prefix test_env) (Filename.quote mut_id) timeout_cmd timeout
-      test_cmd output_file in
-  let ret = Sys.command env_test_cmd in (*tests can both succeed and err*)
-  match ret with
+  let env = test_env @ [("MUTAML_MUTANT", mut_id)] in
+  let run =
+    Test_process.wait
+      (Test_process.start ~cmd:test_cmd ~env ~output_file
+         ~limit:(float_of_int limit)) in
+  (*tests can both succeed and err*)
+  match run.Test_process.status with
   | 127 -> fail_and_exit (Printf.sprintf "Command not found: failed to run the test command \"%s\"" test_cmd)
-  | _   -> ret
+  | _   -> run
 
 let status_word status = outcome_word (outcome_of_status status)
-
-let run_single_test test_cmd ~test_env ~timeout mut =
-  let file_name = mut.loc.loc_start.pos_fname in
-  (* The preprocessor wrote this same name into the program it
-     instrumented, through this same function, so the two agree. *)
-  let mut_id = mutant_name mut in
-  let output_file = output_file_name file_name mut.number in
-  let () = Printf.printf "Testing mutant %s ... %!" mut_id in
-  let ret = run_test_command test_cmd ~test_env ~timeout ~mut_id ~output_file in
-  let () = Printf.printf "%s\n%!" (status_word ret) in
-  ret
-
-let rec run_module_mutation_tests test_cmd ~test_env ~timeout mutants = match mutants with
-  | [] -> ()
-  | mut::muts ->
-    let ret = run_single_test test_cmd ~test_env ~timeout mut in
-    save_test_outcome ret test_env mut;
-    run_module_mutation_tests test_cmd ~test_env ~timeout muts
-
-let rec run_all_mutation_tests test_cmd ~test_env ~timeout muts = match muts with
-  | [] -> ()
-  | (_file_name, mutations)::muts' ->
-    run_module_mutation_tests test_cmd ~test_env ~timeout mutations;
-    run_all_mutation_tests test_cmd ~test_env ~timeout muts'
 
 
 (** The baseline run: the test suite without a mutant *)
@@ -274,70 +269,112 @@ let baseline_output_file number =
 (* Runs the test suite without a mutant. It runs a second time when
    [baseline_env] holds an assignment, with those assignments on top of
    [test_env]. Stops the program when a run fails, and when the two runs
-   disagree: a score has no meaning in either case. *)
-let run_baseline test_cmd ~test_env ~baseline_env ~timeout =
+   disagree: a score has no meaning in either case. Returns the seconds
+   that the longer run took, which is the measurement that the limit of
+   a mutant run comes from. *)
+let run_baseline test_cmd ~test_env ~baseline_env ~limit =
   let run number env =
     let output_file = baseline_output_file number in
     let () =
       if number = 1
       then Printf.printf "Testing without a mutant ... %!"
       else Printf.printf "Testing without a mutant a second time ... %!" in
-    let ret = run_test_command test_cmd ~test_env:env ~timeout ~mut_id:"" ~output_file in
-    let () = Printf.printf "%s\n%!" (status_word ret) in
-    ret in
+    let run =
+      run_test_command test_cmd ~test_env:(Run_env.expand ~run:1 env) ~limit
+        ~mut_id:"" ~output_file in
+    let () = Printf.printf "%s\n%!" (status_word run.Test_process.status) in
+    run in
   let first = run 1 test_env in
-  if first <> 0
+  if first.Test_process.status <> 0
   then
     fail_and_exit
       (Printf.sprintf
          "The test suite did not pass without a mutant. Its exit status was %i.\nThe output of the run is in %s.\nEvery mutant would look killed, so mutaml-runner stops here."
-         first (baseline_output_file 1));
-  if baseline_env <> []
-  then
+         first.Test_process.status (baseline_output_file 1));
+  if baseline_env = []
+  then first.Test_process.duration
+  else
     let second = run 2 (override test_env baseline_env) in
-    if second <> 0
+    if second.Test_process.status <> 0
     then
       fail_and_exit
         (Printf.sprintf
            "The test suite ran twice without a mutant. It passed in one run and not in the other.\nThe output of the two runs is in %s and %s.\nThe test suite does not give the same result every time, so a mutation score would have no meaning."
            (baseline_output_file 1) (baseline_output_file 2))
+    else Float.max first.Test_process.duration second.Test_process.duration
+
+(* [mutant_limit given measured] is the seconds that one mutant run may
+   take. [given] is the value of --timeout, and [measured] is the
+   seconds that the run without a mutant took. *)
+let mutant_limit given measured = match given with
+  | Some seconds -> seconds
+  | None ->
+    let derived = int_of_float (Float.ceil (float_of_int timeout_multiple *. measured)) in
+    max timeout_floor derived
+
+let seconds count =
+  if count = 1 then "1 second" else Printf.sprintf "%i seconds" count
+
+(* The line names the rule and not the limit it gives, because the
+   measurement of the run without a mutant, and with it the limit,
+   differs from one machine and one moment to the next. *)
+let print_limit given limit = match given with
+  | Some _ -> Printf.printf "The limit of a test run is %s.\n%!" (seconds limit)
+  | None   ->
+    Printf.printf
+      "The limit of a test run is %i times the run without a mutant, and never less than %s.\n%!"
+      timeout_multiple (seconds timeout_floor)
 
 
 (** Executable entry point *)
 
+let main () =
+  let test_cmd = ref "" in
+  let set_test_cmd str = if "" = !test_cmd then test_cmd := str else CLI.print_usage_and_exit () in
+  let () = Arg.parse CLI.arg_spec set_test_cmd CLI.usage_string in
+  if "" = !test_cmd then CLI.print_usage_and_exit () else
+  let () = match !CLI.timeout, Sys.getenv_opt "MUTAML_TIMEOUT" with
+    | None, Some secs -> CLI.set_timeout_from "MUTAML_TIMEOUT" secs
+    | _, _            -> () in
+  let () = match !CLI.jobs, Sys.getenv_opt "MUTAML_JOBS" with
+    | None, Some count -> CLI.set_jobs_from "MUTAML_JOBS" count
+    | _, _             -> () in
+  let jobs = Option.value !CLI.jobs ~default:1 in
+  let () = match Pool.jobs_conflict ~cmd:!test_cmd ~jobs with
+    | None     -> ()
+    | Some msg -> fail_and_exit msg in
+  let ppx_output_prefix = match !CLI.build_ctx, Sys.getenv_opt "MUTAML_BUILD_CONTEXT" with
+    | "", opt -> Option.fold ~some:Fun.id opt ~none:defaults.ppx_output_prefix
+    | s, _opt -> s in
+  let mut_file = defaults.mutaml_mut_file in
+  let mutants = match !CLI.muts_file with
+    | ""        ->
+      let ms = read_all_mutations ppx_output_prefix mut_file in
+      validate_mutants mut_file ms;
+      ms
+    | muts_file ->
+      let mpair = (muts_file,read_module_mutations_json ppx_output_prefix muts_file) in
+      validate_muts_file mpair;
+      [mpair]
+  in
+  let mutants = drop_absent_sources mutants in
+  if mutants = []
+  then fail_and_exit "No mutation file is left to test: every source file is gone";
+  ensure_output_dir defaults.output_file_prefix;
+  let test_env = !CLI.test_env in
+  let baseline_env = !CLI.baseline_env in
+  let given = !CLI.timeout in
+  let measured =
+    run_baseline !test_cmd ~test_env ~baseline_env
+      ~limit:(Option.value given ~default:baseline_timeout) in
+  let limit = mutant_limit given measured in
+  print_limit given limit;
+  let results =
+    Pool.run ~cmd:!test_cmd ~test_env ~jobs ~repeat:!CLI.repeat
+      ~limit:(float_of_int limit)
+      (List.concat_map (fun (_file_name, mutations) -> mutations) mutants) in
+  write_report_file defaults.mutaml_report_file results
+
 let () =
-  if 0 <> Sys.command ("command -v " ^ timeout_cmd ^ " > /dev/null")
-  then fail_and_exit ("Could not find time-out command: " ^ timeout_cmd)
-  else
-    let test_cmd = ref "" in
-    let set_test_cmd str = if "" = !test_cmd then test_cmd := str else CLI.print_usage_and_exit () in
-    let () = Arg.parse CLI.arg_spec set_test_cmd CLI.usage_string in
-    if "" = !test_cmd then CLI.print_usage_and_exit () else
-    let () = match !CLI.timeout, Sys.getenv_opt "MUTAML_TIMEOUT" with
-      | None, Some secs -> CLI.set_timeout_from "MUTAML_TIMEOUT" secs
-      | _, _            -> () in
-    let ppx_output_prefix = match !CLI.build_ctx, Sys.getenv_opt "MUTAML_BUILD_CONTEXT" with
-      | "", opt -> Option.fold ~some:Fun.id opt ~none:defaults.ppx_output_prefix
-      | s, _opt -> s in
-    let mut_file = defaults.mutaml_mut_file in
-    let mutants = match !CLI.muts_file with
-      | ""        ->
-        let ms = read_all_mutations ppx_output_prefix mut_file in
-        validate_mutants mut_file ms;
-        ms
-      | muts_file ->
-        let mpair = (muts_file,read_module_mutations_json ppx_output_prefix muts_file) in
-        validate_muts_file mpair;
-        [mpair]
-    in
-    let mutants = drop_absent_sources mutants in
-    if mutants = []
-    then fail_and_exit "No mutation file is left to test: every source file is gone";
-    ensure_output_dir defaults.output_file_prefix;
-    let test_env = !CLI.test_env in
-    let baseline_env = !CLI.baseline_env in
-    let timeout = Option.value !CLI.timeout ~default:default_timeout in
-    run_baseline !test_cmd ~test_env ~baseline_env ~timeout;
-    run_all_mutation_tests !test_cmd ~test_env ~timeout mutants;
-    write_report_file defaults.mutaml_report_file;
-    ()
+  try main () with
+  | Test_process.Failed_to_run message -> fail_and_exit message

@@ -65,6 +65,7 @@ Set seed and (full) mutation rate as environment variables, for repeatability
   $ mutaml-runner _build/default/test.exe
   read mut file test.muts
   Testing without a mutant ... passed
+  The limit of a test run is 5 times the run without a mutant, and never less than 10 seconds.
   Testing mutant test.ml:add:arith-operator:86790c7e:0 ... passed
   Writing report data to mutaml-report.json
 
