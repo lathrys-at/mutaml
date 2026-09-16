@@ -446,6 +446,10 @@ let main () =
       "No mutation was made: the attribute marks every place that mutaml can mutate in this project.\n%!";
   let (to_run, left_out) = match !CLI.changed_since with
     | None     -> (List.mapi (fun i m -> (i,m)) all_mutants, [])
+    (* With no mutation there is nothing for the revision to choose
+       between, and the line above has already said why. Asking git
+       would answer a question nobody asked. *)
+    | Some _ when all_mutants = [] -> ([], [])
     | Some rev ->
       let (to_run, left_out) = choose_changed ~rev all_mutants in
       print_choice ~rev ~to_run:(List.length to_run) ~left_out:(List.length left_out);

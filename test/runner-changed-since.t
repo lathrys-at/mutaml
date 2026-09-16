@@ -242,3 +242,22 @@ stand-in below answers that status:
   read mut file lib.muts
   Could not run git, which --changed-since needs to find the lines that changed - the command git is not on PATH
   [1]
+
+When the attribute marks every place that mutaml can mutate, there is
+no mutation for the revision to choose between. The runner says so and
+does not ask git at all, which the stand-in git above shows: it would
+answer the status 127 if the runner asked it.
+
+  $ cat > _build/.mutaml/default/lib.muts <<'FILE'
+  > { "mutants" : [],
+  >   "skipped" :
+  >   [ { "binding" : "f", "reason" : "the caller never reads this number",
+  >       "original" : "x + 1", "ordinal" : 0, "kinds" : [ "int-constant" ],
+  >       "loc" : { "loc_start" : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 10 },
+  >                 "loc_end"   : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 15 },
+  >                 "loc_ghost" : false } } ] }
+  > FILE
+  $ PATH="$(pwd)/nogit:$PATH" mutaml-runner --changed-since HEAD ./tests.sh
+  read mut file lib.muts
+  No mutation was made: the attribute marks every place that mutaml can mutate in this project.
+  Writing report data to mutaml-report.json
