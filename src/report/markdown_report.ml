@@ -118,7 +118,7 @@ let add_skipped_section buf skipped =
       "\nNo attribute takes a place out of this run.\n"
   | skipped ->
     Printf.bprintf buf
-      "\nThe attribute `[@mutaml.skip]` takes %s out of this run. A\nskipped place has no mutant, so it is outside the score and in no\nrow of the table above.\n"
+      "\nThe attribute `[@mutaml.skip]` takes %s out of this run. A\nskipped place has no mutant, so no count of mutants holds it and the\nscore leaves it out.\n"
       (places_of (List.length skipped));
     List.iter (add_skipped buf) skipped
 
@@ -126,7 +126,13 @@ let render ~sources ~results ~skipped =
   let buf = Buffer.create 4096 in
   Buffer.add_string buf "# Mutation report\n\n";
   if results = []
-  then (Buffer.add_string buf "There is no test result.\n"; Buffer.contents buf)
+  then
+    begin
+      Buffer.add_string buf
+        "No mutation was made, so this run has no mutation score.\n";
+      add_skipped_section buf skipped;
+      Buffer.contents buf
+    end
   else
     let summary = Summary.of_results results in
     if Summary.scored summary = 0

@@ -12,7 +12,10 @@ Next release
   no other mutation of the file. The terminal report and the Markdown
   summary name each place, its reason, and the mutation operators that
   the attribute takes out of it; the JSON report gives it the status
-  `Ignored` with the reason in `statusReason`
+  `Ignored` with the reason in `statusReason`. A project in which the
+  attribute marks every place that mutaml can mutate has no mutation
+  and no score: the runner runs no test and says why, and the report
+  gives the places and lets the run through
 - Write each `lib.muts` file as a JSON object with the fields `mutants`
   and `skipped`, in place of a JSON list of mutations, and
   `mutaml-report.json` as a JSON object with the fields `results` and

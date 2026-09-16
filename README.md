@@ -335,6 +335,12 @@ three reports name it:
   `mutatorName`. The viewer of that format leaves a mutation of that
   status out of every count.
 
+A project in which the attribute marks every place that mutaml can
+mutate has no mutation and therefore no score. `mutaml-runner` then
+runs no test and says why, `mutaml-report` gives the places and no
+score, and the run passes: there is no score to hold to
+`--fail-under`.
+
 The preprocessor also says how many places it took out of each file:
 
 ```

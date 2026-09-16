@@ -37,5 +37,6 @@ val render :
     and outside the score. It has a section of its own, with its reason
     and with the mutation operators that the place would have had.
 
-    The result ends with a newline. When [results] is empty the result
-    is a heading and one line that says there is no result. *)
+    The result ends with a newline. When [results] is empty no mutation
+    was made, so the result holds one line that says there is no score,
+    and the section of skipped places. *)

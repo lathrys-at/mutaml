@@ -320,10 +320,14 @@ let () =
       fail_and_exit (Arg.usage_string CLI.arg_spec CLI.usage_msg) in
   let report = read_reports report_file in
   let results = report.results in
-  if results = []
+  (* A report file that holds marked places and no result is the report
+     of a project in which the attribute marks every place that mutaml
+     can mutate. There is no score, and the places are what the report
+     has to give. *)
+  if results = [] && report.skipped = []
   then fail_and_exit (Printf.sprintf "Found no test results in %s" report_file);
   write_report_files ~results ~skipped:report.skipped;
-  let passed = print_report results in
+  let passed = if results = [] then [] else print_report results in
   print_crashed results;
   print_skipped report.skipped;
   if passed <> []
@@ -331,4 +335,8 @@ let () =
     (Printf.printf "Mutation programs passing the test suite:\n";
      Printf.printf "-----------------------------------------\n\n";
      List.iter (print_passed !CLI.print_diff) passed);
-  print_score_and_gate results
+  if results = []
+  then
+    Printf.printf
+      "No mutation was made, so this run has no mutation score.\n"
+  else print_score_and_gate results

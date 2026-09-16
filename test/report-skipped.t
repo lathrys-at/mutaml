@@ -92,8 +92,8 @@ in it:
   ## Skipped places
   
   The attribute `[@mutaml.skip]` takes 2 places out of this run. A
-  skipped place has no mutant, so it is outside the score and in no
-  row of the table above.
+  skipped place has no mutant, so no count of mutants holds it and the
+  score leaves it out.
   
   ### `lib.ml:f:skip:9ba3ed94:0`
   
@@ -201,3 +201,119 @@ took a place out of the run:
   ## Skipped places
   
   No attribute takes a place out of this run.
+
+The runner carries the places from the mutation files
+-----------------------------------------------------
+
+The places are written by the preprocessor in a `.muts` file, and the
+report tool reads only the report file that the runner writes, so the
+runner carries them from one to the other. Write a mutation file by
+hand that holds one mutation and one marked place:
+
+  $ mkdir -p _build/.mutaml/default
+  $ cat > _build/.mutaml/default/lib.muts <<'EOF'
+  > { "mutants" :
+  > [ { "number" : 0, "binding" : "f", "kind" : "arith-operator",
+  >     "original" : "+", "ordinal" : 0, "repl" : "-",
+  >     "loc" : { "loc_start" : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 12 },
+  >               "loc_end"   : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 13 },
+  >               "loc_ghost" : false } } ],
+  >   "skipped" :
+  > [ { "binding" : "f", "reason" : "the caller never reads this number",
+  >     "original" : "x + 1", "ordinal" : 0, "kinds" : [ "int-constant" ],
+  >     "loc" : { "loc_start" : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 10 },
+  >               "loc_end"   : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 15 },
+  >               "loc_ghost" : false } } ] }
+  > EOF
+  $ cat > _build/.mutaml/default/mutaml-mut-files.txt <<'EOF'
+  > lib.muts
+  > EOF
+  $ cat > tests.sh <<'EOF'
+  > #!/bin/sh
+  > exit 1
+  > EOF
+  $ chmod +x tests.sh
+  $ cat > passes.sh <<'EOF'
+  > #!/bin/sh
+  > case "$MUTAML_MUTANT" in
+  >   "") exit 0 ;;
+  >   *)  exit 3 ;;
+  > esac
+  > EOF
+  $ chmod +x passes.sh
+
+  $ mutaml-runner ./passes.sh
+  read mut file lib.muts
+  Testing without a mutant ... passed
+  The limit of a test run is 5 times the run without a mutant, and never less than 10 seconds.
+  Testing mutant lib.ml:f:arith-operator:b614c1c7:0 ... failed
+  Writing report data to mutaml-report.json
+
+The report file that the runner wrote holds the place:
+
+  $ grep -o '"skipped":\[[^]]*"reason":"[^"]*"' mutaml-report.json
+  "skipped":[{"binding":"f","reason":"the caller never reads this number"
+
+And the report tool reads it from there:
+
+  $ mutaml-report --no-diff --fail-under 0 | sed -n '/Places that/,/^$/p'
+  Places that the attribute took out of the run:
+  ----------------------------------------------
+  
+
+A project in which the attribute marks every place
+--------------------------------------------------
+
+The preprocessor then makes no mutation at all. The runner runs no
+test, says why, and writes a report of the places alone:
+
+  $ cat > _build/.mutaml/default/lib.muts <<'EOF'
+  > { "mutants" : [],
+  >   "skipped" :
+  > [ { "binding" : "f", "reason" : "the caller never reads this number",
+  >     "original" : "x + 1", "ordinal" : 0, "kinds" : [ "int-constant" ],
+  >     "loc" : { "loc_start" : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 10 },
+  >               "loc_end"   : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 15 },
+  >               "loc_ghost" : false } } ] }
+  > EOF
+  $ mutaml-runner ./passes.sh
+  read mut file lib.muts
+  No mutation was made: the attribute marks every place that mutaml can mutate in this project.
+  Writing report data to mutaml-report.json
+
+The report tool gives the places and no score, and lets the run
+through, because there is no score to hold to a limit:
+
+  $ mutaml-report --no-diff --markdown all-marked.md
+  Attempting to read from mutaml-report.json...
+  Writing the Markdown summary to all-marked.md
+  Places that the attribute took out of the run:
+  ----------------------------------------------
+  
+  "lib.ml", line 1: the caller never reads this number
+    The attribute takes these operators out of this place: int-constant.
+  
+  No mutation was made, so this run has no mutation score.
+  $ echo "exit code: $?"
+  exit code: 0
+
+The Markdown summary says the same:
+
+  $ cat all-marked.md
+  # Mutation report
+  
+  No mutation was made, so this run has no mutation score.
+  
+  ## Skipped places
+  
+  The attribute `[@mutaml.skip]` takes 1 place out of this run. A
+  skipped place has no mutant, so no count of mutants holds it and the
+  score leaves it out.
+  
+  ### `lib.ml:f:skip:9ba3ed94:0`
+  
+  `lib.ml`, line 1.
+  
+  The reason: the caller never reads this number
+  
+  The attribute takes these operators out of this place: int-constant.

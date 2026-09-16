@@ -616,7 +616,13 @@ class mutate_mapper (initial_rs : RS.t) =
      A skipped place inside [walk] stays skipped, and the mutations that
      it holds are therefore not counted here either. That is the
      answer we want: those mutations would not have been made in any
-     case. *)
+     case.
+
+     Each caller passes a [walk] that drops the errors of the walk with
+     [ignore]. Nothing in this file puts an error in that list: every
+     error it makes is a located exception, which [Fun.protect] lets
+     through. Anyone who puts an error in the list must carry it out of
+     here instead of dropping it. *)
   method kinds_made (walk : unit -> unit) =
     let saved_mut_count     = mut_count
     and saved_mutations     = mutations

@@ -186,21 +186,26 @@ let read_all_mutations ppx_output_prefix file_name =
   List.iter (fun fname -> Printf.printf "read mut file %s\n%!" fname) mut_files;
   List.map (fun f -> (f, read_module_mutations_json ppx_output_prefix f)) mut_files
 
-let count_mutations (f,(ms : muts_file)) =
-  if ms.mutants=[]
+(* How much of a .muts file a report can name: its mutations, and the
+   places that [@mutaml.skip "reason"] took out of the run. A file that
+   holds a place and no mutation still has something to report, so the
+   run goes on. *)
+let count_records (f,(ms : muts_file)) =
+  let count = List.length ms.mutants + List.length ms.skipped in
+  if count = 0
   then Printf.printf "Warning: No mutations were listed in %s\n" f
   else ();
-  List.length ms.mutants
+  count
 
 let validate_muts_file mpair =
-  if 0 = count_mutations mpair
+  if 0 = count_records mpair
   then fail_and_exit "Exiting as there is no report data to write"
 
 let validate_mutants file_name muts =
   if muts=[]
   then fail_and_exit ("No files were listed in " ^ file_name)
   else
-    let counts = List.map count_mutations muts in
+    let counts = List.map count_records muts in
     if 0 = List.fold_left (+) 0 counts
     then
       fail_and_exit
@@ -431,6 +436,14 @@ let main () =
     List.concat_map (fun (_file_name, (ms : muts_file)) -> ms.skipped) mutants in
   let all_mutants =
     List.concat_map (fun (_file_name, (ms : muts_file)) -> ms.mutants) mutants in
+  (* The run reached this point, so the mutation files hold a mutation
+     or a marked place. With no mutation at all, every place that
+     mutaml can mutate is marked, and a person who reads the report
+     must be told why no test ran. *)
+  if all_mutants = []
+  then
+    Printf.printf
+      "No mutation was made: the attribute marks every place that mutaml can mutate in this project.\n%!";
   let (to_run, left_out) = match !CLI.changed_since with
     | None     -> (List.mapi (fun i m -> (i,m)) all_mutants, [])
     | Some rev ->
