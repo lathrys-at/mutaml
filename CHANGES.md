@@ -38,6 +38,33 @@ Next release
   each of them once, so that a second build no longer makes the runner
   test every mutation twice and an incremental build no longer drops the
   mutations of the files it did not rebuild
+- Add `-j <count>` and `MUTAML_JOBS` to `mutaml-runner`, which test
+  `<count>` mutations at one time. Each worker writes to the output file
+  of the mutation it holds and has `TMPDIR` set to a directory of its
+  own, and the results keep the order of the mutations, so the printed
+  lines and the report do not depend on which run ends first. The runner
+  refuses more than one at a time for a test command that starts with
+  `dune`, which locks the build directory
+- Add `--repeat <count>` to `mutaml-runner`, which runs the test command
+  for one mutation until a run kills it, up to `<count>` runs. The value
+  that `--test-env` gives may hold the two characters `{}`, which the
+  runner replaces by the number of the run, so `--repeat 3 --test-env
+  QCHECK_SEED={}` gives one mutation the seeds 1, 2 and 3. A test suite
+  that draws random values then reports a mutation as a survivor only
+  when every seed passes, and the report names the seed that killed a
+  mutation
+- Run each test in a process that `mutaml-runner` starts itself, and
+  stop a run that takes too long in `mutaml-runner` itself, in place of
+  the `timeout` command. The tool needs no `timeout` command on `PATH`,
+  and macOS needs no GNU coreutils for it. Each run leads a process
+  group, so a run that is stopped takes with it the programs that it
+  started
+- Take the limit of a test run from the run without a mutation, when
+  `--timeout` gives no limit: five times that run, and never less than
+  10 seconds, in place of the fixed 20 seconds. The run without a
+  mutation may itself take 300 seconds
+- Print the limit of a test run, as the rule that gives it, after the
+  runs without a mutation
 - Run the test command with no mutation before testing any mutation, and
   stop when it fails
 - Add `--baseline-env NAME=VALUE` to `mutaml-runner`, repeatable, which

@@ -412,10 +412,11 @@ will only consider mutations of the corresponding library
 
 The other options of `mutaml-runner` are:
 
-- `--timeout seconds` - the time that one test run may take. The
-  default is 20 seconds. A run that takes longer is stopped and counted
-  as a timeout. The environment variable `MUTAML_TIMEOUT` sets the same
-  value, and the command-line option takes precedence over it.
+- `--timeout seconds` - the time that one test run may take. A run that
+  takes longer is stopped and counted as a timeout. Without this option
+  the limit is five times the run without a mutation, and never less
+  than 10 seconds. The environment variable `MUTAML_TIMEOUT` sets the
+  same value, and the command-line option takes precedence over it.
 
 - `--test-env NAME=VALUE` - set `NAME` to `VALUE` in every test
   process. Repeat the option for each variable you want to set. Use it
@@ -431,7 +432,36 @@ The other options of `mutaml-runner` are:
   the second time with another seed, for example `--test-env
   QCHECK_SEED=1 --baseline-env QCHECK_SEED=2`. A test suite that passes
   under one seed and fails under another does not give a mutation score
-  any meaning, and this is how to find that out before the run.
+  any meaning, and this is how to find that out before the run. Give
+  `--baseline-env` a value of its own, and not the two characters `{}`:
+  a run without a mutation is run number 1, so `{}` gives 1 in both
+  runs, and the two runs would be the same run twice.
+
+- `-j count` - the number of mutations to test at one time. The default
+  is 1. The environment variable `MUTAML_JOBS` sets the same number, and
+  the command-line option takes precedence over it. Each of the `count`
+  workers runs a test process of its own, writes to the output file of
+  the mutation it holds, and has `TMPDIR` set to a directory of its own
+  under `_mutations/tmp`. `mutaml-runner` removes those directories at
+  the end of the run. The results keep the order of the mutations, so
+  the lines the runner prints and the report it writes do not depend on
+  which run ends first. Read "Which test suites are safe to test more
+  than one mutation at a time" below before you raise this above 1.
+
+- `--repeat count` - the greatest number of test runs that one mutation
+  gets. The default is 1. A mutation runs again while the run before it
+  passed and while runs are left. A mutation that any run kills is
+  killed, and only a mutation that every run passes is a survivor. The
+  report holds the run that killed the mutation and the variables that
+  run was given. Use `--repeat` with a variable value that holds the two
+  characters `{}`: `mutaml-runner` replaces `{}` by the number of the
+  run, counted from 1. So `--repeat 3 --test-env QCHECK_SEED={}` gives
+  one mutation the seeds 1, 2 and 3, and the run with no mutation the
+  seed 1. Use it for a test suite that draws random values, where one
+  seed can miss a mutation that another seed catches. A surviving
+  mutation then costs `count` test suite runs instead of one. A killed
+  mutation usually still costs one, because most mutations die under the
+  first seed.
 
 `mutaml-runner` runs the test command with no mutation before it tests
 any mutation, and again a second time when `--baseline-env` is given. It
@@ -445,14 +475,58 @@ not in the project, and says on one line that it did. `dune` runs the
 preprocessor again only for a source file that changed, so the list of
 `.muts` files can name a file you have since deleted or renamed.
 
-`mutaml-runner` runs every test through the `timeout` command, which
-must be on `PATH`. It reads the exit status of that command to tell
-what happened: 124 means that the run took too long, and a status above
-128 means that a signal ended the run, which the runner reports as a
-crash and not as a timeout. GNU coreutils `timeout` follows those
-rules. macOS has no `timeout` command of its own, so install GNU
-coreutils there.
+`mutaml-runner` starts each test run itself and stops a run that takes
+longer than the limit. It needs no `timeout` command on `PATH`.
 
+Each test run leads a process group of its own. When a run reaches its
+limit, `mutaml-runner` sends the signal TERM to that whole group, and
+the signal KILL two seconds later, so that a program which the test
+command started is stopped with it. Such a run counts as a timeout. A
+run that a signal ended counts as a crash, and not as a timeout. The
+line that the shell prints when a test process dies by a signal goes to
+the output file of the mutation, with the rest of what the run wrote.
+
+The limit of a mutation run follows the run without a mutation. The run
+without a mutation therefore has a limit of its own: 300 seconds, when
+`--timeout` gives no limit.
+
+`mutaml-runner` prints the rule for the limit after the runs without a
+mutation, and not the number of seconds that the rule gives. That
+number follows a measurement, and a measurement differs from one
+machine to the next.
+
+
+Which test suites are safe to test more than one mutation at a time
+-------------------------------------------------------------------
+
+`-j` above 1 runs several copies of the test command at the same time,
+in one working directory. A test suite is safe when no two copies of it
+write the same file. Check these four things before you raise `-j`:
+
+1. **The test command must not start with `dune`.** `dune` locks the
+   build directory, so a second `dune` fails. `mutaml-runner` refuses
+   `-j` above 1 for such a command and says so. Give the path of the
+   test executable instead, for example
+   `_build/default/test/mytests.exe`. The build directory is safe to
+   read: nothing builds while the mutations run.
+
+2. **No test may write a file of a fixed name in the working
+   directory.** A test that writes `output.txt` or `test.db` beside
+   itself breaks when two copies run at once. A test that makes its
+   files with `Filename.temp_file` is safe: that function draws a name
+   that no other copy takes, and it writes under `TMPDIR`, which each
+   worker has of its own.
+
+3. **A cache on disk must write whole files.** A cache that writes a
+   temporary file and then renames it is safe, because a reader sees
+   either the old file or the new one. A cache that writes in place is
+   not: a second copy can read a half-written file. Put such a cache
+   under `TMPDIR`, which each worker has of its own, or fill it with one
+   run before the mutation run and then only read it.
+
+4. **The machine must have the cores.** The test suite already uses the
+   machine. Start with half of the cores, and do not go above the number
+   of cores less one.
 
 Report Options and Environment Variables
 ----------------------------------------

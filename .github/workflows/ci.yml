@@ -31,16 +31,13 @@ jobs:
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
 
-      # The cram tests run under bash and use GNU sed and GNU diff. The
-      # runner needs a timeout command that follows the GNU coreutils
-      # rules, because it reads its exit status to tell a crash from a
-      # timeout. macOS ships none of these.
-      - name: Install GNU bash, sed, diff, and coreutils
+      # The cram tests run under bash and use GNU sed and GNU diff.
+      # macOS ships none of these.
+      - name: Install GNU bash, sed, and diff
         if: ${{ matrix.os == 'macos-latest' }}
         run: |
-          brew install bash gnu-sed diffutils coreutils
+          brew install bash gnu-sed diffutils
           echo "$(brew --prefix)/opt/gnu-sed/libexec/gnubin" >> "$GITHUB_PATH"
-          echo "$(brew --prefix)/opt/coreutils/libexec/gnubin" >> "$GITHUB_PATH"
 
       - name: Install the dependencies
         run: opam install . --deps-only --with-test
