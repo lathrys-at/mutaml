@@ -46,13 +46,17 @@ let add_preamble structure input_name =
   [%stri let __is_mutaml_mutant__ m = match __MUTAML_MUTANT__ with None -> false | Some mutant -> String.equal m mutant]::
   structure
 
-(** Write mutations of a file 'src/lib.ml' to a 'src/lib.muts', and add
-    that name to the list of .muts files that the runner reads.
-    Mutaml_side_files chooses the directory both go in. *)
-let write_muts_file input_name mutations =
+(** Write the mutations and the skipped sites of a file 'src/lib.ml' to
+    a 'src/lib.muts', and add that name to the list of .muts files that
+    the runner reads. Mutaml_side_files chooses the directory both go
+    in. [mutations] and [skipped] are in the order the walk made them,
+    newest first, which is the order this function turns round. *)
+let write_muts_file input_name ~mutations ~skipped =
   let out = Mutaml_side_files.resolve () in
-  let ys = mutations |> List.rev |> List.map Mutaml_common.mutant_to_yojson in
-  let output_name = Mutaml_side_files.write_muts out ~input_name (`List ys) in
+  let contents =
+    Mutaml_common.{ mutants = List.rev mutations; skipped = List.rev skipped } in
+  let json = Mutaml_common.muts_file_to_yojson contents in
+  let output_name = Mutaml_side_files.write_muts out ~input_name json in
   Printf.printf "Writing mutation info to %s\n%!" output_name;
   Mutaml_side_files.record_muts_file out output_name
 
@@ -369,6 +373,10 @@ class mutate_mapper (rs : RS.t) =
   val mutable mut_count     = 0
   val mutable mutations     = []
   val mutable tmp_var_count = 0
+
+  (* The sites that [[@mutaml.skip "reason"]] took out of the run,
+     newest first. The walk makes no mutation inside such a site. *)
+  val mutable skipped       = []
 
   (* The top-level binding the walk is inside, and the modules around
      it, innermost first. The name of a mutation holds both. *)
@@ -1102,6 +1110,6 @@ class mutate_mapper (rs : RS.t) =
     let mut_count = List.length mutations in
     Printf.printf "Created %i mutation%s of %s\n%!" mut_count (if mut_count=1 then "" else "s") input_name;
 
-    let () = write_muts_file input_name mutations in
+    let () = write_muts_file input_name ~mutations ~skipped in
     errs @ (add_preamble instrumented_ast input_name)
 end

@@ -5,27 +5,33 @@ open Mutaml_common.Loc
 
 (** Input function *)
 
+(* The report file holds a JSON object with the results of the test runs
+   and the sites that the preprocessor skipped. A release before the
+   skip attribute wrote a JSON list instead; such a file needs a new run
+   of the runner, and the message below says so. *)
 let read_reports report_file =
   let open Result in
+  let out_of_date =
+    "it does not hold the fields that this release of mutaml reads. A report file that an older mutaml wrote needs a new run of mutaml-runner" in
   Printf.printf "Attempting to read from %s...\n" report_file;
   let ch =
     try open_in report_file
     with Sys_error msg -> fail_and_exit (Printf.sprintf "Could not open file %s" msg)
   in
-  let mutants_opt =
+  let report_opt =
     try
       match Yojson.Safe.from_channel ch with
-      | `List ys -> Ok (List.map test_result_of_yojson_exn ys)
-      | _        -> Error "Did not find the expected JSON list"
+      | `Assoc _ as json -> Ok (report_of_yojson_exn json)
+      | _                -> Error out_of_date
     with Yojson.Json_error _ -> Error "Invalid JSON"
-       | Failure _ ->
-         Error "a test result does not hold the fields that this release of mutaml reads. A report file that an older mutaml wrote needs a new run of mutaml-runner"
-  in match mutants_opt with
+       | Failure _ -> Error out_of_date
+  in match report_opt with
   | Error msg ->
     close_in ch;
     fail_and_exit (Printf.sprintf "Could not parse JSON in %s: %s" report_file msg)
-  | Ok mutants ->
-    mutants
+  | Ok report ->
+    close_in ch;
+    report
 
 
 (** The counts of a report come from [Summary]. The console table
@@ -265,7 +271,8 @@ let () =
     | [filename] -> filename
     | _ ->
       fail_and_exit (Arg.usage_string CLI.arg_spec CLI.usage_msg) in
-  let results = read_reports report_file in
+  let report = read_reports report_file in
+  let results = report.results in
   if results = []
   then fail_and_exit (Printf.sprintf "Found no test results in %s" report_file);
   write_report_files results;

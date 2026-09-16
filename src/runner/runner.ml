@@ -155,22 +155,26 @@ let read_instrumentation_overview ppx_output_prefix file_name =
   with Sys_error msg ->
     fail_and_exit (Printf.sprintf "Could not read file %s - %s" file_name msg)
 
+(* The mutations and the skipped sites that one .muts file holds. The
+   file holds a JSON object; a release before the skip attribute wrote a
+   JSON list instead, and such a file needs a new build. *)
 let read_module_mutations_json ppx_output_prefix file_name =
+  let out_of_date () =
+    fail_and_exit
+      (Printf.sprintf
+         "%s does not hold the fields that this release of mutaml reads. A mutation file that an older mutaml wrote needs a new build with --instrument-with mutaml."
+         file_name) in
   try
     let ch = open_in (full_ppx_path ppx_output_prefix file_name) in
     Fun.protect ~finally:(fun () -> close_in_noerr ch)
       (fun () -> match Yojson.Safe.from_channel ch with
-         | `List ys -> List.map mutant_of_yojson_exn ys
-         | _        -> fail_and_exit ("Could not parse " ^ file_name))
+         | `Assoc _ as json -> muts_file_of_yojson_exn json
+         | _                -> out_of_date ())
   with Sys_error msg ->
     fail_and_exit (Printf.sprintf "Could not read file %s - %s" file_name msg)
      | Yojson.Json_error msg ->
        fail_and_exit (Printf.sprintf "Could not parse %s - %s" file_name msg)
-     | Failure _ ->
-       fail_and_exit
-         (Printf.sprintf
-            "A mutation in %s does not hold the fields that this release of mutaml reads. A mutation file that an older mutaml wrote needs a new build with --instrument-with mutaml."
-            file_name)
+     | Failure _ -> out_of_date ()
 
 let read_all_mutations ppx_output_prefix file_name =
   (* Sorted, so that the order of the report does not depend on the order
@@ -181,11 +185,11 @@ let read_all_mutations ppx_output_prefix file_name =
   List.iter (fun fname -> Printf.printf "read mut file %s\n%!" fname) mut_files;
   List.map (fun f -> (f, read_module_mutations_json ppx_output_prefix f)) mut_files
 
-let count_mutations (f,ms) =
-  if ms=[]
+let count_mutations (f,(ms : muts_file)) =
+  if ms.mutants=[]
   then Printf.printf "Warning: No mutations were listed in %s\n" f
   else ();
-  List.length ms
+  List.length ms.mutants
 
 let validate_muts_file mpair =
   if 0 = count_mutations mpair
@@ -209,7 +213,7 @@ let validate_mutants file_name muts =
    source to make its diff. *)
 let drop_absent_sources muts =
   List.filter
-    (fun (file_name,mutants) -> match mutants with
+    (fun (file_name,(ms : muts_file)) -> match ms.mutants with
        | [] -> true
        | mut::_ ->
          let source = mut.loc.loc_start.pos_fname in
@@ -219,12 +223,14 @@ let drop_absent_sources muts =
              false))
     muts
 
-let write_report_file file_name results =
+(* Writes the report file that mutaml-report reads: the result of every
+   test run, and every site that the preprocessor skipped. *)
+let write_report_file file_name ~results ~skipped =
   Printf.printf "Writing report data to %s\n" file_name;
   let ch = open_out file_name in
   Fun.protect ~finally:(fun () -> close_out_noerr ch)
     (fun () ->
-       Yojson.Safe.to_channel ch (`List (List.map test_result_to_yojson results)))
+       Yojson.Safe.to_channel ch (report_to_yojson { results; skipped }))
 
 
 (** The actual test runner *)
@@ -369,11 +375,13 @@ let main () =
       ~limit:(Option.value given ~default:baseline_timeout) in
   let limit = mutant_limit given measured in
   print_limit given limit;
+  let skipped =
+    List.concat_map (fun (_file_name, (ms : muts_file)) -> ms.skipped) mutants in
   let results =
     Pool.run ~cmd:!test_cmd ~test_env ~jobs ~repeat:!CLI.repeat
       ~limit:(float_of_int limit)
-      (List.concat_map (fun (_file_name, mutations) -> mutations) mutants) in
-  write_report_file defaults.mutaml_report_file results
+      (List.concat_map (fun (_file_name, (ms : muts_file)) -> ms.mutants) mutants) in
+  write_report_file defaults.mutaml_report_file ~results ~skipped
 
 let () =
   try main () with
