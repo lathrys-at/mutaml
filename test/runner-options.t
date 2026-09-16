@@ -10,6 +10,7 @@ and the list of mutation files.
   > let f x = x + 1
   > EOF
   $ cat > _build/.mutaml/default/lib.muts <<'EOF'
+  > { "mutants" :
   > [ { "number" : 0, "binding" : "f", "kind" : "int-constant",
   >     "original" : "1", "ordinal" : 0, "repl" : "2",
   >     "loc" : { "loc_start" : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 14 },
@@ -19,7 +20,7 @@ and the list of mutation files.
   >     "original" : "+", "ordinal" : 0, "repl" : "-",
   >     "loc" : { "loc_start" : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 12 },
   >               "loc_end"   : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 13 },
-  >               "loc_ghost" : false } } ]
+  >               "loc_ghost" : false } } ] }
   > EOF
   $ cat > _build/.mutaml/default/mutaml-mut-files.txt <<'EOF'
   > lib.muts
@@ -199,11 +200,12 @@ mutant run; the limit that the measurement gives does not. One mutation
 is enough to show it, so this test reads a mutation file of its own:
 
   $ cat > _build/.mutaml/default/one.muts <<'EOF'
+  > { "mutants" :
   > [ { "number" : 0, "binding" : "f", "kind" : "int-constant",
   >     "original" : "1", "ordinal" : 0, "repl" : "2",
   >     "loc" : { "loc_start" : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 14 },
   >               "loc_end"   : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 15 },
-  >               "loc_ghost" : false } } ]
+  >               "loc_ghost" : false } } ] }
   > EOF
   $ cat > slow.sh <<'EOF'
   > #!/bin/sh

@@ -44,7 +44,7 @@ says so instead of ending with an exception:
 
 Create a corresponding mutation file with an empty list of mutations:
   $ cat > _build/.mutaml/default/somefile.muts <<'EOF'
-  > []
+  > { "mutants" : [] }
   > EOF
 
 Check that it was created:
@@ -61,6 +61,31 @@ Now confirm that it is rejected by the report tool:
 
 Create a corresponding mutation file with a dummy mutation:
   $ cat > _build/.mutaml/default/somefile.muts <<'EOF'
+  > { "mutants" :
+  > [{ "number"   : 0,
+  >    "binding"  : "f",
+  >    "kind"     : "bool-constant",
+  >    "original" : "",
+  >    "ordinal"  : 0,
+  >    "repl"     : "false",
+  >    "loc"    : {
+  >      "loc_start" : { "pos_fname" : "somefile.ml", "pos_lnum" : 1, "pos_bol" : 1, "pos_cnum" : 1 },
+  >      "loc_end"   : { "pos_fname" : "somefile.ml", "pos_lnum" : 2, "pos_bol" : 2, "pos_cnum" : 2 },
+  >      "loc_ghost" : false
+  >   }
+  > }] }
+  > EOF
+
+The runner skips a mutation file whose source file is not there, so make
+the source file as well:
+  $ touch somefile.ml
+
+A mutation file of the shape that a mutaml before the attribute
+[@mutaml.skip] wrote is a JSON list, and not an object that holds the
+mutations and the skipped places. The runner names the file and says
+what to do:
+  $ cp _build/.mutaml/default/somefile.muts new-shape.muts
+  $ cat > _build/.mutaml/default/somefile.muts <<'EOF'
   > [{ "number"   : 0,
   >    "binding"  : "f",
   >    "kind"     : "bool-constant",
@@ -74,16 +99,15 @@ Create a corresponding mutation file with a dummy mutation:
   >   }
   > }]
   > EOF
+  $ mutaml-runner true
+  read mut file somefile.muts
+  somefile.muts does not hold the fields that this release of mutaml reads. A mutation file that an older mutaml wrote needs a new build with --instrument-with mutaml.
+  [1]
 
-The runner skips a mutation file whose source file is not there, so make
-the source file as well:
-  $ touch somefile.ml
-
-A mutation file of the shape that an older mutaml wrote, in which a
-mutation holds no operator, no binding, no original text and no
-ordinal, names the file and says what to do:
-  $ cp _build/.mutaml/default/somefile.muts new-shape.muts
+A mutation file in which a mutation holds no operator, no binding, no
+original text and no ordinal gets the same message:
   $ cat > _build/.mutaml/default/somefile.muts <<'EOF'
+  > { "mutants" :
   > [{ "number" : 0,
   >    "repl"   : "false",
   >    "loc"    : {
@@ -91,11 +115,11 @@ ordinal, names the file and says what to do:
   >      "loc_end"   : { "pos_fname" : "somefile.ml", "pos_lnum" : 2, "pos_bol" : 2, "pos_cnum" : 2 },
   >      "loc_ghost" : false
   >   }
-  > }]
+  > }] }
   > EOF
   $ mutaml-runner true
   read mut file somefile.muts
-  A mutation in somefile.muts does not hold the fields that this release of mutaml reads. A mutation file that an older mutaml wrote needs a new build with --instrument-with mutaml.
+  somefile.muts does not hold the fields that this release of mutaml reads. A mutation file that an older mutaml wrote needs a new build with --instrument-with mutaml.
   [1]
 
 Put the mutation file of this release back:
