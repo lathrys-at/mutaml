@@ -10,5 +10,6 @@ what the runner does without it.
     --baseline-env <NAME=VALUE> Run the test suite a second time without a mutation, with NAME set to VALUE on top of what --test-env sets. Needed only for a value that is not the number of the run. Repeatable
     -j <count>                  Test <count> mutations at one time. The default is 1
     --repeat <count>            Run the test command for one mutation until a run kills it, up to <count> runs, each with a different {} in the values of --test-env
+    --changed-since <rev>       Test only the mutations that sit on a line that the project changed since <rev>. Every other mutation is recorded as not run, and is outside the mutation score. Needs git
     -help                       Display this list of options
     --help                      Display this list of options

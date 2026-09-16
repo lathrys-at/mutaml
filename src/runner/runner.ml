@@ -46,7 +46,8 @@ struct
   let test_env = ref []
 
   (* Variables to set in the second run without a mutation, on top of
-     [test_env]. Empty means that there is no second run. *)
+     [test_env]. The second run happens when it would not be the first
+     run over again, which this list or a "{}" in a value makes so. *)
   let baseline_env = ref []
 
   (* Mutations to test at one time. [None] means the default. *)
@@ -54,6 +55,11 @@ struct
 
   (* The greatest number of test runs that one mutation gets. *)
   let repeat = ref 1
+
+  (* The revision to compare the project against, so that only the
+     mutations on a line that changed are tested. [None] means that
+     every mutation is tested. *)
+  let changed_since = ref None
 
   let set_timeout_from source str = match int_of_string_opt str with
     | Some secs when secs > 0 -> timeout := Some secs
@@ -121,7 +127,9 @@ struct
        ("-j",              Arg.String set_jobs,
         "<count> Test <count> mutations at one time. The default is 1");
        ("--repeat",        Arg.String set_repeat,
-        "<count> Run the test command for one mutation until a run kills it, up to <count> runs, each with a different {} in the values of --test-env")]
+        "<count> Run the test command for one mutation until a run kills it, up to <count> runs, each with a different {} in the values of --test-env");
+       ("--changed-since",  Arg.String (fun rev -> changed_since := Some rev),
+        "<rev> Test only the mutations that sit on a line that the project changed since <rev>. Every other mutation is recorded as not run, and is outside the mutation score. Needs git")]
 end
 
 (* Makes a directory that the runner needs, and stops the program with
@@ -338,6 +346,52 @@ let print_limit given limit = match given with
       timeout_multiple (seconds timeout_floor)
 
 
+
+(** Which mutations to run *)
+
+(* The result of a mutation that never reached a test process. It has
+   no exit status and no environment, and [not_run] says so. *)
+let not_run_result (mutant : mutant) =
+  { status = 0; mutant; test_env = []; not_run = true }
+
+let mutations count = if count = 1 then "1 mutation" else Printf.sprintf "%i mutations" count
+
+(* [choose_changed ~rev mutants] splits [mutants] into the mutations
+   that sit on a line that the project changed since [rev] and the rest.
+   Each mutation keeps its place in [mutants], as the number in front of
+   it. Ends the program with a message when git cannot answer. *)
+let choose_changed ~rev mutants =
+  match Changed_lines.since ~rev with
+  | Error error -> fail_and_exit (Changed_lines.error_message error)
+  | Ok changed ->
+    let on_a_changed_line (_number, (mutant : mutant)) =
+      Changed_lines.touches changed
+        ~file:mutant.loc.loc_start.pos_fname
+        ~first:mutant.loc.loc_start.pos_lnum
+        ~last:mutant.loc.loc_end.pos_lnum in
+    List.partition on_a_changed_line (List.mapi (fun i m -> (i,m)) mutants)
+
+(* Says how many mutations the revision leaves to run. A diff mode that
+   quietly tests nothing is the failure this line is here to stop: the
+   run then reads as a clean score over no mutation at all. *)
+let print_choice ~rev ~to_run ~left_out =
+  let total = to_run + left_out in
+  if to_run = 0
+  then
+    Printf.printf
+      "No mutation sits on a line that changed since %s. None of the %s is tested.\n%!"
+      rev (mutations total)
+  else if left_out = 0
+  then
+    Printf.printf
+      "Every one of the %s sits on a line that changed since %s.\n%!"
+      (mutations total) rev
+  else
+    Printf.printf
+      "%i of the %s sit on a line that changed since %s. The other %s not tested.\n%!"
+      to_run (mutations total) rev
+      (if left_out = 1 then "1 is" else Printf.sprintf "%i are" left_out)
+
 (** Executable entry point *)
 
 let main () =
@@ -373,21 +427,43 @@ let main () =
   if mutants = []
   then fail_and_exit "No mutation file is left to test: every source file is gone";
   ensure_output_dir defaults.output_file_prefix;
-  let test_env = !CLI.test_env in
-  let baseline_env = !CLI.baseline_env in
-  let given = !CLI.timeout in
-  let measured =
-    run_baseline !test_cmd ~test_env ~baseline_env
-      ~limit:(Option.value given ~default:baseline_timeout) in
-  let limit = mutant_limit given measured in
-  print_limit given limit;
   let skipped =
     List.concat_map (fun (_file_name, (ms : muts_file)) -> ms.skipped) mutants in
-  let results =
-    Pool.run ~cmd:!test_cmd ~test_env ~jobs ~repeat:!CLI.repeat
-      ~limit:(float_of_int limit)
-      (List.concat_map (fun (_file_name, (ms : muts_file)) -> ms.mutants) mutants) in
-  write_report_file defaults.mutaml_report_file ~results ~skipped
+  let all_mutants =
+    List.concat_map (fun (_file_name, (ms : muts_file)) -> ms.mutants) mutants in
+  let (to_run, left_out) = match !CLI.changed_since with
+    | None     -> (List.mapi (fun i m -> (i,m)) all_mutants, [])
+    | Some rev ->
+      let (to_run, left_out) = choose_changed ~rev all_mutants in
+      print_choice ~rev ~to_run:(List.length to_run) ~left_out:(List.length left_out);
+      (to_run, left_out) in
+  let left_out_results = List.map (fun (i,m) -> (i, not_run_result m)) left_out in
+  (* With nothing to run there is nothing to measure and nothing to
+     test, so the runner does not run the test suite at all. It still
+     writes the report, which then holds every mutation as not run, so
+     that mutaml-report can say that the run tested nothing. *)
+  if to_run = []
+  then write_report_file defaults.mutaml_report_file
+         ~results:(List.map snd left_out_results) ~skipped
+  else
+    let test_env = !CLI.test_env in
+    let baseline_env = !CLI.baseline_env in
+    let given = !CLI.timeout in
+    let measured =
+      run_baseline !test_cmd ~test_env ~baseline_env
+        ~limit:(Option.value given ~default:baseline_timeout) in
+    let limit = mutant_limit given measured in
+    print_limit given limit;
+    let ran =
+      Pool.run ~cmd:!test_cmd ~test_env ~jobs ~repeat:!CLI.repeat
+        ~limit:(float_of_int limit) (List.map snd to_run) in
+    (* Back into the order of the mutation files, so that the report
+       does not depend on which mutations the revision left out. *)
+    let results =
+      List.map2 (fun (i,_) result -> (i,result)) to_run ran @ left_out_results in
+    let results =
+      List.map snd (List.sort (fun (i,_) (j,_) -> Int.compare i j) results) in
+    write_report_file defaults.mutaml_report_file ~results ~skipped
 
 let () =
   try main () with

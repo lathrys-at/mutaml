@@ -27,6 +27,11 @@ val render :
     runner ran, which is the same assumption that the console report
     makes.
 
+    A mutant that did not run, which is what
+    [mutaml-runner --changed-since <rev>] leaves out, has a column of
+    its own in the table and is outside the score. When no mutant ran,
+    the summary says so in place of a score.
+
     [skipped] holds the places that the preprocessor took out of the
     run. A skipped place has no mutant, so it is in no row of the table
     and outside the score. It has a section of its own, with its reason

@@ -22,20 +22,34 @@ let json_location (loc:Loc.location) =
     "end",   json_position loc.loc_end;
   ]
 
-(* The status of the schema for one outcome, and the reason to give
-   beside it. Only a run that a signal ended has a reason: the status
-   alone does not say that the test suite found a fault of that kind. *)
-let json_status status = match outcome_of_status status with
-  | Failed    -> ("Killed", None)
-  | Crashed   ->
-    ("Killed",
-     Some (Printf.sprintf "signal %i ended the test process" (status - 128)))
-  | Timed_out -> ("Timeout", None)
-  | Passed    -> ("Survived", None)
+(* The reason that a mutation which did not run carries. A mutation is
+   left out only by --changed-since, so the reason says that. *)
+let not_run_reason =
+  "the mutation does not sit on a line that changed since the revision that mutaml-runner was given"
+
+(* The status of the schema for one test result, and the reason to give
+   beside it. A run that a signal ended has a reason, and so has a
+   mutation that did not run: the status alone does not say that the
+   test suite found a fault of that kind, and it does not say why a
+   mutation was left out.
+
+   The status Ignored is outside every count that the viewer makes, so
+   a mutation that did not run is outside the score, as a place that
+   [[@mutaml.skip "reason"]] took out is. *)
+let json_status (res : test_result) =
+  if res.not_run then ("Ignored", Some not_run_reason)
+  else match outcome_of_status res.status with
+    | Failed    -> ("Killed", None)
+    | Crashed   ->
+      ("Killed",
+       Some (Printf.sprintf "signal %i ended the test process" (res.status - 128)))
+    | Timed_out -> ("Timeout", None)
+    | Passed    -> ("Survived", None)
+    | Not_run   -> ("Ignored", Some not_run_reason)
 
 let json_mutant (res:test_result) =
   let mutant = res.mutant in
-  let status,reason = json_status res.status in
+  let status,reason = json_status res in
   let fields = [
     "id",          `String (mutant_name mutant);
     "mutatorName", `String (kind_name mutant.kind);

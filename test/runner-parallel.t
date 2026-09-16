@@ -162,6 +162,7 @@ suite below fails for the int-constant mutation under the seed 2 only:
   $ mutaml-runner --repeat 3 --test-env 'QCHECK_SEED={}' ./seeded.sh
   read mut file lib.muts
   Testing without a mutant ... passed
+  Testing without a mutant a second time ... passed
   The limit of a test run is 5 times the run without a mutant, and never less than 10 seconds.
   Testing mutant lib.ml:f:int-constant:4fad8996:0 ... failed in run 2 of 3
   Testing mutant lib.ml:f:arith-operator:b614c1c7:0 ... passed in run 3 of 3
@@ -192,6 +193,7 @@ of the mutation list:
   $ mutaml-runner -j 2 --repeat 3 --test-env 'QCHECK_SEED={}' ./seeded.sh
   read mut file lib.muts
   Testing without a mutant ... passed
+  Testing without a mutant a second time ... passed
   The limit of a test run is 5 times the run without a mutant, and never less than 10 seconds.
   Testing mutant lib.ml:f:int-constant:4fad8996:0 ... failed in run 2 of 3
   Testing mutant lib.ml:f:arith-operator:b614c1c7:0 ... passed in run 3 of 3

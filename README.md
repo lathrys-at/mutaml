@@ -520,6 +520,37 @@ The other options of `mutaml-runner` are:
   `--baseline-env` changes a value, or when a value holds `{}`. Two
   runs of one environment find nothing that one run does not find.
 
+- `--changed-since rev` - test only the mutations that sit on a line
+  that the project changed since the revision `rev`. Every other
+  mutation is recorded as not run: the reports name it as such and
+  leave it out of the mutation score, because a score is a share of
+  what was tested.
+
+  This is the option for a gate on a pull request. A full run tests
+  every mutation of the project, which costs one run of the test suite
+  for each; a run with this option costs one for each mutation that the
+  branch touched. Run the full set on the main branch and on a
+  schedule, and this option on a branch.
+
+  `mutaml-runner` asks `git` for the lines. It runs `git diff
+  --unified=0 <rev> --`, which compares `rev` with the files as they
+  are now, and it keeps a mutation whose lines meet a line that the
+  answer names. It also runs `git rev-parse --show-prefix`, because
+  `git` names a file from the root of the repository and a `lib.muts`
+  file names a file from the root of the project. The root of the
+  project must therefore be the root of the repository or a directory
+  under it. `mutaml-runner` stops with a message when it cannot run
+  `git`, and when `git` does not know `rev`.
+
+  When no mutation is left, `mutaml-runner` says so on one line, runs
+  no test at all, and writes a report in which every mutation did not
+  run. `mutaml-report` then says that the run has no score, instead of
+  printing a clean score over nothing.
+
+  The option is a rule of thumb and not a proof. A change in one place
+  can leave code in another place untested, and this option does not
+  find that. Run the full set as well.
+
 - `-j count` - the number of mutations to test at one time. The default
   is 1. The environment variable `MUTAML_JOBS` sets the same number, and
   the command-line option takes precedence over it. Each of the `count`
@@ -630,6 +661,12 @@ mutations that failed or timed out, of all the mutations that ran. A
 mutation that timed out counts with the mutations that failed, because
 a test run that never ends is a fault that the test suite found.
 
+A mutation that did not run, which is what `mutaml-runner
+--changed-since` leaves out, has a column of its own in the table and
+is outside the score. When no mutation ran, `mutaml-report` says that
+the run has no score, and exits with 0: there is no score to hold to a
+limit.
+
 - `--fail-under percent` - accept a score of `percent` or above.
   `mutaml-report` then exits with 2 only when the score is below the
   number, and a score equal to the number passes. `--fail-under 0`
@@ -659,10 +696,12 @@ the report to a file as well. You may give both in one run.
   [mutation-test-report-app](https://github.com/stryker-mutator/mutation-testing-elements)
   reads it.
 
-The table of the Markdown summary counts the four outcomes apart, so
-its columns add up to the number of mutations of the file. The score
-counts a mutation that timed out and a mutation that a signal ended
-with the mutations that failed.
+The table of the Markdown summary counts the four outcomes apart, and
+counts the mutations that did not run in a column of its own, so its
+columns add up to the number of mutations of the file. The score counts
+a mutation that timed out and a mutation that a signal ended with the
+mutations that failed, and it leaves a mutation that did not run out of
+both halves.
 
 The JSON report gives every mutation one of the statuses of the format:
 
@@ -673,6 +712,7 @@ The JSON report gives every mutation one of the statuses of the format:
 | a signal ended the run | `Killed` | `statusReason` names the signal |
 | the test suite passed | `Survived` | |
 | the mutation was never made, because `[@mutaml.skip]` marks the place | `Ignored` | outside every count; `statusReason` gives the reason |
+| the mutation did not run, because `--changed-since` left it out | `Ignored` | outside every count; `statusReason` says why it did not run |
 
 In the JSON report, the `id` of a mutation is its name, the same string
 that `MUTAML_MUTANT` takes, and `mutatorName` is the name of the
@@ -685,7 +725,7 @@ The three exit codes of `mutaml-report` are:
 
 | code | meaning |
 |---|---|
-| 0 | the score is at or above the limit |
+| 0 | the score is at or above the limit, or no mutation ran and there is no score |
 | 2 | the score is below the limit |
 | 1 | the tool could not do its work, for example because it could not read its input |
 

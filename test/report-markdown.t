@@ -57,14 +57,15 @@ the total, and the one mutation that passed with its name and its diff:
   
   Mutation score: 75.0% (4 mutants: 1 killed, 1 timed out, 1 crashed, 1 survived).
   
-  | file | mutants | killed | timed out | crashed | survived |
-  | --- | ---: | ---: | ---: | ---: | ---: |
-  | `lib.ml` | 2 | 1 | 0 | 0 | 1 |
-  | `other.ml` | 2 | 0 | 1 | 1 | 0 |
-  | **total** | 4 | 1 | 1 | 1 | 1 |
+  | file | mutants | killed | timed out | crashed | survived | not run |
+  | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+  | `lib.ml` | 2 | 1 | 0 | 0 | 1 | 0 |
+  | `other.ml` | 2 | 0 | 1 | 1 | 0 | 0 |
+  | **total** | 4 | 1 | 1 | 1 | 1 | 0 |
   
   The score counts a killed mutant, a mutant that timed out and a
-  mutant that a signal ended as caught.
+  mutant that a signal ended as caught. A mutant that did not run is
+  outside the score.
   
   ## Survivors
   

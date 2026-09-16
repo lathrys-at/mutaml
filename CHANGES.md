@@ -131,6 +131,14 @@ Next release
   second copy of the same work. The runner no longer needs a shell to
   make a directory, and it names the directory and the reason when it
   cannot make one
+- Add `--changed-since <rev>` to `mutaml-runner`, which tests only the
+  mutations that sit on a line that the project changed since the
+  revision `<rev>`. It asks `git diff --unified=0 <rev> --` for the
+  lines. Every other mutation is recorded as not run, which is a new
+  outcome that the three reports name and that the mutation score leaves
+  out. When no mutation is left, the runner says so, runs no test at
+  all, and `mutaml-report` says that the run has no score instead of
+  printing a clean score over nothing
 - List every mutation operator in the README, with its default and
   what it cannot see
 - Use dune.3.18 support to generate `x-maintenance-intent` entry

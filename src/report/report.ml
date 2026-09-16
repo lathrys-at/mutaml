@@ -188,33 +188,40 @@ let print_passed print_diff (res:test_result) =
     else
       Printf.printf "Mutation \"%s\" passed (see \"%s\")\n%!" mut_name test_output_file
 
+(* The width of the table below, for the lines that rule it off. *)
+let table_width = 99
+
 let print_report results =
   let print_summary_line (label,results) =
     let summary = Summary.of_results results in
     let count = Summary.total summary in
-    let percent c = 100. *. (float_of_int c) /. (float_of_int count) in
+    (* A share of the mutations that ran, and not of every mutation: a
+       mutation that did not run is in neither half of the share. *)
+    let ran = Summary.scored summary in
+    let percent c = if ran = 0 then 0. else 100. *. (float_of_int c) /. (float_of_int ran) in
     let lab c = Printf.sprintf "%3.1f%% %4i" (percent c) c in
     let num_passed  = Summary.count summary Passed in
     let num_timeout = Summary.count summary Timed_out in
     let num_failed  = num_failed summary in
-    Printf.printf " %-30s %9i     %11s   %11s   %11s\n" label count (lab num_failed) (lab num_timeout) (lab num_passed);
+    let num_not_run = Summary.count summary Not_run in
+    Printf.printf " %-30s %9i     %11s   %11s   %11s   %11i\n" label count (lab num_failed) (lab num_timeout) (lab num_passed) num_not_run;
     Summary.with_outcome summary Passed
   in
 
   let part_results = Summary.by_file results in
   Printf.printf "\nMutaml report summary:\n";
   Printf.printf   "----------------------\n\n";
-  Printf.printf " %-30s %11s   %11s   %11s   %11s\n" "target" "#mutations" "#failed " "#timeouts" "#passed ";
-  Format.printf " %s\n" (String.make 85 '-');
+  Printf.printf " %-30s %11s   %11s   %11s   %11s   %11s\n" "target" "#mutations" "#failed " "#timeouts" "#passed " "#not run";
+  Format.printf " %s\n" (String.make table_width '-');
   let passed = List.map print_summary_line part_results in
   if List.length part_results > 1
   then
     begin
-      Format.printf " %s\n" (String.make 85 '-');
+      Format.printf " %s\n" (String.make table_width '-');
       ignore (print_summary_line ("total",results));
     end;
   (* *)
-  Format.printf " %s\n\n" (String.make 85 '=');
+  Format.printf " %s\n\n" (String.make table_width '=');
   List.concat passed
 
 
@@ -266,22 +273,38 @@ let fail_gate_and_exit message =
 
 (** Prints the mutation score and stops the program when the score is too
     low. Exits with status 2 when the score is below the limit that
-    [CLI.fail_under] gives, or below 100 percent when it gives none. *)
+    [CLI.fail_under] gives, or below 100 percent when it gives none.
+
+    A run in which no mutation ran has no score, so there is nothing to
+    hold to a limit and the gate lets it through. The line above says
+    plainly that nothing ran, because a run that quietly reports a
+    clean score over no mutation at all is the failure that a reader of
+    a report has no way to see. *)
 let print_score_and_gate results =
   let summary = Summary.of_results results in
-  let score = Summary.score summary in
-  Printf.printf "Mutation score: %.1f%% (%i mutations: %i failed, %i timed out, %i passed)\n"
-    score (Summary.total summary) (num_failed summary) (Summary.count summary Timed_out)
-    (Summary.count summary Passed);
-  match !CLI.fail_under with
-  | Some limit ->
-    if score < limit
-    then fail_gate_and_exit (Printf.sprintf "The score is below %.1f%%." limit)
-  | None ->
-    if Summary.with_outcome summary Passed <> []
-    then
-      fail_gate_and_exit
-        "The score is below 100%. Use --fail-under to accept a lower score."
+  let not_run = Summary.count summary Not_run in
+  if Summary.scored summary = 0
+  then
+    Printf.printf
+      "No mutation ran, so this run has no mutation score. Every one of the %i mutations was left out.\n"
+      (Summary.total summary)
+  else
+    let score = Summary.score summary in
+    let left_out =
+      if not_run = 0 then ""
+      else Printf.sprintf "; %i did not run" not_run in
+    Printf.printf "Mutation score: %.1f%% (%i mutations: %i failed, %i timed out, %i passed%s)\n"
+      score (Summary.scored summary) (num_failed summary)
+      (Summary.count summary Timed_out) (Summary.count summary Passed) left_out;
+    match !CLI.fail_under with
+    | Some limit ->
+      if score < limit
+      then fail_gate_and_exit (Printf.sprintf "The score is below %.1f%%." limit)
+    | None ->
+      if Summary.with_outcome summary Passed <> []
+      then
+        fail_gate_and_exit
+          "The score is below 100%. Use --fail-under to accept a lower score."
 
 
 (** Executable entry point *)

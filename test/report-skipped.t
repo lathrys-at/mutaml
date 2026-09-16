@@ -53,10 +53,10 @@ one mutant and neither place:
   Mutaml report summary:
   ----------------------
   
-   target                          #mutations      #failed      #timeouts      #passed 
-   -------------------------------------------------------------------------------------
-   lib.ml                                 1     100.0%    1     0.0%    0     0.0%    0
-   =====================================================================================
+   target                          #mutations      #failed      #timeouts      #passed       #not run
+   ---------------------------------------------------------------------------------------------------
+   lib.ml                                 1     100.0%    1     0.0%    0     0.0%    0             0
+   ===================================================================================================
   
   Places that the attribute took out of the run:
   ----------------------------------------------
@@ -77,12 +77,13 @@ in it:
   
   Mutation score: 100.0% (1 mutant: 1 killed, 0 timed out, 0 crashed, 0 survived).
   
-  | file | mutants | killed | timed out | crashed | survived |
-  | --- | ---: | ---: | ---: | ---: | ---: |
-  | `lib.ml` | 1 | 1 | 0 | 0 | 0 |
+  | file | mutants | killed | timed out | crashed | survived | not run |
+  | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+  | `lib.ml` | 1 | 1 | 0 | 0 | 0 | 0 |
   
   The score counts a killed mutant, a mutant that timed out and a
-  mutant that a signal ended as caught.
+  mutant that a signal ended as caught. A mutant that did not run is
+  outside the score.
   
   ## Survivors
   
@@ -186,10 +187,10 @@ them:
   Mutaml report summary:
   ----------------------
   
-   target                          #mutations      #failed      #timeouts      #passed 
-   -------------------------------------------------------------------------------------
-   lib.ml                                 1     100.0%    1     0.0%    0     0.0%    0
-   =====================================================================================
+   target                          #mutations      #failed      #timeouts      #passed       #not run
+   ---------------------------------------------------------------------------------------------------
+   lib.ml                                 1     100.0%    1     0.0%    0     0.0%    0             0
+   ===================================================================================================
   
   Mutation score: 100.0% (1 mutations: 1 failed, 0 timed out, 0 passed)
 

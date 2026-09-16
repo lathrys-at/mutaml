@@ -17,6 +17,12 @@
       a mutant of that status as caught.
     - A mutant that let the test suite pass is [Survived].
 
+    A mutant that did not run, which is what
+    [mutaml-runner --changed-since <rev>] leaves out, is a mutant of
+    the status [Ignored], with a [statusReason] that says why it did
+    not run. The viewer leaves a mutant of that status out of every
+    count, so such a mutant is outside the score.
+
     A place that [[@mutaml.skip "reason"]] took out of the run is a
     mutant of the status [Ignored], with the reason in [statusReason]
     and the operator name [skip]. The viewer leaves a mutant of that

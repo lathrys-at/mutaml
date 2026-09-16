@@ -143,12 +143,25 @@ let fail_and_exit s =
   print_endline s;
   exit 1
 
-(** The outcome of one test run, read from the exit status of the test
+(** What became of one mutation.
+
+    The first four outcomes are read from the exit status of the test
     process. [Crashed] means that a signal ended the test process, which
     the shell reports as a status above 128. [Timed_out] means that the
-    [timeout] command stopped the test process. *)
-type outcome = Passed | Failed | Crashed | Timed_out
+    run reached its limit.
 
+    [Not_run] is the outcome of a mutation that never reached a test
+    process: [mutaml-runner --changed-since <rev>] runs only the
+    mutations that sit on a line that changed since [<rev>], and the
+    rest take this outcome. A mutation that did not run is outside the
+    mutation score, because a score is a share of what was tested. *)
+type outcome = Passed | Failed | Crashed | Timed_out | Not_run
+
+(** [outcome_of_status status] is the outcome that the exit status
+    [status] of a test process says. It never answers [Not_run]: a
+    mutation that did not run has no test process and no exit status,
+    and {!Summary.of_results} reads the [not_run] field of the result
+    before it reads the status. *)
 let outcome_of_status status =
   if status = 0 then Passed
   else if status = 124 then Timed_out
@@ -161,6 +174,7 @@ let outcome_word = function
   | Failed    -> "failed"
   | Crashed   -> "crashed"
   | Timed_out -> "timeout"
+  | Not_run   -> "not run"
 
 (* hack to derive yojson for ppxlib types *)
 (* https://github.com/ocaml-ppx/ppx_deriving#working-with-existing-types *)
@@ -432,12 +446,22 @@ type muts_file =
     [status] is the exit status of the test process. [test_env] holds the
     variables that the runner set in that process, in the order it set
     them. For a mutant that the test suite killed, [test_env] is the
-    environment that killed it. *)
+    environment that killed it.
+
+    [not_run] is true for a mutation that never reached a test process,
+    which [mutaml-runner --changed-since <rev>] leaves out. Such a
+    result has no exit status and no environment: [status] is 0 and
+    [test_env] is empty, and neither means anything. Ask [not_run]
+    before you read either of them, or ask {!Summary.of_results} for
+    the outcome, which does. A report file written before this field
+    existed holds a result of a mutation that did run, so the field is
+    false when the file does not hold it. *)
 type test_result =
   {
     status   : int;
     mutant   : mutant;
     test_env : (string * string) list [@default []];
+    not_run  : bool [@default false];
   } [@@deriving yojson { exn = true }]
 
 (** What the runner writes in its report file, and what the report tool

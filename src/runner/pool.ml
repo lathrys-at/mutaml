@@ -125,7 +125,8 @@ let run ~cmd ~test_env ~jobs ~repeat ~limit mutants =
       then Printf.sprintf "%s in run %i of %i" word job.run_number repeat
       else word in
     finished.(job.index) <-
-      Some { result = { status = r.status; mutant = job.mutant; test_env = job.env }; word };
+      Some { result = { status = r.status; mutant = job.mutant; test_env = job.env;
+                        not_run = false }; word };
     free_slots := job.slot :: !free_slots;
     flush_lines () in
   let rec fill () = match !free_slots with
