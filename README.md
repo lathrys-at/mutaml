@@ -270,6 +270,101 @@ rule can turn the operator off.
   if a format of yours holds no `%` and still cannot be empty.
 
 
+Places That Are Not Mutated
+---------------------------
+
+Some code cannot be tested by changing it. Two branches that give a
+caller the same answer, a message that no test reads, a constant that
+only a log line shows: a mutation there lives through every test suite
+you can write, and it lowers the score for no fault of the tests. Mark
+such a place, and the preprocessor makes no mutation in it.
+
+The mark is the attribute `[@mutaml.skip "reason"]`:
+
+```ocaml
+let describe n =
+  (if n < 0 then "a negative number" else "a number")[@mutaml.skip
+    "the two texts read the same to every caller"]
+```
+
+Put the expression you mean in parentheses. An attribute binds to the
+expression right in front of it, and it binds tighter than an
+operator, so
+
+```ocaml
+let is_ready count = count >= 1 [@mutaml.skip "..."]
+```
+
+marks the `1` alone and leaves the comparison to be mutated, while
+
+```ocaml
+let is_ready count = ((count >= 1) [@mutaml.skip "..."])
+```
+
+marks both.
+
+The reason is a string, and it is not optional. An attribute with no
+reason, with an empty reason, or with a payload that is not a string
+stops the build with a message that names the file and the line:
+
+```
+File "lib.ml", line 2, characters 53-67:
+Error: mutaml: the attribute [@mutaml.skip] needs a reason. Write the reason as a string, as in [@mutaml.skip "the two branches do the same thing"].
+```
+
+Write the attribute on the smallest expression that covers the place.
+It also goes on a `let` binding, on a module, on an `open` and on an
+`include`, with two `@` characters:
+
+```ocaml
+let messages n =
+  if n < 0 then "hello" else "hi"
+[@@mutaml.skip "no test reads these texts"]
+```
+
+Prefer the expression. A whole function is a large place to take out
+of a run, and one reason rarely covers every mutation of it. A place
+inside a marked place needs no mark of its own: the outer one covers
+it.
+
+The attribute stops the build in any other place, on a type for
+example, rather than pass unread:
+
+```
+File "lib.ml", line 1, characters 13-61:
+Error: mutaml: the attribute [@mutaml.skip] is in a place that mutaml does not read. Write it on an expression, on a let binding, on a module, on an open or on an include.
+```
+
+A marked place is not a mutation, so it is outside the mutation score,
+and it moves the name of no other mutation of the file. The
+preprocessor writes each place in the `lib.muts` file of its source
+file, `mutaml-runner` carries it into `mutaml-report.json`, and all
+three reports name it:
+
+- the terminal report prints a section that names each place, its
+  line, its reason, and the mutation operators that the attribute
+  takes out of it;
+- the Markdown summary holds the same under the heading
+  `Skipped places`;
+- the JSON report writes each place as a mutation whose `status` is
+  `Ignored`, with the reason in `statusReason` and `skip` as the
+  `mutatorName`. The viewer of that format leaves a mutation of that
+  status out of every count.
+
+A project in which the attribute marks every place that mutaml can
+mutate has no mutation and therefore no score. `mutaml-runner` then
+runs no test and says why, `mutaml-report` gives the places and no
+score, and the run passes: there is no score to hold to
+`--fail-under`.
+
+The preprocessor also says how many places it took out of each file:
+
+```
+Created 12 mutations of lib.ml
+Skipped 1 place in lib.ml
+```
+
+
 The Name of a Mutation
 ----------------------
 
@@ -424,18 +519,64 @@ The other options of `mutaml-runner` are:
   `--test-env QCHECK_SEED=1234`, so that the whole run repeats exactly.
   `mutaml-runner` writes the variables it set beside every result in
   `mutaml-report.json`, so the result of a killed mutation names the
-  environment that killed it.
+  environment that killed it. In a value, the two characters `{}`
+  become the number of the run: 1 and 2 for the two runs without a
+  mutation, and the number of the run for a mutation, as `--repeat`
+  below describes.
 
 - `--baseline-env NAME=VALUE` - run the test suite a second time with no
   mutation, with `NAME` set to `VALUE` on top of what `--test-env` sets.
-  Repeat the option for each variable you want to change. Use it to run
-  the second time with another seed, for example `--test-env
-  QCHECK_SEED=1 --baseline-env QCHECK_SEED=2`. A test suite that passes
-  under one seed and fails under another does not give a mutation score
-  any meaning, and this is how to find that out before the run. Give
-  `--baseline-env` a value of its own, and not the two characters `{}`:
-  a run without a mutation is run number 1, so `{}` gives 1 in both
-  runs, and the two runs would be the same run twice.
+  Repeat the option for each variable you want to change. A test suite
+  that passes under one seed and fails under another does not give a
+  mutation score any meaning, and the second run is how to find that
+  out before the mutations run.
+
+  You need this option only for a value that is not the number of the
+  run. `--test-env QCHECK_SEED={}` alone already asks for the second
+  run and gives the two runs the seeds 1 and 2. Use `--baseline-env`
+  for a value of another shape, for example `--test-env
+  QCHECK_SEED=1234 --baseline-env QCHECK_SEED=9999`.
+
+  `mutaml-runner` runs the test suite a second time without a mutation
+  when the second run would not be the first run over again: when
+  `--baseline-env` changes a value, or when a value holds `{}`. Two
+  runs of one environment find nothing that one run does not find.
+
+- `--changed-since rev` - test only the mutations that sit on a line
+  that the project changed since the revision `rev`. Every other
+  mutation is recorded as not run: the reports name it as such and
+  leave it out of the mutation score, because a score is a share of
+  what was tested.
+
+  This is the option for a gate on a pull request. A full run tests
+  every mutation of the project, which costs one run of the test suite
+  for each; a run with this option costs one for each mutation that the
+  branch touched. Run the full set on the main branch and on a
+  schedule, and this option on a branch.
+
+  `mutaml-runner` asks `git` for the lines. It runs `git diff
+  --unified=0 <rev> --`, which compares `rev` with the files as they
+  are now, and it keeps a mutation whose lines meet a line that the
+  answer names. It also runs `git rev-parse --show-prefix`, because
+  `git` names a file from the root of the repository and a `lib.muts`
+  file names a file from the root of the project. The root of the
+  project must therefore be the root of the repository or a directory
+  under it. `mutaml-runner` stops with a message when it cannot run
+  `git`, and when `git` does not know `rev`.
+
+  A source file that `git` does not track is in no diff against a
+  revision, so `mutaml-runner` asks `git ls-files --others` for those
+  files as well and counts every line of one as changed. A new file
+  that nobody has added to `git` is the code that most wants testing.
+
+  When no mutation is left, `mutaml-runner` says so on one line, runs
+  no test at all, and writes a report in which every mutation did not
+  run. `mutaml-report` then says that the run has no score, instead of
+  printing a clean score over nothing.
+
+  The option is a rule of thumb and not a proof. A change in one place
+  can leave code in another place untested, and this option does not
+  find that. Run the full set as well.
 
 - `-j count` - the number of mutations to test at one time. The default
   is 1. The environment variable `MUTAML_JOBS` sets the same number, and
@@ -456,19 +597,20 @@ The other options of `mutaml-runner` are:
   run was given. Use `--repeat` with a variable value that holds the two
   characters `{}`: `mutaml-runner` replaces `{}` by the number of the
   run, counted from 1. So `--repeat 3 --test-env QCHECK_SEED={}` gives
-  one mutation the seeds 1, 2 and 3, and the run with no mutation the
-  seed 1. Use it for a test suite that draws random values, where one
-  seed can miss a mutation that another seed catches. A surviving
-  mutation then costs `count` test suite runs instead of one. A killed
-  mutation usually still costs one, because most mutations die under the
-  first seed.
+  one mutation the seeds 1, 2 and 3, and the two runs without a
+  mutation the seeds 1 and 2. Use it for a test suite that draws random
+  values, where one seed can miss a mutation that another seed catches.
+  A surviving mutation then costs `count` test suite runs instead of
+  one. A killed mutation usually still costs one, because most
+  mutations die under the first seed.
 
 `mutaml-runner` runs the test command with no mutation before it tests
-any mutation, and again a second time when `--baseline-env` is given. It
-stops with an error when a run fails, because every mutation would then
-look killed, and when the two runs do not agree. It writes the output of
-the runs to `_mutations/baseline-1.output` and, when there is a second
-run, `_mutations/baseline-2.output`.
+any mutation, and again a second time when the second run would differ
+from the first, as `--baseline-env` above describes. It stops with an
+error when a run fails, because every mutation would then look killed,
+and when the two runs do not agree. It writes the output of the runs to
+`_mutations/baseline-1.output` and, when there is a second run,
+`_mutations/baseline-2.output`.
 
 `mutaml-runner` skips a `lib.muts` file whose source file `lib.ml` is
 not in the project, and says on one line that it did. `dune` runs the
@@ -531,15 +673,11 @@ write the same file. Check these four things before you raise `-j`:
 Report Options and Environment Variables
 ----------------------------------------
 
-Currently `mutaml-report` uses `diff --color -u` as its default
-command to print `diff`s. It falls back to `diff -u` when the
-environment variable `CI` is `true`. The used command can also be
-configured with an environment variable:
-
-- `MUTAML_DIFF_COMMAND` - the command and options to use instead,
-  e.g. `MUTAML_DIFF_COMMAND="diff -U 5"` will disable colored outputs
-  and add 5 lines of unified context. Mutaml expects the specified
-  command to support `--label` options.
+`mutaml-report` writes the `diff` of a mutation itself, in the unified
+format, with three lines of context on each side of the change. It
+runs no other program to do it, so the text is the same on every
+machine and the tool needs no `diff` command of the system. The text
+carries no colour.
 
 Passing the option `--no-diff` to `mutaml-report` prevents any
 mutation `diff`s from being printed.
@@ -549,6 +687,12 @@ score is below 100 percent. The mutation score is the share of the
 mutations that failed or timed out, of all the mutations that ran. A
 mutation that timed out counts with the mutations that failed, because
 a test run that never ends is a fault that the test suite found.
+
+A mutation that did not run, which is what `mutaml-runner
+--changed-since` leaves out, has a column of its own in the table and
+is outside the score. When no mutation ran, `mutaml-report` says that
+the run has no score, and exits with 0: there is no score to hold to a
+limit.
 
 - `--fail-under percent` - accept a score of `percent` or above.
   `mutaml-report` then exits with 2 only when the score is below the
@@ -562,8 +706,9 @@ the report to a file as well. You may give both in one run.
 
 - `--markdown path` - write a Markdown summary to `path`. The summary
   holds the mutation score, a table with one row for each source file
-  and one row for the total, and every mutation that the test suite did
-  not catch, with its name, its place in the file, and its diff.
+  and one row for the total, every mutation that the test suite did not
+  catch, with its name, its place in the file, and its diff, and every
+  place that `[@mutaml.skip]` marks, with its reason.
   GitHub Actions shows the Markdown of the file that its variable
   `GITHUB_STEP_SUMMARY` names on the page of the job, so this step puts
   the summary there:
@@ -578,10 +723,12 @@ the report to a file as well. You may give both in one run.
   [mutation-test-report-app](https://github.com/stryker-mutator/mutation-testing-elements)
   reads it.
 
-The table of the Markdown summary counts the four outcomes apart, so
-its columns add up to the number of mutations of the file. The score
-counts a mutation that timed out and a mutation that a signal ended
-with the mutations that failed.
+The table of the Markdown summary counts the four outcomes apart, and
+counts the mutations that did not run in a column of its own, so its
+columns add up to the number of mutations of the file. The score counts
+a mutation that timed out and a mutation that a signal ended with the
+mutations that failed, and it leaves a mutation that did not run out of
+both halves.
 
 The JSON report gives every mutation one of the statuses of the format:
 
@@ -591,6 +738,8 @@ The JSON report gives every mutation one of the statuses of the format:
 | the run took too long | `Timeout` | the viewer counts it as caught |
 | a signal ended the run | `Killed` | `statusReason` names the signal |
 | the test suite passed | `Survived` | |
+| the mutation was never made, because `[@mutaml.skip]` marks the place | `Ignored` | outside every count; `statusReason` gives the reason |
+| the mutation did not run, because `--changed-since` left it out | `Ignored` | outside every count; `statusReason` says why it did not run |
 
 In the JSON report, the `id` of a mutation is its name, the same string
 that `MUTAML_MUTANT` takes, and `mutatorName` is the name of the
@@ -603,7 +752,7 @@ The three exit codes of `mutaml-report` are:
 
 | code | meaning |
 |---|---|
-| 0 | the score is at or above the limit |
+| 0 | the score is at or above the limit, or no mutation ran and there is no score |
 | 2 | the score is below the limit |
 | 1 | the tool could not do its work, for example because it could not read its input |
 

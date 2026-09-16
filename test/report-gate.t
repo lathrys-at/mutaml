@@ -14,6 +14,7 @@ that timed out counts with the mutations that failed, so the score is 100
 percent and the report tool exits with 0:
 
   $ cat > caught.json <<'EOF'
+  > { "results" :
   > [ { "status" : 1,
   >     "mutant" : { "number" : 0, "binding" : "f", "kind" : "int-constant",
   >                  "original" : "1", "ordinal" : 0, "repl" : "2",
@@ -25,7 +26,7 @@ percent and the report tool exits with 0:
   >                  "original" : "+", "ordinal" : 0, "repl" : "-",
   >                  "loc" : { "loc_start" : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 12 },
   >                            "loc_end"   : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 13 },
-  >                            "loc_ghost" : false } } } ]
+  >                            "loc_ghost" : false } } } ] }
   > EOF
 
   $ mutaml-report --no-diff caught.json
@@ -34,10 +35,10 @@ percent and the report tool exits with 0:
   Mutaml report summary:
   ----------------------
   
-   target                          #mutations      #failed      #timeouts      #passed 
-   -------------------------------------------------------------------------------------
-   lib.ml                                 2      50.0%    1    50.0%    1     0.0%    0
-   =====================================================================================
+   target                          #mutations      #failed      #timeouts      #passed       #not run
+   ---------------------------------------------------------------------------------------------------
+   lib.ml                                 2      50.0%    1    50.0%    1     0.0%    0             0
+   ===================================================================================================
   
   Mutation score: 100.0% (2 mutations: 1 failed, 1 timed out, 0 passed)
 
@@ -46,6 +47,7 @@ Write a report in which one mutation failed and one passed. The score is
 it exits with 2:
 
   $ cat > survivor.json <<'EOF'
+  > { "results" :
   > [ { "status" : 1,
   >     "mutant" : { "number" : 0, "binding" : "f", "kind" : "int-constant",
   >                  "original" : "1", "ordinal" : 0, "repl" : "2",
@@ -57,7 +59,7 @@ it exits with 2:
   >                  "original" : "+", "ordinal" : 0, "repl" : "-",
   >                  "loc" : { "loc_start" : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 12 },
   >                            "loc_end"   : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 13 },
-  >                            "loc_ghost" : false } } } ]
+  >                            "loc_ghost" : false } } } ] }
   > EOF
 
   $ mutaml-report --no-diff survivor.json
@@ -66,10 +68,10 @@ it exits with 2:
   Mutaml report summary:
   ----------------------
   
-   target                          #mutations      #failed      #timeouts      #passed 
-   -------------------------------------------------------------------------------------
-   lib.ml                                 2      50.0%    1     0.0%    0    50.0%    1
-   =====================================================================================
+   target                          #mutations      #failed      #timeouts      #passed       #not run
+   ---------------------------------------------------------------------------------------------------
+   lib.ml                                 2      50.0%    1     0.0%    0    50.0%    1             0
+   ===================================================================================================
   
   Mutation programs passing the test suite:
   -----------------------------------------
@@ -88,10 +90,10 @@ tool exits with 0:
   Mutaml report summary:
   ----------------------
   
-   target                          #mutations      #failed      #timeouts      #passed 
-   -------------------------------------------------------------------------------------
-   lib.ml                                 2      50.0%    1     0.0%    0    50.0%    1
-   =====================================================================================
+   target                          #mutations      #failed      #timeouts      #passed       #not run
+   ---------------------------------------------------------------------------------------------------
+   lib.ml                                 2      50.0%    1     0.0%    0    50.0%    1             0
+   ===================================================================================================
   
   Mutation programs passing the test suite:
   -----------------------------------------
@@ -107,10 +109,10 @@ A score below the value of --fail-under makes the report tool exit with 2:
   Mutaml report summary:
   ----------------------
   
-   target                          #mutations      #failed      #timeouts      #passed 
-   -------------------------------------------------------------------------------------
-   lib.ml                                 2      50.0%    1     0.0%    0    50.0%    1
-   =====================================================================================
+   target                          #mutations      #failed      #timeouts      #passed       #not run
+   ---------------------------------------------------------------------------------------------------
+   lib.ml                                 2      50.0%    1     0.0%    0    50.0%    1             0
+   ===================================================================================================
   
   Mutation programs passing the test suite:
   -----------------------------------------
@@ -128,10 +130,10 @@ The value 0 accepts every score:
   Mutaml report summary:
   ----------------------
   
-   target                          #mutations      #failed      #timeouts      #passed 
-   -------------------------------------------------------------------------------------
-   lib.ml                                 2      50.0%    1     0.0%    0    50.0%    1
-   =====================================================================================
+   target                          #mutations      #failed      #timeouts      #passed       #not run
+   ---------------------------------------------------------------------------------------------------
+   lib.ml                                 2      50.0%    1     0.0%    0    50.0%    1             0
+   ===================================================================================================
   
   Mutation programs passing the test suite:
   -----------------------------------------
@@ -145,6 +147,7 @@ tool names it as well, because a signal ends a test process for a
 reason that is not a failing test:
 
   $ cat > crashed.json <<'EOF'
+  > { "results" :
   > [ { "status" : 1,
   >     "mutant" : { "number" : 0, "binding" : "f", "kind" : "int-constant",
   >                  "original" : "1", "ordinal" : 0, "repl" : "2",
@@ -156,7 +159,7 @@ reason that is not a failing test:
   >                  "original" : "+", "ordinal" : 0, "repl" : "-",
   >                  "loc" : { "loc_start" : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 12 },
   >                            "loc_end"   : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 13 },
-  >                            "loc_ghost" : false } } } ]
+  >                            "loc_ghost" : false } } } ] }
   > EOF
 
   $ mutaml-report --no-diff crashed.json
@@ -165,10 +168,10 @@ reason that is not a failing test:
   Mutaml report summary:
   ----------------------
   
-   target                          #mutations      #failed      #timeouts      #passed 
-   -------------------------------------------------------------------------------------
-   lib.ml                                 2     100.0%    2     0.0%    0     0.0%    0
-   =====================================================================================
+   target                          #mutations      #failed      #timeouts      #passed       #not run
+   ---------------------------------------------------------------------------------------------------
+   lib.ml                                 2     100.0%    2     0.0%    0     0.0%    0             0
+   ===================================================================================================
   
   Mutation programs that a signal ended:
   -------------------------------------

@@ -38,9 +38,6 @@ Check that files were created as expected:
   main.ml
   ounittest.ml
 
-Set diff command to make sure this test also works under macOS
-  $ export MUTAML_DIFF_COMMAND="diff -u"
-
 Set seed and (full) mutation rate as environment variables, for repeatability
   $ export MUTAML_SEED=896745231
   $ export MUTAML_MUT_RATE=100
@@ -87,10 +84,10 @@ Set seed and (full) mutation rate as environment variables, for repeatability
   Mutaml report summary:
   ----------------------
   
-   target                          #mutations      #failed      #timeouts      #passed 
-   -------------------------------------------------------------------------------------
-   lib.ml                                15      80.0%   12     0.0%    0    20.0%    3
-   =====================================================================================
+   target                          #mutations      #failed      #timeouts      #passed       #not run
+   ---------------------------------------------------------------------------------------------------
+   lib.ml                                15      80.0%   12     0.0%    0    20.0%    3             0
+   ===================================================================================================
   
   Mutation programs passing the test suite:
   -----------------------------------------
@@ -199,10 +196,10 @@ Similarly for the reporter:
   Mutaml report summary:
   ----------------------
   
-   target                          #mutations      #failed      #timeouts      #passed 
-   -------------------------------------------------------------------------------------
-   lib.ml                                15      80.0%   12     0.0%    0    20.0%    3
-   =====================================================================================
+   target                          #mutations      #failed      #timeouts      #passed       #not run
+   ---------------------------------------------------------------------------------------------------
+   lib.ml                                15      80.0%   12     0.0%    0    20.0%    3             0
+   ===================================================================================================
   
   Mutation programs passing the test suite:
   -----------------------------------------
@@ -264,10 +261,10 @@ Try a second run to check that we get the same:
   Mutaml report summary:
   ----------------------
   
-   target                          #mutations      #failed      #timeouts      #passed 
-   -------------------------------------------------------------------------------------
-   lib.ml                                15      80.0%   12     0.0%    0    20.0%    3
-   =====================================================================================
+   target                          #mutations      #failed      #timeouts      #passed       #not run
+   ---------------------------------------------------------------------------------------------------
+   lib.ml                                15      80.0%   12     0.0%    0    20.0%    3             0
+   ===================================================================================================
   
   Mutation programs passing the test suite:
   -----------------------------------------
@@ -330,10 +327,10 @@ Try without providing an explicit file name:
   Mutaml report summary:
   ----------------------
   
-   target                          #mutations      #failed      #timeouts      #passed 
-   -------------------------------------------------------------------------------------
-   lib.ml                                15      80.0%   12     0.0%    0    20.0%    3
-   =====================================================================================
+   target                          #mutations      #failed      #timeouts      #passed       #not run
+   ---------------------------------------------------------------------------------------------------
+   lib.ml                                15      80.0%   12     0.0%    0    20.0%    3             0
+   ===================================================================================================
   
   Mutation programs passing the test suite:
   -----------------------------------------
@@ -396,10 +393,10 @@ Now try the --no-diff option while providing an explicit file name:
   Mutaml report summary:
   ----------------------
   
-   target                          #mutations      #failed      #timeouts      #passed 
-   -------------------------------------------------------------------------------------
-   lib.ml                                15      80.0%   12     0.0%    0    20.0%    3
-   =====================================================================================
+   target                          #mutations      #failed      #timeouts      #passed       #not run
+   ---------------------------------------------------------------------------------------------------
+   lib.ml                                15      80.0%   12     0.0%    0    20.0%    3             0
+   ===================================================================================================
   
   Mutation programs passing the test suite:
   -----------------------------------------
@@ -423,10 +420,10 @@ And try the --no-diff option without providing an explicit file name:
   Mutaml report summary:
   ----------------------
   
-   target                          #mutations      #failed      #timeouts      #passed 
-   -------------------------------------------------------------------------------------
-   lib.ml                                15      80.0%   12     0.0%    0    20.0%    3
-   =====================================================================================
+   target                          #mutations      #failed      #timeouts      #passed       #not run
+   ---------------------------------------------------------------------------------------------------
+   lib.ml                                15      80.0%   12     0.0%    0    20.0%    3             0
+   ===================================================================================================
   
   Mutation programs passing the test suite:
   -----------------------------------------
@@ -438,99 +435,6 @@ And try the --no-diff option without providing an explicit file name:
   The score is below 100%. Use --fail-under to accept a lower score.
   [2]
 
-
---------------------------------------------------------------------------------
-
-
-And try with a different MUTAML_DIFF_COMMAND environment variable:
-
-  $ export MUTAML_DIFF_COMMAND="diff -U 2"
-  $ mutaml-report
-  Attempting to read from mutaml-report.json...
-  
-  Mutaml report summary:
-  ----------------------
-  
-   target                          #mutations      #failed      #timeouts      #passed 
-   -------------------------------------------------------------------------------------
-   lib.ml                                15      80.0%   12     0.0%    0    20.0%    3
-   =====================================================================================
-  
-  Mutation programs passing the test suite:
-  -----------------------------------------
-  
-  Mutation "lib.ml-mutant6" passed (see "_mutations/lib.ml-mutant6.output"):
-  
-  --- lib.ml
-  +++ lib.ml-mutant6
-  @@ -22,5 +22,5 @@
-   let pi total =
-     let rec loop n inside =
-  -    if n = 0 then
-  +    if n = 1 then
-         4. *. (float_of_int inside /. float_of_int total)
-       else
-  
-  ---------------------------------------------------------------------------
-  
-  Mutation "lib.ml-mutant8" passed (see "_mutations/lib.ml-mutant8.output"):
-  
-  --- lib.ml
-  +++ lib.ml-mutant8
-  @@ -27,5 +27,5 @@
-         let x = 1.0 -. Random.float 2.0 in
-         let y = 1.0 -. Random.float 2.0 in
-  -      if x *. x +. y *. y <= 1.
-  +      if ((x *. x) +. (y *. y)) < 1.
-         then loop (n-1) (inside+1)
-         else loop (n-1) (inside)
-  
-  ---------------------------------------------------------------------------
-  
-  Mutation "lib.ml-mutant14" passed (see "_mutations/lib.ml-mutant14.output"):
-  
-  --- lib.ml
-  +++ lib.ml-mutant14
-  @@ -31,3 +31,3 @@
-         else loop (n-1) (inside)
-     in
-  -  loop total 0
-  +  loop total 1
-  
-  ---------------------------------------------------------------------------
-  
-  Mutation score: 80.0% (15 mutations: 12 failed, 0 timed out, 3 passed)
-  The score is below 100%. Use --fail-under to accept a lower score.
-  [2]
-
-
-Also check that MUTAML_DIFF_COMMAND doesn't affect --no-diff:
-
-  $ mutaml-report --no-diff
-  Attempting to read from mutaml-report.json...
-  
-  Mutaml report summary:
-  ----------------------
-  
-   target                          #mutations      #failed      #timeouts      #passed 
-   -------------------------------------------------------------------------------------
-   lib.ml                                15      80.0%   12     0.0%    0    20.0%    3
-   =====================================================================================
-  
-  Mutation programs passing the test suite:
-  -----------------------------------------
-  
-  Mutation "lib.ml-mutant6" passed (see "_mutations/lib.ml-mutant6.output")
-  Mutation "lib.ml-mutant8" passed (see "_mutations/lib.ml-mutant8.output")
-  Mutation "lib.ml-mutant14" passed (see "_mutations/lib.ml-mutant14.output")
-  Mutation score: 80.0% (15 mutations: 12 failed, 0 timed out, 3 passed)
-  The score is below 100%. Use --fail-under to accept a lower score.
-  [2]
-
-
-Now clean-up MUTAML_DIFF_COMMAND again to default again
-
-  $ export MUTAML_DIFF_COMMAND="diff -u"
 
 --------------------------------------------------------------------------------
 
@@ -544,10 +448,10 @@ Now move file to a different name and retry the --no-diff option with the new na
   Mutaml report summary:
   ----------------------
   
-   target                          #mutations      #failed      #timeouts      #passed 
-   -------------------------------------------------------------------------------------
-   lib.ml                                15      80.0%   12     0.0%    0    20.0%    3
-   =====================================================================================
+   target                          #mutations      #failed      #timeouts      #passed       #not run
+   ---------------------------------------------------------------------------------------------------
+   lib.ml                                15      80.0%   12     0.0%    0    20.0%    3             0
+   ===================================================================================================
   
   Mutation programs passing the test suite:
   -----------------------------------------
@@ -654,10 +558,10 @@ Create a dune-workspace file with another build context:
   Mutaml report summary:
   ----------------------
   
-   target                          #mutations      #failed      #timeouts      #passed 
-   -------------------------------------------------------------------------------------
-   lib.ml                                10      80.0%    8     0.0%    0    20.0%    2
-   =====================================================================================
+   target                          #mutations      #failed      #timeouts      #passed       #not run
+   ---------------------------------------------------------------------------------------------------
+   lib.ml                                10      80.0%    8     0.0%    0    20.0%    2             0
+   ===================================================================================================
   
   Mutation programs passing the test suite:
   -----------------------------------------
@@ -735,10 +639,10 @@ Similar, but by passing a command line option:
   Mutaml report summary:
   ----------------------
   
-   target                          #mutations      #failed      #timeouts      #passed 
-   -------------------------------------------------------------------------------------
-   lib.ml                                10      80.0%    8     0.0%    0    20.0%    2
-   =====================================================================================
+   target                          #mutations      #failed      #timeouts      #passed       #not run
+   ---------------------------------------------------------------------------------------------------
+   lib.ml                                10      80.0%    8     0.0%    0    20.0%    2             0
+   ===================================================================================================
   
   Mutation programs passing the test suite:
   -----------------------------------------
@@ -818,10 +722,10 @@ Similar, but by passing a command line option:
   Mutaml report summary:
   ----------------------
   
-   target                          #mutations      #failed      #timeouts      #passed 
-   -------------------------------------------------------------------------------------
-   lib.ml                                10      80.0%    8     0.0%    0    20.0%    2
-   =====================================================================================
+   target                          #mutations      #failed      #timeouts      #passed       #not run
+   ---------------------------------------------------------------------------------------------------
+   lib.ml                                10      80.0%    8     0.0%    0    20.0%    2             0
+   ===================================================================================================
   
   Mutation programs passing the test suite:
   -----------------------------------------

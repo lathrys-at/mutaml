@@ -10,6 +10,7 @@ and the list of mutation files.
   > let f x = x + 1
   > EOF
   $ cat > _build/.mutaml/default/lib.muts <<'EOF'
+  > { "mutants" :
   > [ { "number" : 0, "binding" : "f", "kind" : "int-constant",
   >     "original" : "1", "ordinal" : 0, "repl" : "2",
   >     "loc" : { "loc_start" : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 14 },
@@ -19,7 +20,7 @@ and the list of mutation files.
   >     "original" : "+", "ordinal" : 0, "repl" : "-",
   >     "loc" : { "loc_start" : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 12 },
   >               "loc_end"   : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 13 },
-  >               "loc_ghost" : false } } ]
+  >               "loc_ghost" : false } } ] }
   > EOF
   $ cat > _build/.mutaml/default/mutaml-mut-files.txt <<'EOF'
   > lib.muts
@@ -58,8 +59,9 @@ The run without a mutant had the variable set:
   $ cat _mutations/baseline-1.output
   MUTAML_MUTANT=[] QCHECK_SEED=[7]
 
-There was no second run without a mutant, because --baseline-env was not
-given:
+There was no second run without a mutant. The value of --test-env holds
+no {} and --baseline-env was not given, so the second run would have
+been the first run over again:
 
   $ test -e _mutations/baseline-2.output
   [1]
@@ -96,6 +98,33 @@ mutant belongs to:
   baseline-2.output
   lib.ml-mutant0.output
   lib.ml-mutant1.output
+
+A value of --test-env that holds the two characters {} asks for the
+second run by itself. The runner puts the number of the run there, so
+the two runs without a mutant get the seeds 1 and 2 and are not one run
+twice:
+
+  $ rm -rf _mutations
+  $ mutaml-runner --test-env QCHECK_SEED={} ./tests.sh
+  read mut file lib.muts
+  Testing without a mutant ... passed
+  Testing without a mutant a second time ... passed
+  The limit of a test run is 5 times the run without a mutant, and never less than 10 seconds.
+  Testing mutant lib.ml:f:int-constant:4fad8996:0 ... failed
+  Testing mutant lib.ml:f:arith-operator:b614c1c7:0 ... passed
+  Writing report data to mutaml-report.json
+  $ cat _mutations/baseline-1.output
+  MUTAML_MUTANT=[] QCHECK_SEED=[1]
+  $ cat _mutations/baseline-2.output
+  MUTAML_MUTANT=[] QCHECK_SEED=[2]
+
+--baseline-env that gives a variable the value it has already does not
+ask for a second run, for the same reason:
+
+  $ rm -rf _mutations
+  $ mutaml-runner --test-env QCHECK_SEED=7 --baseline-env QCHECK_SEED=7 ./tests.sh > /dev/null
+  $ test -e _mutations/baseline-2.output
+  [1]
 
 A path to a mutation file that starts at the root of the file system
 gives the same mutant names, and the same results:
@@ -171,11 +200,12 @@ mutant run; the limit that the measurement gives does not. One mutation
 is enough to show it, so this test reads a mutation file of its own:
 
   $ cat > _build/.mutaml/default/one.muts <<'EOF'
+  > { "mutants" :
   > [ { "number" : 0, "binding" : "f", "kind" : "int-constant",
   >     "original" : "1", "ordinal" : 0, "repl" : "2",
   >     "loc" : { "loc_start" : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 14 },
   >               "loc_end"   : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 15 },
-  >               "loc_ghost" : false } } ]
+  >               "loc_ghost" : false } } ] }
   > EOF
   $ cat > slow.sh <<'EOF'
   > #!/bin/sh

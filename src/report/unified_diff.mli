@@ -5,9 +5,11 @@
     mutated file in the format that [diff -u] prints.
 
     The diff holds one hunk, with at most three lines of context on
-    each side of the change. It carries no colour, and it has no marker
-    for a file that does not end with a newline. The text is the same
-    on every system, because no other program makes it. *)
+    each side of the change. A line that the replacement leaves as it
+    was at either end of the change is a line of context and not a line
+    that changed. The diff carries no colour, and it has no marker for
+    a file that does not end with a newline. The text is the same on
+    every system, because no other program makes it. *)
 
 val unified :
   old_label:string ->
@@ -25,8 +27,10 @@ val unified :
     [old_label] names the file on the [---] line and [new_label] names
     it on the [+++] line.
 
-    The result ends with a newline, and it is the empty string when the
-    replacement leaves the text as it was.
+    The result ends with a newline, and it is the empty string when
+    every line of the text is as it was. A replacement that only takes
+    away the newline at the end of the file leaves every line as it
+    was, so it too gives the empty string.
 
     @raise Invalid_argument when [start] and [stop] are not a run of
     bytes inside [contents], that is, when [0 <= start <= stop <=

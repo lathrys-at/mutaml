@@ -20,27 +20,33 @@ let fence_for text =
 
 let mutants_of n = if n = 1 then "1 mutant" else Printf.sprintf "%i mutants" n
 
+(* The counts beside the score name the mutants that ran. A mutant that
+   did not run is named apart from them, because it is in neither half
+   of the score. *)
 let counts_of summary =
-  Printf.sprintf "%s: %i killed, %i timed out, %i crashed, %i survived"
-    (mutants_of (Summary.total summary))
+  let left_out = Summary.count summary Not_run in
+  Printf.sprintf "%s: %i killed, %i timed out, %i crashed, %i survived%s"
+    (mutants_of (Summary.scored summary))
     (Summary.count summary Failed)
     (Summary.count summary Timed_out)
     (Summary.count summary Crashed)
     (Summary.count summary Passed)
+    (if left_out = 0 then "" else Printf.sprintf "; %i did not run" left_out)
 
 let add_row buf label summary =
-  Printf.bprintf buf "| %s | %i | %i | %i | %i | %i |\n"
+  Printf.bprintf buf "| %s | %i | %i | %i | %i | %i | %i |\n"
     label
     (Summary.total summary)
     (Summary.count summary Failed)
     (Summary.count summary Timed_out)
     (Summary.count summary Crashed)
     (Summary.count summary Passed)
+    (Summary.count summary Not_run)
 
 let add_table buf results =
   let by_file = Summary.by_file results in
-  Buffer.add_string buf "| file | mutants | killed | timed out | crashed | survived |\n";
-  Buffer.add_string buf "| --- | ---: | ---: | ---: | ---: | ---: |\n";
+  Buffer.add_string buf "| file | mutants | killed | timed out | crashed | survived | not run |\n";
+  Buffer.add_string buf "| --- | ---: | ---: | ---: | ---: | ---: | ---: |\n";
   List.iter
     (fun (file,file_results) ->
        add_row buf
@@ -50,7 +56,7 @@ let add_table buf results =
   if List.length by_file > 1
   then add_row buf "**total**" (Summary.of_results results);
   Buffer.add_string buf
-    "\nThe score counts a killed mutant, a mutant that timed out and a\nmutant that a signal ended as caught.\n"
+    "\nThe score counts a killed mutant, a mutant that timed out and a\nmutant that a signal ended as caught. A mutant that did not run is\noutside the score.\n"
 
 (* The diff of one mutant, or the reason why there is none. *)
 let diff_of sources (res:test_result) =
@@ -95,18 +101,56 @@ let add_survivor buf sources res =
     let fence = fence_for diff in
     Printf.bprintf buf "%sdiff\n%s%s\n" fence diff fence
 
-let render ~sources ~results =
+let places_of n = if n = 1 then "1 place" else Printf.sprintf "%i places" n
+
+let add_skipped buf (s : skipped) =
+  let file = s.loc.loc_start.pos_fname in
+  Printf.bprintf buf "\n### `%s`\n\n" (skip_name s);
+  Printf.bprintf buf "`%s`, line %i.\n\n" file s.loc.loc_start.pos_lnum;
+  Printf.bprintf buf "The reason: %s\n\n" s.reason;
+  Printf.bprintf buf "%s\n" (skip_operators s)
+
+let add_skipped_section buf skipped =
+  Buffer.add_string buf "\n## Skipped places\n";
+  match skipped with
+  | [] ->
+    Buffer.add_string buf
+      "\nNo attribute takes a place out of this run.\n"
+  | skipped ->
+    Printf.bprintf buf
+      "\nThe attribute `[@mutaml.skip]` takes %s out of this run. A\nskipped place has no mutant, so no count of mutants holds it and the\nscore leaves it out.\n"
+      (places_of (List.length skipped));
+    List.iter (add_skipped buf) skipped
+
+let render ~sources ~results ~skipped =
   let buf = Buffer.create 4096 in
   Buffer.add_string buf "# Mutation report\n\n";
   if results = []
-  then (Buffer.add_string buf "There is no test result.\n"; Buffer.contents buf)
+  then
+    begin
+      Buffer.add_string buf
+        "No mutation was made, so this run has no mutation score.\n";
+      add_skipped_section buf skipped;
+      Buffer.contents buf
+    end
   else
     let summary = Summary.of_results results in
-    Printf.bprintf buf "Mutation score: %.1f%% (%s).\n\n"
-      (Summary.score summary) (counts_of summary);
+    if Summary.scored summary = 0
+    then
+      Printf.bprintf buf
+        "No mutant ran, so this run has no mutation score. Every one of the %s was left out.\n\n"
+        (mutants_of (Summary.total summary))
+    else
+      Printf.bprintf buf "Mutation score: %.1f%% (%s).\n\n"
+        (Summary.score summary) (counts_of summary);
     add_table buf results;
     Buffer.add_string buf "\n## Survivors\n";
     (match Summary.with_outcome summary Passed with
+     | [] when Summary.scored summary = 0 ->
+       Buffer.add_string buf "\nNo mutant ran, so there is no survivor to name.\n"
+     | [] when Summary.count summary Not_run > 0 ->
+       Buffer.add_string buf "\nThe test suite caught every mutant that ran.\n"
      | [] -> Buffer.add_string buf "\nThe test suite caught every mutant.\n"
      | survivors -> List.iter (add_survivor buf sources) survivors);
+    add_skipped_section buf skipped;
     Buffer.contents buf
