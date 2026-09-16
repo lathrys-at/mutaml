@@ -59,12 +59,36 @@ let unified ~old_label ~new_label ~contents ~start ~stop ~repl =
      replacement wrote as many lines as the file gained or lost. *)
   let tail = old_count - last - 1 in
   let new_last = new_count - tail - 1 in
+  (* The replacement can leave a whole line as it was at either end of
+     the run of lines it touches. A mutation that takes away the line
+     [incr c;] of [incr c;\n    !c], for example, ends inside the line
+     [    !c], which the mutated text still holds. Such a line belongs
+     in the context of the hunk and not among the lines that changed,
+     so the two ends move in until the lines there differ. [lead] is
+     the number of lines that the front gives up and [trail] the number
+     that the back gives up. *)
+  let old_line = Array.of_list old_lines and new_line = Array.of_list new_lines in
+  let same i j = String.equal old_line.(i) new_line.(j) in
+  let lead = ref 0 in
+  while first + !lead <= last && first + !lead <= new_last
+        && same (first + !lead) (first + !lead) do incr lead done;
+  let trail = ref 0 in
+  while last - !trail >= first + !lead && new_last - !trail >= first + !lead
+        && same (last - !trail) (new_last - !trail) do incr trail done;
+  let first = first + !lead in
+  let last = last - !trail in
+  let new_last = new_last - !trail in
   let ctx_first = max 0 (first - context) in
   let ctx_last = min (old_count - 1) (last + context) in
   let before = slice old_lines ~first:ctx_first ~last:(first - 1) in
   let after  = slice old_lines ~first:(last + 1) ~last:ctx_last in
   let removed = slice old_lines ~first ~last in
   let added   = slice new_lines ~first ~last:new_last in
+  (* Nothing is left to show when every line of the two texts is the
+     same. The two texts still differ, because they got this far: a
+     replacement that only takes away the newline that ends the file
+     leaves every line as it was. This format has no marker for that. *)
+  if removed = [] && added = [] then "" else
   let buf = Buffer.create 256 in
   let line prefix text =
     Buffer.add_string buf prefix;

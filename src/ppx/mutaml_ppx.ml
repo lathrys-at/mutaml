@@ -46,13 +46,17 @@ let add_preamble structure input_name =
   [%stri let __is_mutaml_mutant__ m = match __MUTAML_MUTANT__ with None -> false | Some mutant -> String.equal m mutant]::
   structure
 
-(** Write mutations of a file 'src/lib.ml' to a 'src/lib.muts', and add
-    that name to the list of .muts files that the runner reads.
-    Mutaml_side_files chooses the directory both go in. *)
-let write_muts_file input_name mutations =
+(** Write the mutations and the skipped places of a file 'src/lib.ml' to
+    a 'src/lib.muts', and add that name to the list of .muts files that
+    the runner reads. Mutaml_side_files chooses the directory both go
+    in. [mutations] and [skipped] are in the order the walk made them,
+    newest first, which is the order this function turns round. *)
+let write_muts_file input_name ~mutations ~skipped =
   let out = Mutaml_side_files.resolve () in
-  let ys = mutations |> List.rev |> List.map Mutaml_common.mutant_to_yojson in
-  let output_name = Mutaml_side_files.write_muts out ~input_name (`List ys) in
+  let contents =
+    Mutaml_common.{ mutants = List.rev mutations; skipped = List.rev skipped } in
+  let json = Mutaml_common.muts_file_to_yojson contents in
+  let output_name = Mutaml_side_files.write_muts out ~input_name json in
   Printf.printf "Writing mutation info to %s\n%!" output_name;
   Mutaml_side_files.record_muts_file out output_name
 
@@ -100,6 +104,95 @@ let file_text name =
       "Warning: could not read %s, so the names of its mutants hold no original text\n%!"
       name;
     ""
+
+(* The attribute that marks a place the preprocessor must not mutate. *)
+let skip_attribute = "mutaml.skip"
+
+(* [skip_reason attrs] is the reason that the [mutaml.skip] attribute of
+   [attrs] carries, paired with [attrs] without that attribute, and
+   [None] when [attrs] holds no such attribute. Two such attributes on
+   one node give the reason of the first, and both are taken out.
+
+   Raises a located error, which the compiler prints with the name of
+   the file and the line, when the attribute carries no reason. *)
+let skip_reason attrs =
+  let is_skip attr = String.equal attr.attr_name.txt skip_attribute in
+  match List.find_opt is_skip attrs with
+  | None -> None
+  | Some attr ->
+    let rest = List.filter (fun a -> not (is_skip a)) attrs in
+    match attr.attr_payload with
+    | PStr [ { pstr_desc =
+                 Pstr_eval ({ pexp_desc =
+                                Pexp_constant (Pconst_string (reason,_,_)); _ },
+                            _); _ } ]
+      when reason <> "" -> Some (reason,rest)
+    | _ ->
+      Location.raise_errorf ~loc:attr.attr_loc
+        "mutaml: the attribute [@%s] needs a reason. Write the reason as a \
+         string, as in [@%s \"the two branches do the same thing\"]."
+        skip_attribute skip_attribute
+
+(* Takes every [mutaml.skip] attribute out of a tree. The walk makes no
+   mutation inside a skipped place and does not rewrite it, so the
+   attributes of the places inside that one are still there. The
+   compiler must not see them. *)
+let remove_skip_attributes = object
+  inherit Ppxlib.Ast_traverse.map as super
+  method! attributes attrs =
+    super#attributes
+      (List.filter
+         (fun attr -> not (String.equal attr.attr_name.txt skip_attribute))
+         attrs)
+end
+
+(* Stops the preprocessor when a [mutaml.skip] attribute is still in the
+   tree after the walk. The walk takes the attribute out of every place
+   it reads, so one that is left sits where the preprocessor does not
+   read it. Without this check the build would pass and the place would
+   still be mutated, and the person who wrote the attribute would read
+   the report as if the place were out of the run. *)
+let check_no_skip_left = object
+  inherit Ppxlib.Ast_traverse.iter as super
+  method! attribute attr =
+    if String.equal attr.attr_name.txt skip_attribute
+    then
+      Location.raise_errorf ~loc:attr.attr_loc
+        "mutaml: the attribute [@%s] is in a place that mutaml does not \
+         read. Write it on an expression, on a let binding, on a module, \
+         on an open or on an include."
+        skip_attribute;
+    super#attribute attr
+end
+
+(* [item_skip item] is the reason that a [mutaml.skip] attribute of the
+   structure item [item] carries, paired with [item] without that
+   attribute, and [None] when [item] carries no such attribute.
+
+   A [let] of a structure holds its attributes on each of its bindings
+   and not on the item, so [Pstr_value] is not here: the walk reads
+   those in [value_binding]. An item of a form that this function does
+   not name keeps every attribute it has. *)
+let item_skip item =
+  let rebuild attrs desc = match skip_reason attrs with
+    | None               -> None
+    | Some (reason,rest) ->
+      Some (reason, { item with pstr_desc = desc rest }) in
+  match item.pstr_desc with
+  | Pstr_eval (e,attrs) ->
+    rebuild attrs (fun rest -> Pstr_eval (e,rest))
+  | Pstr_module binding ->
+    rebuild binding.pmb_attributes
+      (fun rest -> Pstr_module { binding with pmb_attributes = rest })
+  | Pstr_open decl ->
+    rebuild decl.popen_attributes
+      (fun rest -> Pstr_open { decl with popen_attributes = rest })
+  | Pstr_include decl ->
+    rebuild decl.pincl_attributes
+      (fun rest -> Pstr_include { decl with pincl_attributes = rest })
+  | Pstr_value _ | Pstr_primitive _ | Pstr_type _ | Pstr_typext _
+  | Pstr_exception _ | Pstr_recmodule _ | Pstr_modtype _ | Pstr_class _
+  | Pstr_class_type _ | Pstr_attribute _ | Pstr_extension _ -> None
 
 module Options =
 struct
@@ -362,13 +455,22 @@ let return = Ppxlib.With_errors.return
 let (>>=) = Ppxlib.With_errors.(>>=)
 let (>>|) = Ppxlib.With_errors.(>>|)
 
-class mutate_mapper (rs : RS.t) =
+class mutate_mapper (initial_rs : RS.t) =
   object (self)
   inherit Ppxlib.Ast_traverse.map_with_expansion_context_and_errors as super
+
+  (* The walk of a skipped place puts this state back as it was, so that
+     a skipped place moves no name and no number of any other mutation of
+     the file. Every part of it is therefore mutable. *)
+  val mutable rs            = initial_rs
 
   val mutable mut_count     = 0
   val mutable mutations     = []
   val mutable tmp_var_count = 0
+
+  (* The places that [[@mutaml.skip "reason"]] took out of the run,
+     newest first. The walk makes no mutation inside such a place. *)
+  val mutable skipped       = []
 
   (* The top-level binding the walk is inside, and the modules around
      it, innermost first. The name of a mutation holds both. *)
@@ -380,11 +482,14 @@ class mutate_mapper (rs : RS.t) =
 
   (* How many mutations of this file already agree with a given
      binding, kind, original text and replacement text. The count is
-     the ordinal of the next such mutation. *)
-  val ordinals              = Hashtbl.create 64
+     the ordinal of the next such mutation. A skipped place of the file
+     counts here too: its key holds the word "skip" where the key of a
+     mutation holds the name of an operator, and no operator is named
+     "skip", so the two kinds of key never meet. *)
+  val mutable ordinals      = Hashtbl.create 64
 
   (* The mutation that took each name, so that no two take one name. *)
-  val names                 = Hashtbl.create 64
+  val mutable names         = Hashtbl.create 64
 
   method choose_to_mutate = RS.int rs 100 <= !Options.mut_rate
 
@@ -498,6 +603,72 @@ class mutate_mapper (rs : RS.t) =
           number (line span.loc_start) name in
     mutations <- mutation::mutations;
     Ast_builder.Default.estring ~loc name
+
+  (* [self#kinds_made walk] runs [walk] and is the operators of the
+     mutations that [walk] made, in the order it made them. It then puts
+     the state of the walk back as it was: the mutation count, the
+     mutations, the temporary-variable count, the ordinal table, the
+     name table, the skipped places, and the random state. So the
+     mutations that [walk] made are gone, and the walk that follows
+     gives every other mutation of the file the name and the number it
+     would have had.
+
+     A skipped place inside [walk] stays skipped, and the mutations that
+     it holds are therefore not counted here either. That is the
+     answer we want: those mutations would not have been made in any
+     case.
+
+     Each caller passes a [walk] that drops the errors of the walk with
+     [ignore]. Nothing in this file puts an error in that list: every
+     error it makes is a located exception, which [Fun.protect] lets
+     through. Anyone who puts an error in the list must carry it out of
+     here instead of dropping it. *)
+  method kinds_made (walk : unit -> unit) =
+    let saved_mut_count     = mut_count
+    and saved_mutations     = mutations
+    and saved_tmp_var_count = tmp_var_count
+    and saved_ordinals      = Hashtbl.copy ordinals
+    and saved_names         = Hashtbl.copy names
+    and saved_skipped       = skipped
+    and saved_rs            = RS.copy rs in
+    let made = ref [] in
+    let () =
+      Fun.protect
+        ~finally:(fun () ->
+            mut_count     <- saved_mut_count;
+            mutations     <- saved_mutations;
+            tmp_var_count <- saved_tmp_var_count;
+            ordinals      <- saved_ordinals;
+            names         <- saved_names;
+            skipped       <- saved_skipped;
+            rs            <- saved_rs)
+        (fun () ->
+           walk ();
+           (* [mutations] is newest first, and [walk] only added to it. *)
+           let rec first n list =
+             if n <= 0
+             then []
+             else match list with
+               | []        -> []
+               | m::rest   -> m::first (n-1) rest in
+           made :=
+             first (List.length mutations - List.length saved_mutations)
+               mutations) in
+    List.rev_map (fun m -> m.Mutaml_common.kind) !made
+
+  (* [self#record_skipped ~reason ~kinds ~span] writes down one place
+     that [[@mutaml.skip]] took out of the run. [span] covers the text
+     of the source file that the place holds, [reason] is the text of the
+     attribute, and [kinds] holds the operators that the walk would have
+     used inside the place. *)
+  method record_skipped ~reason ~kinds ~span =
+    let binding = self#current_binding in
+    let original = self#span_text span in
+    let draft =
+      Mutaml_common.{ binding; reason; original; ordinal = 0; kinds;
+                      loc = span } in
+    let ordinal = self#next_ordinal (Mutaml_common.skip_key draft) in
+    skipped <- Mutaml_common.{ draft with ordinal }::skipped
 
   method mutaml_mutant ~kind loc e_new e_rec repl_str =
     let mut_id_exp = self#record_mutation ~kind ~span:loc ~repl:(Some repl_str) ~loc in
@@ -871,6 +1042,13 @@ class mutate_mapper (rs : RS.t) =
 
   method! expression ctx e =
     let loc = e.pexp_loc in
+    match skip_reason e.pexp_attributes with
+    | Some (reason,rest) ->
+      let e = { e with pexp_attributes = rest } in
+      let kinds = self#kinds_made (fun () -> ignore (self#expression ctx e)) in
+      self#record_skipped ~reason ~kinds ~span:e.pexp_loc;
+      return (remove_skip_attributes#expression e)
+    | None ->
     match e, e.pexp_desc with
 
     (* asserts represent inline sanity checks/tests - so don't mutate their expressions *)
@@ -1054,7 +1232,27 @@ class mutate_mapper (rs : RS.t) =
      of a structure sets the binding for everything below it. A [let]
      inside an expression does not: a name must not move when a local
      definition is renamed. *)
+  (* A [let] carries the attribute on its binding and not on the
+     structure item around it, so a binding of any depth can be
+     skipped. *)
+  method! value_binding ctx binding_ =
+    match skip_reason binding_.pvb_attributes with
+    | Some (reason,rest) ->
+      let binding_ = { binding_ with pvb_attributes = rest } in
+      let kinds =
+        self#kinds_made (fun () -> ignore (self#value_binding ctx binding_)) in
+      self#record_skipped ~reason ~kinds ~span:binding_.pvb_loc;
+      return (remove_skip_attributes#value_binding binding_)
+    | None -> super#value_binding ctx binding_
+
   method! structure_item ctx item =
+    match item_skip item with
+    | Some (reason,item) ->
+      let kinds =
+        self#kinds_made (fun () -> ignore (self#structure_item ctx item)) in
+      self#record_skipped ~reason ~kinds ~span:item.pstr_loc;
+      return (remove_skip_attributes#structure_item item)
+    | None ->
     let saved = enclosing in
     match item.pstr_desc with
     | Pstr_value (rec_flag,bindings) ->
@@ -1101,7 +1299,13 @@ class mutate_mapper (rs : RS.t) =
             []) errs in
     let mut_count = List.length mutations in
     Printf.printf "Created %i mutation%s of %s\n%!" mut_count (if mut_count=1 then "" else "s") input_name;
+    let skip_count = List.length skipped in
+    if skip_count > 0
+    then
+      Printf.printf "Skipped %i place%s in %s\n%!" skip_count
+        (if skip_count=1 then "" else "s") input_name;
 
-    let () = write_muts_file input_name mutations in
+    let () = check_no_skip_left#structure instrumented_ast in
+    let () = write_muts_file input_name ~mutations ~skipped in
     errs @ (add_preamble instrumented_ast input_name)
 end

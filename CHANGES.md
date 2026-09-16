@@ -1,6 +1,27 @@
 Next release
 ------------
 
+- Add the attribute `[@mutaml.skip "reason"]`, which marks a place that
+  the preprocessor must not mutate. It goes on an expression, on a
+  `let` binding, on a module, on an `open` and on an `include`. The
+  reason is a string and it is not optional: an attribute without one
+  stops the build with a message that names the file and the line, and
+  so does an attribute in any other place, which would otherwise pass
+  unread and leave the place mutated. A
+  marked place is outside the mutation score, and it moves the name of
+  no other mutation of the file. The terminal report and the Markdown
+  summary name each place, its reason, and the mutation operators that
+  the attribute takes out of it; the JSON report gives it the status
+  `Ignored` with the reason in `statusReason`. A project in which the
+  attribute marks every place that mutaml can mutate has no mutation
+  and no score: the runner runs no test and says why, and the report
+  gives the places and lets the run through
+- Write each `lib.muts` file as a JSON object with the fields `mutants`
+  and `skipped`, in place of a JSON list of mutations, and
+  `mutaml-report.json` as a JSON object with the fields `results` and
+  `skipped`, in place of a JSON list of test results. A file of the
+  older shape is refused with a message that says to build, or to run
+  `mutaml-runner`, again
 - Name a mutation by its file, the top-level binding that holds it, the
   mutation operator, a digest of the text it changes, and an ordinal,
   instead of by its file and a counter. The name holds no line number,
@@ -97,6 +118,31 @@ Next release
   and an environment variable that turn it off. Every operator that
   was on before is still on by default, so a project that sets nothing
   sees no change
+- Write the `diff` of a mutation in `mutaml-report` itself, in the
+  unified format, instead of running the `diff` command of the system.
+  The text is now the same on every machine, the package no longer
+  depends on `conf-diffutils`, and the environment variable
+  `MUTAML_DIFF_COMMAND` is gone
+- Give the two runs without a mutation the numbers 1 and 2, so that a
+  value of `--test-env` that holds `{}` gives them two seeds. The
+  runner tests without a mutation a second time when the second run
+  would not be the first run over again, which is when `--baseline-env`
+  changes a value or when a value holds `{}`. `--baseline-env` is now
+  needed only for a value that is not the number of the run
+- Make every directory that `mutaml-runner` needs in one function, with
+  `Sys.mkdir`, in place of a call to the shell command `mkdir -p` and a
+  second copy of the same work. The runner no longer needs a shell to
+  make a directory, and it names the directory and the reason when it
+  cannot make one
+- Add `--changed-since <rev>` to `mutaml-runner`, which tests only the
+  mutations that sit on a line that the project changed since the
+  revision `<rev>`. It asks `git diff --unified=0 <rev> --` for the
+  lines, and it counts every line of a file that git does not track as
+  changed. Every other mutation is recorded as not run, which is a new
+  outcome that the three reports name and that the mutation score leaves
+  out. When no mutation is left, the runner says so, runs no test at
+  all, and `mutaml-report` says that the run has no score instead of
+  printing a clean score over nothing
 - List every mutation operator in the README, with its default and
   what it cannot see
 - Use dune.3.18 support to generate `x-maintenance-intent` entry

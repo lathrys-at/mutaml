@@ -15,12 +15,27 @@
       [statusReason] that names the signal.
     - A mutant whose test run timed out is [Timeout]. The viewer counts
       a mutant of that status as caught.
-    - A mutant that let the test suite pass is [Survived]. *)
+    - A mutant that let the test suite pass is [Survived].
+
+    A mutant that did not run, which is what
+    [mutaml-runner --changed-since <rev>] leaves out, is a mutant of
+    the status [Ignored], with a [statusReason] that says why it did
+    not run. The viewer leaves a mutant of that status out of every
+    count, so such a mutant is outside the score.
+
+    A place that [[@mutaml.skip "reason"]] took out of the run is a
+    mutant of the status [Ignored], with the reason in [statusReason]
+    and the operator name [skip]. The viewer leaves a mutant of that
+    status out of every count, so a skipped place is outside the score.
+    The preprocessor made no mutation in such a place, so the operator
+    name says only that the place was skipped; the operators that the
+    place would have had are in [description]. *)
 
 val render :
   fail_under:float option ->
   sources:(string * string) list ->
   results:Mutaml_common.test_result list ->
+  skipped:Mutaml_common.skipped list ->
   string
 (** [render ~fail_under ~sources ~results] is the JSON report of
     [results].
@@ -42,5 +57,9 @@ val render :
     mutants of that file without their surroundings, which is the
     truth, rather than over text that the mutants never touched.
 
-    The result ends with a newline. When [results] is empty the report
-    holds no file. *)
+    [skipped] holds the places that the preprocessor took out of the
+    run. A file that holds a skipped place is in the report even when
+    no mutant of it ran.
+
+    The result ends with a newline. When [results] and [skipped] are
+    both empty the report holds no file. *)

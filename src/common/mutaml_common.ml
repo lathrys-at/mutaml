@@ -143,12 +143,25 @@ let fail_and_exit s =
   print_endline s;
   exit 1
 
-(** The outcome of one test run, read from the exit status of the test
+(** What became of one mutation.
+
+    The first four outcomes are read from the exit status of the test
     process. [Crashed] means that a signal ended the test process, which
     the shell reports as a status above 128. [Timed_out] means that the
-    [timeout] command stopped the test process. *)
-type outcome = Passed | Failed | Crashed | Timed_out
+    run reached its limit.
 
+    [Not_run] is the outcome of a mutation that never reached a test
+    process: [mutaml-runner --changed-since <rev>] runs only the
+    mutations that sit on a line that changed since [<rev>], and the
+    rest take this outcome. A mutation that did not run is outside the
+    mutation score, because a score is a share of what was tested. *)
+type outcome = Passed | Failed | Crashed | Timed_out | Not_run
+
+(** [outcome_of_status status] is the outcome that the exit status
+    [status] of a test process says. It never answers [Not_run]: a
+    mutation that did not run has no test process and no exit status,
+    and {!Summary.of_results} reads the [not_run] field of the result
+    before it reads the status. *)
 let outcome_of_status status =
   if status = 0 then Passed
   else if status = 124 then Timed_out
@@ -161,6 +174,7 @@ let outcome_word = function
   | Failed    -> "failed"
   | Crashed   -> "crashed"
   | Timed_out -> "timeout"
+  | Not_run   -> "not run"
 
 (* hack to derive yojson for ppxlib types *)
 (* https://github.com/ocaml-ppx/ppx_deriving#working-with-existing-types *)
@@ -282,7 +296,7 @@ let field text = Printf.sprintf "%i:%s" (String.length text) text
     Two mutations with different text almost never share a digest. The
     preprocessor stops with an error when two mutations of one file
     would take the same name, so a shared digest cannot pass unseen. *)
-let mutant_digest m =
+let mutant_digest (m : mutant) =
   let original = field (squeeze m.original) in
   let replacement = match m.repl with
     | None      -> "delete"
@@ -297,7 +311,7 @@ let mutant_digest m =
 
     Two mutations of one file that share a key are exactly the
     mutations that the ordinal must tell apart. *)
-let mutant_key m =
+let mutant_key (m : mutant) =
   Printf.sprintf "%s:%s:%s:%s"
     (safe m.loc.loc_start.pos_fname)
     (safe m.binding)
@@ -331,17 +345,136 @@ let mutant_key m =
     Every character of the name is a letter, a digit, or one of "_", ".",
     "-", "/" and ":". A character of the source file that is not one of
     those becomes "_". *)
-let mutant_name m = Printf.sprintf "%s:%i" (mutant_key m) m.ordinal
+let mutant_name (m : mutant) = Printf.sprintf "%s:%i" (mutant_key m) m.ordinal
+
+(** One place in a source file that [[@mutaml.skip "reason"]] took out
+    of the mutation run. The preprocessor makes no mutation there, so a
+    skipped place is not a mutation and never reaches a test run. The
+    reports name it, with its reason, and leave it out of the score.
+
+    [binding] is the top-level binding that holds the place, in the same
+    form as the [binding] of a mutation.
+
+    [reason] is the text that the attribute carries. The preprocessor
+    refuses an attribute that carries none, so this is never empty.
+
+    [original] is the text of the source file that the place covers, as
+    the file writes it.
+
+    [ordinal] counts, from 0, the skipped places of the file whose
+    [skip_key] is this one's, so that two places of a file never take one
+    [skip_name].
+
+    [kinds] holds the mutation operators that the preprocessor would
+    have used inside the place, in the order it would have used them. It
+    is empty when the preprocessor would have made no mutation there,
+    which says that the attribute takes nothing away.
+
+    [loc] is the span of the source file that [original] comes from. *)
+type skipped =
+  {
+    binding  : string;
+    reason   : string;
+    original : string;
+    ordinal  : int;
+    kinds    : kind list;
+    loc      : Loc.location;
+  } [@@deriving yojson { exn = true }]
+
+(** [skip_digest s] is the short digest that stands for the skipped text
+    and the reason of [s] in its name. It holds 8 characters, each a
+    digit or a letter from a to f. It is the digest that
+    {!mutant_digest} would give if the reason were the replacement
+    text, so the two names read alike. *)
+let skip_digest (s : skipped) =
+  let original = field (squeeze s.original) in
+  let reason = field (squeeze s.reason) in
+  String.sub (Digest.to_hex (Digest.string (original ^ reason))) 0 8
+
+(** [skip_key s] is the name of the skipped place [s] without its
+    ordinal: the source file, the top-level binding, the word "skip",
+    and the digest, each made safe and joined with ":". It does not read
+    [s.ordinal], so the preprocessor can build it before it knows the
+    ordinal. *)
+let skip_key (s : skipped) =
+  Printf.sprintf "%s:%s:skip:%s"
+    (safe s.loc.loc_start.pos_fname)
+    (safe s.binding)
+    (skip_digest s)
+
+(** [skip_name s] is the name of the skipped place [s]. It holds the
+    same five fields as {!mutant_name}, with the word "skip" where the
+    name of the mutation operator stands:
+
+      src/lib.ml:classify:skip:a3f9c1d4:0
+
+    A skipped place never runs, so no environment variable ever carries
+    this name. It is there so that a report can name one place of a file
+    among several, and so that two reports of one program name the same
+    place alike. Like {!mutant_name}, it does not hold the line or the
+    column, so it does not change when the file gains or loses lines
+    above the place. *)
+let skip_name (s : skipped) = Printf.sprintf "%s:%i" (skip_key s) s.ordinal
+
+(** [skip_operators s] is the sentence that a report prints for the
+    mutation operators that the attribute takes out of the place [s].
+    It ends with a full stop and holds no newline. *)
+let skip_operators (s : skipped) = match s.kinds with
+  | []    -> "The attribute takes no operator out of this place."
+  | kinds ->
+    Printf.sprintf
+      "The attribute takes these operators out of this place: %s."
+      (String.concat ", " (List.map kind_name kinds))
+
+(** What the preprocessor writes in the [.muts] file of one source
+    file: every mutation it made there, and every place that
+    [[@mutaml.skip "reason"]] took out.
+
+    The file holds a JSON object with these two fields. A file whose
+    [skipped] field is absent reads as a file with no skipped place, so
+    a [.muts] file that another writer made still reads. A [.muts] file
+    of a release before the skip attribute holds a JSON list and not an
+    object, and does not read: build the program again. *)
+type muts_file =
+  {
+    mutants : mutant list;
+    skipped : skipped list [@default []];
+  } [@@deriving yojson { exn = true }]
 
 
 (** A common type to represent test results.
     [status] is the exit status of the test process. [test_env] holds the
     variables that the runner set in that process, in the order it set
     them. For a mutant that the test suite killed, [test_env] is the
-    environment that killed it. *)
+    environment that killed it.
+
+    [not_run] is true for a mutation that never reached a test process,
+    which [mutaml-runner --changed-since <rev>] leaves out. Such a
+    result has no exit status and no environment: [status] is 0 and
+    [test_env] is empty, and neither means anything. Ask [not_run]
+    before you read either of them, or ask {!Summary.of_results} for
+    the outcome, which does. A report file written before this field
+    existed holds a result of a mutation that did run, so the field is
+    false when the file does not hold it. *)
 type test_result =
   {
     status   : int;
     mutant   : mutant;
     test_env : (string * string) list [@default []];
+    not_run  : bool [@default false];
+  } [@@deriving yojson { exn = true }]
+
+(** What the runner writes in its report file, and what the report tool
+    reads from it: the result of every test run, and every place that
+    [[@mutaml.skip "reason"]] took out, gathered from the [.muts] files
+    of the run.
+
+    The file holds a JSON object with these two fields. A file whose
+    [skipped] field is absent reads as a run with no skipped place. A
+    report file of a release before the skip attribute holds a JSON
+    list and not an object, and does not read: run the runner again. *)
+type report =
+  {
+    results : test_result list;
+    skipped : skipped list [@default []];
   } [@@deriving yojson { exn = true }]

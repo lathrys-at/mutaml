@@ -9,6 +9,7 @@ and the list of mutation files.
   > let f x = x + 1
   > EOF
   $ cat > _build/.mutaml/default/lib.muts <<'EOF'
+  > { "mutants" :
   > [ { "number" : 0, "binding" : "f", "kind" : "int-constant",
   >     "original" : "1", "ordinal" : 0, "repl" : "2",
   >     "loc" : { "loc_start" : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 14 },
@@ -18,7 +19,7 @@ and the list of mutation files.
   >     "original" : "+", "ordinal" : 0, "repl" : "-",
   >     "loc" : { "loc_start" : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 12 },
   >               "loc_end"   : { "pos_fname" : "lib.ml", "pos_lnum" : 1, "pos_bol" : 0, "pos_cnum" : 13 },
-  >               "loc_ghost" : false } } ]
+  >               "loc_ghost" : false } } ] }
   > EOF
   $ cat > _build/.mutaml/default/mutaml-mut-files.txt <<'EOF'
   > lib.muts
@@ -161,6 +162,7 @@ suite below fails for the int-constant mutation under the seed 2 only:
   $ mutaml-runner --repeat 3 --test-env 'QCHECK_SEED={}' ./seeded.sh
   read mut file lib.muts
   Testing without a mutant ... passed
+  Testing without a mutant a second time ... passed
   The limit of a test run is 5 times the run without a mutant, and never less than 10 seconds.
   Testing mutant lib.ml:f:int-constant:4fad8996:0 ... failed in run 2 of 3
   Testing mutant lib.ml:f:arith-operator:b614c1c7:0 ... passed in run 3 of 3
@@ -191,6 +193,7 @@ of the mutation list:
   $ mutaml-runner -j 2 --repeat 3 --test-env 'QCHECK_SEED={}' ./seeded.sh
   read mut file lib.muts
   Testing without a mutant ... passed
+  Testing without a mutant a second time ... passed
   The limit of a test run is 5 times the run without a mutant, and never less than 10 seconds.
   Testing mutant lib.ml:f:int-constant:4fad8996:0 ... failed in run 2 of 3
   Testing mutant lib.ml:f:arith-operator:b614c1c7:0 ... passed in run 3 of 3

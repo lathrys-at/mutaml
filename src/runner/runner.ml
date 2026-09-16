@@ -46,7 +46,8 @@ struct
   let test_env = ref []
 
   (* Variables to set in the second run without a mutation, on top of
-     [test_env]. Empty means that there is no second run. *)
+     [test_env]. The second run happens when it would not be the first
+     run over again, which this list or a "{}" in a value makes so. *)
   let baseline_env = ref []
 
   (* Mutations to test at one time. [None] means the default. *)
@@ -54,6 +55,11 @@ struct
 
   (* The greatest number of test runs that one mutation gets. *)
   let repeat = ref 1
+
+  (* The revision to compare the project against, so that only the
+     mutations on a line that changed are tested. [None] means that
+     every mutation is tested. *)
+  let changed_since = ref None
 
   let set_timeout_from source str = match int_of_string_opt str with
     | Some secs when secs > 0 -> timeout := Some secs
@@ -115,30 +121,25 @@ struct
           "<seconds> Stop a test run that takes longer than <seconds>. Without this option the limit is %i times the run without a mutant, and never less than %i seconds"
           timeout_multiple timeout_floor);
        ("--test-env",      Arg.String add_test_env,
-        "<NAME=VALUE> Set NAME to VALUE in every test process. Repeatable");
+        "<NAME=VALUE> Set NAME to VALUE in every test process. In the value, {} becomes the number of the run: 1 and 2 for the two runs without a mutation, and the number of the run for a mutation. Repeatable");
        ("--baseline-env",  Arg.String add_baseline_env,
-        "<NAME=VALUE> Run the test suite a second time without a mutation, with NAME set to VALUE. Repeatable");
+        "<NAME=VALUE> Run the test suite a second time without a mutation, with NAME set to VALUE on top of what --test-env sets. Needed only for a value that is not the number of the run. Repeatable");
        ("-j",              Arg.String set_jobs,
         "<count> Test <count> mutations at one time. The default is 1");
        ("--repeat",        Arg.String set_repeat,
-        "<count> Run the test command for one mutation until a run kills it, up to <count> runs. In the value of a --test-env, {} becomes the number of the run")]
+        "<count> Run the test command for one mutation until a run kills it, up to <count> runs, each with a different {} in the values of --test-env");
+       ("--changed-since",  Arg.String (fun rev -> changed_since := Some rev),
+        "<rev> Test only the mutations that sit on a line that the project changed since <rev>. Every other mutation is recorded as not run, and is outside the mutation score. Needs git")]
 end
 
+(* Makes a directory that the runner needs, and stops the program with
+   a message when it cannot. [Dir.ensure] does the work; the message is
+   the runner's own. *)
 let ensure_output_dir dir_name =
-  if 0 <> Sys.command ("mkdir -p " ^ dir_name)
-  then fail_and_exit (Printf.sprintf "Failed to create directory %s" dir_name)
-(* Sys.mkdir is a 4.12 addition. Use a crude Sys.command for backwards compat. for now *)
-(*
-let rec ensure_output_dir dir_name =
-  try (* base case: directory exists *)
-    if not (Sys.is_directory dir_name)
-    then fail_and_exit (Printf.sprintf "Expected directory %s is not a directory" dir_name)
-  with Sys_error _ ->
-    (* rec.case: ensure parent directory exists *)
-    let par_name = Filename.dirname dir_name in
-    ensure_output_dir par_name;
-    Sys.mkdir dir_name 0o755
-*)
+  match Dir.ensure dir_name with
+  | () -> ()
+  | exception Sys_error msg ->
+    fail_and_exit (Printf.sprintf "Failed to make the directory %s - %s" dir_name msg)
 
 let read_instrumentation_overview ppx_output_prefix file_name =
   let rec read_loop ch acc =
@@ -155,22 +156,26 @@ let read_instrumentation_overview ppx_output_prefix file_name =
   with Sys_error msg ->
     fail_and_exit (Printf.sprintf "Could not read file %s - %s" file_name msg)
 
+(* The mutations and the skipped sites that one .muts file holds. The
+   file holds a JSON object; a release before the skip attribute wrote a
+   JSON list instead, and such a file needs a new build. *)
 let read_module_mutations_json ppx_output_prefix file_name =
+  let out_of_date () =
+    fail_and_exit
+      (Printf.sprintf
+         "%s does not hold the fields that this release of mutaml reads. A mutation file that an older mutaml wrote needs a new build with --instrument-with mutaml."
+         file_name) in
   try
     let ch = open_in (full_ppx_path ppx_output_prefix file_name) in
     Fun.protect ~finally:(fun () -> close_in_noerr ch)
       (fun () -> match Yojson.Safe.from_channel ch with
-         | `List ys -> List.map mutant_of_yojson_exn ys
-         | _        -> fail_and_exit ("Could not parse " ^ file_name))
+         | `Assoc _ as json -> muts_file_of_yojson_exn json
+         | _                -> out_of_date ())
   with Sys_error msg ->
     fail_and_exit (Printf.sprintf "Could not read file %s - %s" file_name msg)
      | Yojson.Json_error msg ->
        fail_and_exit (Printf.sprintf "Could not parse %s - %s" file_name msg)
-     | Failure _ ->
-       fail_and_exit
-         (Printf.sprintf
-            "A mutation in %s does not hold the fields that this release of mutaml reads. A mutation file that an older mutaml wrote needs a new build with --instrument-with mutaml."
-            file_name)
+     | Failure _ -> out_of_date ()
 
 let read_all_mutations ppx_output_prefix file_name =
   (* Sorted, so that the order of the report does not depend on the order
@@ -181,21 +186,26 @@ let read_all_mutations ppx_output_prefix file_name =
   List.iter (fun fname -> Printf.printf "read mut file %s\n%!" fname) mut_files;
   List.map (fun f -> (f, read_module_mutations_json ppx_output_prefix f)) mut_files
 
-let count_mutations (f,ms) =
-  if ms=[]
+(* How much of a .muts file a report can name: its mutations, and the
+   places that [@mutaml.skip "reason"] took out of the run. A file that
+   holds a place and no mutation still has something to report, so the
+   run goes on. *)
+let count_records (f,(ms : muts_file)) =
+  let count = List.length ms.mutants + List.length ms.skipped in
+  if count = 0
   then Printf.printf "Warning: No mutations were listed in %s\n" f
   else ();
-  List.length ms
+  count
 
 let validate_muts_file mpair =
-  if 0 = count_mutations mpair
+  if 0 = count_records mpair
   then fail_and_exit "Exiting as there is no report data to write"
 
 let validate_mutants file_name muts =
   if muts=[]
   then fail_and_exit ("No files were listed in " ^ file_name)
   else
-    let counts = List.map count_mutations muts in
+    let counts = List.map count_records muts in
     if 0 = List.fold_left (+) 0 counts
     then
       fail_and_exit
@@ -209,7 +219,7 @@ let validate_mutants file_name muts =
    source to make its diff. *)
 let drop_absent_sources muts =
   List.filter
-    (fun (file_name,mutants) -> match mutants with
+    (fun (file_name,(ms : muts_file)) -> match ms.mutants with
        | [] -> true
        | mut::_ ->
          let source = mut.loc.loc_start.pos_fname in
@@ -219,12 +229,14 @@ let drop_absent_sources muts =
              false))
     muts
 
-let write_report_file file_name results =
+(* Writes the report file that mutaml-report reads: the result of every
+   test run, and every site that the preprocessor skipped. *)
+let write_report_file file_name ~results ~skipped =
   Printf.printf "Writing report data to %s\n" file_name;
   let ch = open_out file_name in
   Fun.protect ~finally:(fun () -> close_out_noerr ch)
     (fun () ->
-       Yojson.Safe.to_channel ch (`List (List.map test_result_to_yojson results)))
+       Yojson.Safe.to_channel ch (report_to_yojson { results; skipped }))
 
 
 (** The actual test runner *)
@@ -266,35 +278,48 @@ let override base extra =
 let baseline_output_file number =
   full_path (Printf.sprintf "baseline-%i.output" number)
 
-(* Runs the test suite without a mutant. It runs a second time when
-   [baseline_env] holds an assignment, with those assignments on top of
-   [test_env]. Stops the program when a run fails, and when the two runs
-   disagree: a score has no meaning in either case. Returns the seconds
-   that the longer run took, which is the measurement that the limit of
-   a mutant run comes from. *)
+(* [baseline_run_env test_env baseline_env number] is the environment of
+   the run without a mutant that has the number [number]. The first run
+   has the variables of [test_env] and the second run has those of
+   [baseline_env] on top of them. The number of the run replaces every
+   "{}" in a value, so one --test-env option can give the two runs two
+   seeds. *)
+let baseline_run_env test_env baseline_env number =
+  Run_env.expand ~run:number
+    (if number = 1 then test_env else override test_env baseline_env)
+
+(* Runs the test suite without a mutant. It runs a second time when the
+   second run would not be the first run over again, which is when
+   [baseline_env] changes a value or when a value holds "{}": two runs
+   of one environment find nothing that one run does not find. Stops the
+   program when a run fails, and when the two runs disagree: a score has
+   no meaning in either case. Returns the seconds that the longer run
+   took, which is the measurement that the limit of a mutant run comes
+   from. *)
 let run_baseline test_cmd ~test_env ~baseline_env ~limit =
-  let run number env =
+  let env_of = baseline_run_env test_env baseline_env in
+  let run number =
     let output_file = baseline_output_file number in
     let () =
       if number = 1
       then Printf.printf "Testing without a mutant ... %!"
       else Printf.printf "Testing without a mutant a second time ... %!" in
     let run =
-      run_test_command test_cmd ~test_env:(Run_env.expand ~run:1 env) ~limit
+      run_test_command test_cmd ~test_env:(env_of number) ~limit
         ~mut_id:"" ~output_file in
     let () = Printf.printf "%s\n%!" (status_word run.Test_process.status) in
     run in
-  let first = run 1 test_env in
+  let first = run 1 in
   if first.Test_process.status <> 0
   then
     fail_and_exit
       (Printf.sprintf
          "The test suite did not pass without a mutant. Its exit status was %i.\nThe output of the run is in %s.\nEvery mutant would look killed, so mutaml-runner stops here."
          first.Test_process.status (baseline_output_file 1));
-  if baseline_env = []
+  if env_of 2 = env_of 1
   then first.Test_process.duration
   else
-    let second = run 2 (override test_env baseline_env) in
+    let second = run 2 in
     if second.Test_process.status <> 0
     then
       fail_and_exit
@@ -325,6 +350,52 @@ let print_limit given limit = match given with
       "The limit of a test run is %i times the run without a mutant, and never less than %s.\n%!"
       timeout_multiple (seconds timeout_floor)
 
+
+
+(** Which mutations to run *)
+
+(* The result of a mutation that never reached a test process. It has
+   no exit status and no environment, and [not_run] says so. *)
+let not_run_result (mutant : mutant) =
+  { status = 0; mutant; test_env = []; not_run = true }
+
+let mutations count = if count = 1 then "1 mutation" else Printf.sprintf "%i mutations" count
+
+(* [choose_changed ~rev mutants] splits [mutants] into the mutations
+   that sit on a line that the project changed since [rev] and the rest.
+   Each mutation keeps its place in [mutants], as the number in front of
+   it. Ends the program with a message when git cannot answer. *)
+let choose_changed ~rev mutants =
+  match Changed_lines.since ~rev with
+  | Error error -> fail_and_exit (Changed_lines.error_message error)
+  | Ok changed ->
+    let on_a_changed_line (_number, (mutant : mutant)) =
+      Changed_lines.touches changed
+        ~file:mutant.loc.loc_start.pos_fname
+        ~first:mutant.loc.loc_start.pos_lnum
+        ~last:mutant.loc.loc_end.pos_lnum in
+    List.partition on_a_changed_line (List.mapi (fun i m -> (i,m)) mutants)
+
+(* Says how many mutations the revision leaves to run. A diff mode that
+   quietly tests nothing is the failure this line is here to stop: the
+   run then reads as a clean score over no mutation at all. *)
+let print_choice ~rev ~to_run ~left_out =
+  let total = to_run + left_out in
+  if to_run = 0
+  then
+    Printf.printf
+      "No mutation sits on a line that changed since %s. None of the %s is tested.\n%!"
+      rev (mutations total)
+  else if left_out = 0
+  then
+    Printf.printf
+      "Every one of the %s sits on a line that changed since %s.\n%!"
+      (mutations total) rev
+  else
+    Printf.printf
+      "%i of the %s %s on a line that changed since %s. The other %s not tested.\n%!"
+      to_run (mutations total) (if to_run = 1 then "sits" else "sit") rev
+      (if left_out = 1 then "one is" else Printf.sprintf "%i are" left_out)
 
 (** Executable entry point *)
 
@@ -361,19 +432,55 @@ let main () =
   if mutants = []
   then fail_and_exit "No mutation file is left to test: every source file is gone";
   ensure_output_dir defaults.output_file_prefix;
-  let test_env = !CLI.test_env in
-  let baseline_env = !CLI.baseline_env in
-  let given = !CLI.timeout in
-  let measured =
-    run_baseline !test_cmd ~test_env ~baseline_env
-      ~limit:(Option.value given ~default:baseline_timeout) in
-  let limit = mutant_limit given measured in
-  print_limit given limit;
-  let results =
-    Pool.run ~cmd:!test_cmd ~test_env ~jobs ~repeat:!CLI.repeat
-      ~limit:(float_of_int limit)
-      (List.concat_map (fun (_file_name, mutations) -> mutations) mutants) in
-  write_report_file defaults.mutaml_report_file results
+  let skipped =
+    List.concat_map (fun (_file_name, (ms : muts_file)) -> ms.skipped) mutants in
+  let all_mutants =
+    List.concat_map (fun (_file_name, (ms : muts_file)) -> ms.mutants) mutants in
+  (* The run reached this point, so the mutation files hold a mutation
+     or a marked place. With no mutation at all, every place that
+     mutaml can mutate is marked, and a person who reads the report
+     must be told why no test ran. *)
+  if all_mutants = []
+  then
+    Printf.printf
+      "No mutation was made: the attribute marks every place that mutaml can mutate in this project.\n%!";
+  let (to_run, left_out) = match !CLI.changed_since with
+    | None     -> (List.mapi (fun i m -> (i,m)) all_mutants, [])
+    (* With no mutation there is nothing for the revision to choose
+       between, and the line above has already said why. Asking git
+       would answer a question nobody asked. *)
+    | Some _ when all_mutants = [] -> ([], [])
+    | Some rev ->
+      let (to_run, left_out) = choose_changed ~rev all_mutants in
+      print_choice ~rev ~to_run:(List.length to_run) ~left_out:(List.length left_out);
+      (to_run, left_out) in
+  let left_out_results = List.map (fun (i,m) -> (i, not_run_result m)) left_out in
+  (* With nothing to run there is nothing to measure and nothing to
+     test, so the runner does not run the test suite at all. It still
+     writes the report, which then holds every mutation as not run, so
+     that mutaml-report can say that the run tested nothing. *)
+  if to_run = []
+  then write_report_file defaults.mutaml_report_file
+         ~results:(List.map snd left_out_results) ~skipped
+  else
+    let test_env = !CLI.test_env in
+    let baseline_env = !CLI.baseline_env in
+    let given = !CLI.timeout in
+    let measured =
+      run_baseline !test_cmd ~test_env ~baseline_env
+        ~limit:(Option.value given ~default:baseline_timeout) in
+    let limit = mutant_limit given measured in
+    print_limit given limit;
+    let ran =
+      Pool.run ~cmd:!test_cmd ~test_env ~jobs ~repeat:!CLI.repeat
+        ~limit:(float_of_int limit) (List.map snd to_run) in
+    (* Back into the order of the mutation files, so that the report
+       does not depend on which mutations the revision left out. *)
+    let results =
+      List.map2 (fun (i,_) result -> (i,result)) to_run ran @ left_out_results in
+    let results =
+      List.map snd (List.sort (fun (i,_) (j,_) -> Int.compare i j) results) in
+    write_report_file defaults.mutaml_report_file ~results ~skipped
 
 let () =
   try main () with
