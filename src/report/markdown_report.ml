@@ -140,6 +140,10 @@ let render ~sources ~results ~skipped =
     add_table buf results;
     Buffer.add_string buf "\n## Survivors\n";
     (match Summary.with_outcome summary Passed with
+     | [] when Summary.scored summary = 0 ->
+       Buffer.add_string buf "\nNo mutant ran, so there is no survivor to name.\n"
+     | [] when Summary.count summary Not_run > 0 ->
+       Buffer.add_string buf "\nThe test suite caught every mutant that ran.\n"
      | [] -> Buffer.add_string buf "\nThe test suite caught every mutant.\n"
      | survivors -> List.iter (add_survivor buf sources) survivors);
     add_skipped_section buf skipped;

@@ -162,7 +162,8 @@ The report says that there is no score, and it does not end the build:
   
   No mutation ran, so this run has no mutation score. Every one of the 2 mutations was left out.
 
-The Markdown summary says the same:
+The Markdown summary says the same, and it does not say that the test
+suite caught every mutant, because it caught none:
 
   $ mutaml-report --no-diff --markdown nothing.md > /dev/null
   $ sed -n '1,4p' nothing.md
@@ -170,6 +171,14 @@ The Markdown summary says the same:
   
   No mutant ran, so this run has no mutation score. Every one of the 2 mutants was left out.
   
+  $ sed -n '/^## Survivors/,$p' nothing.md
+  ## Survivors
+  
+  No mutant ran, so there is no survivor to name.
+  
+  ## Skipped places
+  
+  No attribute takes a place out of this run.
 
 A revision that git does not know stops the runner with a message:
 
