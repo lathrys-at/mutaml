@@ -270,6 +270,71 @@ rule can turn the operator off.
   if a format of yours holds no `%` and still cannot be empty.
 
 
+Places That Are Not Mutated
+---------------------------
+
+Some code cannot be tested by changing it. Two branches that give a
+caller the same answer, a message that no test reads, a constant that
+only a log line shows: a mutation there lives through every test suite
+you can write, and it lowers the score for no fault of the tests. Mark
+such a place, and the preprocessor makes no mutation in it.
+
+The mark is the attribute `[@mutaml.skip "reason"]`:
+
+```ocaml
+let describe n =
+  (if n < 0 then "a negative number" else "a number")[@mutaml.skip
+    "the two texts read the same to every caller"]
+```
+
+The reason is a string, and it is not optional. An attribute with no
+reason, with an empty reason, or with a payload that is not a string
+stops the build with a message that names the file and the line:
+
+```
+File "lib.ml", line 2, characters 53-67:
+Error: mutaml: the attribute [@mutaml.skip] needs a reason. Write the reason as a string, as in [@mutaml.skip "the two branches do the same thing"].
+```
+
+Write the attribute on the smallest expression that covers the place.
+It also goes on a `let` binding, on a module, on an `open` and on an
+`include`, with two `@` characters:
+
+```ocaml
+let messages n =
+  if n < 0 then "hello" else "hi"
+[@@mutaml.skip "no test reads these texts"]
+```
+
+Prefer the expression. A whole function is a large place to take out
+of a run, and one reason rarely covers every mutation of it. A place
+inside a marked place needs no mark of its own: the outer one covers
+it.
+
+A marked place is not a mutation, so it is outside the mutation score,
+and it moves the name of no other mutation of the file. The
+preprocessor writes each place in the `lib.muts` file of its source
+file, `mutaml-runner` carries it into `mutaml-report.json`, and all
+three reports name it:
+
+- the terminal report prints a section that names each place, its
+  line, its reason, and the mutation operators that the attribute
+  takes out of it;
+- the Markdown summary holds the same under the heading
+  `Skipped places`;
+- the JSON report writes each place as a mutation whose `status` is
+  `Ignored`, with the reason in `statusReason` and `skip` as the
+  `mutatorName`. The viewer of that format leaves a mutation of that
+  status out of every count.
+
+The preprocessor also says how many places it took out of each file:
+
+```
+Created 12 mutations of lib.ml
+Skipped 1 place in lib.ml
+```
+
+
 The Name of a Mutation
 ----------------------
 
@@ -569,8 +634,9 @@ the report to a file as well. You may give both in one run.
 
 - `--markdown path` - write a Markdown summary to `path`. The summary
   holds the mutation score, a table with one row for each source file
-  and one row for the total, and every mutation that the test suite did
-  not catch, with its name, its place in the file, and its diff.
+  and one row for the total, every mutation that the test suite did not
+  catch, with its name, its place in the file, and its diff, and every
+  place that `[@mutaml.skip]` marks, with its reason.
   GitHub Actions shows the Markdown of the file that its variable
   `GITHUB_STEP_SUMMARY` names on the page of the job, so this step puts
   the summary there:
@@ -598,6 +664,7 @@ The JSON report gives every mutation one of the statuses of the format:
 | the run took too long | `Timeout` | the viewer counts it as caught |
 | a signal ended the run | `Killed` | `statusReason` names the signal |
 | the test suite passed | `Survived` | |
+| the mutation was never made, because `[@mutaml.skip]` marks the place | `Ignored` | outside every count; `statusReason` gives the reason |
 
 In the JSON report, the `id` of a mutation is its name, the same string
 that `MUTAML_MUTANT` takes, and `mutatorName` is the name of the

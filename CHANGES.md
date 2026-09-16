@@ -1,6 +1,22 @@
 Next release
 ------------
 
+- Add the attribute `[@mutaml.skip "reason"]`, which marks a place that
+  the preprocessor must not mutate. It goes on an expression, on a
+  `let` binding, on a module, on an `open` and on an `include`. The
+  reason is a string and it is not optional: an attribute without one
+  stops the build with a message that names the file and the line. A
+  marked place is outside the mutation score, and it moves the name of
+  no other mutation of the file. The terminal report and the Markdown
+  summary name each place, its reason, and the mutation operators that
+  the attribute takes out of it; the JSON report gives it the status
+  `Ignored` with the reason in `statusReason`
+- Write each `lib.muts` file as a JSON object with the fields `mutants`
+  and `skipped`, in place of a JSON list of mutations, and
+  `mutaml-report.json` as a JSON object with the fields `results` and
+  `skipped`, in place of a JSON list of test results. A file of the
+  older shape is refused with a message that says to build, or to run
+  `mutaml-runner`, again
 - Name a mutation by its file, the top-level binding that holds it, the
   mutation operator, a digest of the text it changes, and an ordinal,
   instead of by its file and a counter. The name holds no line number,
