@@ -95,11 +95,14 @@ let git args =
        let ch = Unix.in_channel_of_descr from_git in
        let output =
          Fun.protect ~finally:(fun () -> close_in_noerr ch) (fun () -> read_all ch) in
-       (match Unix.waitpid [] pid with
-        | exception Unix.Unix_error (e,_,_) -> Error (Cannot_run (Unix.error_message e))
-        | (_, Unix.WEXITED 0)   -> Ok output
-        | (_, Unix.WEXITED 127) -> Error (Cannot_run "the command git is not on PATH")
-        | (_, _)                -> Error (Refused args)))
+       (* A signal can end the wait before the child does; ask again. *)
+       let rec wait () = match Unix.waitpid [] pid with
+         | exception Unix.Unix_error (Unix.EINTR,_,_) -> wait ()
+         | exception Unix.Unix_error (e,_,_) -> Error (Cannot_run (Unix.error_message e))
+         | (_, Unix.WEXITED 0)   -> Ok output
+         | (_, Unix.WEXITED 127) -> Error (Cannot_run "the command git is not on PATH")
+         | (_, _)                -> Error (Refused args) in
+       wait ())
 
 (* [starts_with ~prefix text] says whether [text] begins with [prefix].
    String.starts_with is a 4.13 addition and this tool builds on 4.12. *)
