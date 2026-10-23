@@ -1,6 +1,11 @@
 Next release
 ------------
 
+- Keep the location and the attributes of a sequence `e0; e1` that the
+  `sequence` operator mutates. The preprocessor gave the mutated
+  sequence those of `e0` instead, so an attribute of the sequence, such
+  as `[@ocaml.warning]`, was lost, and the attribute `[@mutaml.skip]`
+  on `e0` stopped the build
 - Add the attribute `[@mutaml.skip "reason"]`, which marks a place that
   the preprocessor must not mutate. It goes on an expression, on a
   `let` binding, on a module, on an `open` and on an `include`. The
