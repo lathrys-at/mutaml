@@ -1188,7 +1188,12 @@ class mutate_mapper (initial_rs : RS.t) =
       self#expression ctx e1 >>| fun e1' ->
       let e0'' =
         self#mutaml_mutant ~kind:Mutaml_common.Sequence loc(*e0.pexp_loc*) [%expr ()] e0' (string_of_exp e1) in
-      { e0 with pexp_desc = Pexp_sequence (e0'',e1') }
+      (* The new sequence is a copy of [e], and not of [e0], so that it
+         keeps its own location and its own attributes. A copy of [e0]
+         would put the attributes of [e0] on the sequence too, and a
+         [mutaml.skip] mark among them would then sit where no pass
+         takes it out, which stops the build. *)
+      { e with pexp_desc = Pexp_sequence (e0'',e1') }
 
     (* From ppxlib 0.36 on, one constructor holds both 'fun p -> e' and
        'function | ...'. The third field says which: [Pfunction_body] for
